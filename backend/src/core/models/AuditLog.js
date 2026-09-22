@@ -22,6 +22,7 @@ const auditLogSchema = new mongoose.Schema({
       'POS_SESSION_OPEN',
       'POS_SESSION_CLOSE',
       'POS_SESSION_FORCE_CLOSE',
+      'POS_SESSION_CASHIER_JOIN',
       'POS_AUDIT_SUBMIT',
       'POS_AUDIT_RESOLVE',
       'POS_ORDER_CREATE',

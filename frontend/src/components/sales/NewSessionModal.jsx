@@ -118,7 +118,7 @@ const NewSessionModal = ({ isOpen, onClose, onSuccess, initialBranchId }) => {
 
     setLoading(true);
     try {
-      await axios.post('http://localhost:5000/api/v1/pos/sessions/open', {
+      const res = await axios.post('http://localhost:5000/api/v1/pos/sessions/open', {
         branchId,
         registerId,
         openingCash: calculatedTotal,
@@ -135,8 +135,20 @@ const NewSessionModal = ({ isOpen, onClose, onSuccess, initialBranchId }) => {
       });
 
       setLoading(false);
-      onSuccess(); // Refresh sessions list
-      onClose(); // Close modal
+      // joined:true means MULTIPLE_CASHIERS mode — we joined an existing session
+      if (res.data?.joined) {
+        const openerName = res.data.openedBy
+          ? `${res.data.openedBy.firstName} ${res.data.openedBy.lastName}`
+          : 'another cashier';
+        setError(`✓ Joined existing session opened by ${openerName}. You can now process transactions.`);
+        setTimeout(() => {
+          onSuccess();
+          onClose();
+        }, 1800);
+        return;
+      }
+      onSuccess();
+      onClose();
     } catch (err) {
       setLoading(false);
       setError(err.response?.data?.message || 'Failed to open session. You may already have an active session.');

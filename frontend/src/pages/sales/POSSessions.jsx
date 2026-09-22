@@ -496,7 +496,14 @@ const POSSessions = () => {
                       <div className="flex items-center gap-2.5">
                         <img className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200" src={`https://ui-avatars.com/api/?name=${encodeURIComponent(cashierName)}&background=f1f5f9&color=475569&bold=true`} alt={cashierName} />
                         <div className="flex flex-col">
-                          <span className="font-semibold text-slate-900 leading-tight mb-0.5">{cashierName}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-900 leading-tight mb-0.5">{cashierName}</span>
+                            {s.authorizedCashiers?.length > 1 && (
+                              <span className="px-1.5 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-full" title={`Authorized: ${s.authorizedCashiers.map(c => c.firstName + ' ' + c.lastName).join(', ')}`}>
+                                +{s.authorizedCashiers.length - 1}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[11px] font-mono text-slate-500">{cashierEmpId}</span>
                         </div>
                       </div>

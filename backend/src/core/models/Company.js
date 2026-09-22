@@ -53,7 +53,8 @@ const companySchema = new mongoose.Schema({
       fiscalYearStart: 'January',
       dateFormat: 'YYYY-MM-DD',
       posMaxDiscountLimit: 10,
-      posVarianceLimit: 0
+      posVarianceLimit: 0,
+      posCashierPolicy: 'SINGLE_CASHIER'
     }
   }
 }, {

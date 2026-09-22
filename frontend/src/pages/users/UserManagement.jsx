@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Users, UserPlus, Trash2, Lock } from 'lucide-react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { DataTable } from '../../components/common/DataTable';
-import { Drawer } from '../../components/common/Drawer';
+import { Modal } from '../../components/common/Modal';
 import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { FormField } from '../../components/common/FormField';
 import { Input } from '../../components/ui/Input';
@@ -338,14 +338,73 @@ const UserManagement = () => {
         emptyDescription="Get started by inviting a new team member."
       />
 
-      <Drawer
+      <Modal
         isOpen={isInviting}
         onClose={() => setIsInviting(false)}
         title={editUserId ? "Edit User Details" : "Invite New User"}
-        position="right"
+        size="lg"
       >
-        <form onSubmit={handleInvite} className="flex flex-col h-full">
-          <div className="flex-1 space-y-4">
+        <form onSubmit={handleInvite} className="flex flex-col">
+          <div className="space-y-4">
+
+            {/* ── Link Employee FIRST so all fields auto-fill ── */}
+            <FormField label="Link Employee (Optional)">
+              <ReactSelect 
+                options={[
+                  { value: '', label: 'No Employee Link', emp: null },
+                  ...employees.map(emp => ({ 
+                    value: emp._id, 
+                    label: `${emp.employeeCode || ''} - ${emp.firstName} ${emp.lastName}`,
+                    emp
+                  }))
+                ]}
+                value={
+                  formData.employeeId 
+                    ? (() => {
+                        const emp = employees.find(e => e._id === formData.employeeId);
+                        return emp
+                          ? { value: emp._id, label: `${emp.employeeCode || ''} - ${emp.firstName} ${emp.lastName}`, emp }
+                          : { value: formData.employeeId, label: 'Unknown Employee', emp: null };
+                      })()
+                    : null
+                }
+                onChange={opt => {
+                  const emp = opt?.emp || null;
+                  if (emp) {
+                    setFormData(prev => ({
+                      ...prev,
+                      employeeId: emp._id,
+                      firstName: emp.firstName || prev.firstName,
+                      lastName: emp.lastName || prev.lastName,
+                      email: emp.email || emp.personalEmail || prev.email,
+                      branches: emp.branchId?._id ? [emp.branchId._id] : prev.branches
+                    }));
+                  } else {
+                    setFormData(prev => ({ ...prev, employeeId: '' }));
+                  }
+                }}
+                isSearchable={true}
+                isClearable={true}
+                placeholder="🔍 Search employee by name or code..."
+                className="text-sm"
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    borderColor: '#e2e8f0',
+                    boxShadow: 'none',
+                    '&:hover': { borderColor: '#cbd5e1' }
+                  })
+                }}
+              />
+              {formData.employeeId ? (
+                <p className="text-xs text-emerald-600 mt-1 font-medium">✓ Employee selected — name, email & branch auto-filled below. You can still edit.</p>
+              ) : (
+                <p className="text-xs text-slate-400 mt-1">Select an employee to auto-fill their details into the form below.</p>
+              )}
+            </FormField>
+
+            <div className="border-t border-slate-100 pt-3" />
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label="First Name" required>
                 <Input required value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
@@ -373,10 +432,19 @@ const UserManagement = () => {
                 ))}
               </Select>
             </FormField>
+
+            <FormField label="Portal Access" required>
+              <Select required value={formData.portalAccess} onChange={e => setFormData({...formData, portalAccess: e.target.value})}>
+                <option value="NO ACCESS">No Access (Disabled Login)</option>
+                <option value="WEB LOGIN">Web Login Only</option>
+                <option value="MOBILE LOGIN">Mobile Login Only</option>
+                <option value="WEB + MOBILE">Web + Mobile</option>
+              </Select>
+            </FormField>
             
             <FormField label="Assign Branch (Optional)">
               <div className="space-y-1">
-                <div className="border border-slate-200 rounded-md p-2 bg-white max-h-40 overflow-y-auto space-y-1">
+                <div className="border border-slate-200 rounded-md p-2 bg-white max-h-36 overflow-y-auto space-y-1">
                   {branches.map(branch => (
                     <label key={branch._id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
                       <input 
@@ -400,50 +468,6 @@ const UserManagement = () => {
                 <p className="text-xs text-slate-400 mt-1">Select all branches this user can access. Leave empty for all if superadmin.</p>
               </div>
             </FormField>
-            
-            <FormField label="Link Employee (Optional)">
-              <ReactSelect 
-                options={[
-                  { value: '', label: 'No Employee Link' },
-                  ...employees.map(emp => ({ 
-                    value: emp._id, 
-                    label: `${emp.employeeCode || ''} - ${emp.firstName} ${emp.lastName}` 
-                  }))
-                ]}
-                value={
-                  formData.employeeId 
-                    ? { 
-                        value: formData.employeeId, 
-                        label: employees.find(e => e._id === formData.employeeId) 
-                          ? `${employees.find(e => e._id === formData.employeeId).employeeCode || ''} - ${employees.find(e => e._id === formData.employeeId).firstName} ${employees.find(e => e._id === formData.employeeId).lastName}` 
-                          : 'Unknown Employee' 
-                      }
-                    : { value: '', label: 'No Employee Link' }
-                }
-                onChange={opt => setFormData({...formData, employeeId: opt ? opt.value : ''})}
-                isSearchable={true}
-                isClearable={true}
-                placeholder="Search by name or ID..."
-                className="text-sm"
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    borderColor: '#e2e8f0',
-                    boxShadow: 'none',
-                    '&:hover': { borderColor: '#cbd5e1' }
-                  })
-                }}
-              />
-            </FormField>
-
-            <FormField label="Portal Access" required>
-              <Select required value={formData.portalAccess} onChange={e => setFormData({...formData, portalAccess: e.target.value})}>
-                <option value="NO ACCESS">No Access (Disabled Login)</option>
-                <option value="WEB LOGIN">Web Login Only</option>
-                <option value="MOBILE LOGIN">Mobile Login Only</option>
-                <option value="WEB + MOBILE">Web + Mobile</option>
-              </Select>
-            </FormField>
 
             {editUserId && (
               <FormField label="Account Status" required>
@@ -455,16 +479,16 @@ const UserManagement = () => {
             )}
           </div>
           
-          <div className="pt-6 mt-6 border-t flex justify-end gap-3">
+          <div className="pt-6 mt-4 border-t flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => setIsInviting(false)}>
               Cancel
             </Button>
             <Button type="submit">
-              {editUserId ? 'Save Changes' : 'Send Invite'}
+              {editUserId ? 'Save Changes' : 'Create User'}
             </Button>
           </div>
         </form>
-      </Drawer>
+      </Modal>
 
       <ConfirmDialog
         isOpen={deleteConfirmOpen}

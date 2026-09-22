@@ -24,6 +24,12 @@ const posSessionSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  // Tracks all cashiers who operated this session (MULTIPLE_CASHIERS policy only).
+  // Empty array means only openedBy is the authorised cashier (SINGLE_CASHIER or legacy sessions).
+  authorizedCashiers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   openedAt: {
     type: Date,
     default: Date.now,
