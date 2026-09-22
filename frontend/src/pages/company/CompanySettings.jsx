@@ -124,6 +124,46 @@ const CompanySettings = () => {
                 />
               </FormField>
             </div>
+
+            {/* POS Session Cashier Policy */}
+            <div className="mt-6 pt-6 border-t border-slate-100">
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-800 mb-1">POS Session Cashier Policy</p>
+                  <p className="text-xs text-slate-500 mb-4">Controls who can operate an active POS session on a register.</p>
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="posCashierPolicy"
+                        value="SINGLE_CASHIER"
+                        checked={(company?.settings?.posCashierPolicy || 'SINGLE_CASHIER') === 'SINGLE_CASHIER'}
+                        onChange={() => setCompany({ ...company, settings: { ...company.settings, posCashierPolicy: 'SINGLE_CASHIER' } })}
+                        className="mt-0.5 accent-primary"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-slate-800">Single Cashier</span>
+                        <p className="text-xs text-slate-500 mt-0.5">Only the designated session opener can operate and close the session. Other cashiers must open their own session on a different register.</p>
+                      </div>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="radio"
+                        name="posCashierPolicy"
+                        value="MULTIPLE_CASHIERS"
+                        checked={company?.settings?.posCashierPolicy === 'MULTIPLE_CASHIERS'}
+                        onChange={() => setCompany({ ...company, settings: { ...company.settings, posCashierPolicy: 'MULTIPLE_CASHIERS' } })}
+                        className="mt-0.5 accent-primary"
+                      />
+                      <div>
+                        <span className="text-sm font-medium text-slate-800">Multiple Cashiers</span>
+                        <p className="text-xs text-slate-500 mt-0.5">Multiple authorized cashiers can operate the same active POS session. Every transaction is still attributed to the actual cashier who performed it. Only the session opener (or manager/admin) can close the session.</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
