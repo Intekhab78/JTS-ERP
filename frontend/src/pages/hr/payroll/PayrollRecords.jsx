@@ -21,7 +21,7 @@ const PayrollRecords = ({ periodId, periodStatus, hasPermission }) => {
   const fetchRecords = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get(`http://localhost:5000/api/v1/hr/payroll-periods/${periodId}/records`, {
+      const { data } = await axios.get(`/api/v1/hr/payroll-periods/${periodId}/records`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRecords(data);

@@ -29,7 +29,7 @@ export default function RFQDetail() {
 
   const fetchRFQ = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/rfqs/${id}`, {
+      const res = await axios.get(`/api/v1/rfqs/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRfq(res.data.rfq);
@@ -46,7 +46,7 @@ export default function RFQDetail() {
 
   const updateStatus = async (status) => {
     try {
-      await axios.patch(`http://localhost:5000/api/v1/rfqs/${id}/status`, { status }, {
+      await axios.patch(`/api/v1/rfqs/${id}/status`, { status }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchRFQ();
@@ -58,7 +58,7 @@ export default function RFQDetail() {
   const convertToPO = async () => {
     if (!window.confirm('Convert this RFQ to a Purchase Order?')) return;
     try {
-      const res = await axios.post(`http://localhost:5000/api/v1/rfqs/${id}/convert`, {}, {
+      const res = await axios.post(`/api/v1/rfqs/${id}/convert`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       alert('Converted to Purchase Order successfully');

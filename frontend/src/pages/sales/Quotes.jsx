@@ -28,7 +28,7 @@ const Quotes = () => {
 
   const fetchQuotes = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/quotes', {
+      const res = await axios.get('/api/v1/quotes', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setQuotes(res.data);
@@ -66,7 +66,7 @@ const Quotes = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this quote?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/v1/quotes/${id}`, {
+        await axios.delete(`/api/v1/quotes/${id}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         fetchQuotes();

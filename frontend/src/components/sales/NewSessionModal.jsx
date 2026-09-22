@@ -44,7 +44,7 @@ const NewSessionModal = ({ isOpen, onClose, onSuccess, initialBranchId }) => {
       // Fetch branches
       const fetchBranches = async () => {
         try {
-          const res = await axios.get('http://localhost:5000/api/v1/branches', {
+          const res = await axios.get('/api/v1/branches', {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           if (res.data) {
@@ -80,7 +80,7 @@ const NewSessionModal = ({ isOpen, onClose, onSuccess, initialBranchId }) => {
     if (branchId && isOpen) {
       const fetchRegisters = async () => {
         try {
-          const res = await axios.get(`http://localhost:5000/api/v1/pos/registers?branchId=${branchId}&status=ACTIVE`, {
+          const res = await axios.get(`/api/v1/pos/registers?branchId=${branchId}&status=ACTIVE`, {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           const availableRegisters = res.data;

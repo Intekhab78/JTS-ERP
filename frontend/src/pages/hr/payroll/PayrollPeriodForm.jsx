@@ -32,7 +32,7 @@ const PayrollPeriodForm = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await axios.post('http://localhost:5000/api/v1/hr/payroll-periods', formData, {
+      await axios.post('/api/v1/hr/payroll-periods', formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       navigate('/payroll-periods');

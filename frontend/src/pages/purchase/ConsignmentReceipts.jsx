@@ -23,7 +23,7 @@ export default function ConsignmentReceipts() {
   const fetchReceipts = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/consignment-receipts?page=${page}&limit=20&search=${search}`, {
+      const res = await axios.get(`/api/v1/consignment-receipts?page=${page}&limit=20&search=${search}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setReceipts(res.data.data || []);

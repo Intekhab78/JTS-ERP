@@ -34,7 +34,7 @@ const AccountMapping = () => {
 
   const fetchAccounts = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/accounts', {
+      const res = await axios.get('/api/v1/accounts', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setAccounts(res.data);
@@ -45,7 +45,7 @@ const AccountMapping = () => {
 
   const fetchMappings = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/account-mappings', {
+      const res = await axios.get('/api/v1/account-mappings', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const mappingDict = {};
@@ -62,7 +62,7 @@ const AccountMapping = () => {
     if (!accountId) return;
     try {
       setLoading(true);
-      await axios.post('http://localhost:5000/api/v1/account-mappings', { key, accountId }, {
+      await axios.post('/api/v1/account-mappings', { key, accountId }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       await fetchMappings();

@@ -75,7 +75,7 @@ const AuditReviewModal = ({ isOpen, onClose, session, onSuccess }) => {
           }))
       };
 
-      await axios.post(`http://localhost:5000/api/v1/pos/sessions/${session._id}/resolve-audit`, payload, {
+      await axios.post(`/api/v1/pos/sessions/${session._id}/resolve-audit`, payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       alert('POS audit resolved successfully.');

@@ -29,9 +29,9 @@ export default function FamilyMaster() {
       const headers = { Authorization: `Bearer ${token}` };
       
       const [famRes, catRes, depRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/hierarchy/families', { headers }),
-        axios.get('http://localhost:5000/api/v1/inventory/categories', { headers }),
-        axios.get('http://localhost:5000/api/v1/hierarchy/departments', { headers })
+        axios.get('/api/v1/hierarchy/families', { headers }),
+        axios.get('/api/v1/inventory/categories', { headers }),
+        axios.get('/api/v1/hierarchy/departments', { headers })
       ]);
       
       setFamilies(famRes.data);
@@ -85,9 +85,9 @@ export default function FamilyMaster() {
       const headers = { Authorization: `Bearer ${token}` };
       
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/v1/hierarchy/families/${editingId}`, formData, { headers });
+        await axios.put(`/api/v1/hierarchy/families/${editingId}`, formData, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/hierarchy/families', formData, { headers });
+        await axios.post('/api/v1/hierarchy/families', formData, { headers });
       }
       setIsModalOpen(false);
       fetchData();
@@ -100,7 +100,7 @@ export default function FamilyMaster() {
     if (!window.confirm('Are you sure you want to delete this Family?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/v1/hierarchy/families/${id}`, {
+      await axios.delete(`/api/v1/hierarchy/families/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchData();

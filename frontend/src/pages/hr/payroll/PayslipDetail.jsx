@@ -25,7 +25,7 @@ const PayslipDetail = () => {
 
   const fetchPayslip = async () => {
     try {
-      const { data } = await axios.get(`http://localhost:5000/api/v1/hr/payslips/${id}`, {
+      const { data } = await axios.get(`/api/v1/hr/payslips/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setPayslip(data);
@@ -43,7 +43,7 @@ const PayslipDetail = () => {
 
   const handleDownloadPdf = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/v1/hr/payslips/${id}/pdf`, {
+      const response = await axios.get(`/api/v1/hr/payslips/${id}/pdf`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         responseType: 'blob'
       });
@@ -61,7 +61,7 @@ const PayslipDetail = () => {
 
   const handleAction = async (action) => {
     try {
-      await axios.post(`http://localhost:5000/api/v1/hr/payslips/${id}/${action}`, {}, {
+      await axios.post(`/api/v1/hr/payslips/${id}/${action}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchPayslip();

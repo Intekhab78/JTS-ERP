@@ -21,7 +21,7 @@ const SalaryStructures = () => {
   const fetchStructures = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/hr/salary-structures', {
+      const { data } = await axios.get('/api/v1/hr/salary-structures', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setStructures(data);

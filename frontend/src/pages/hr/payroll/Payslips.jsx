@@ -24,7 +24,7 @@ const Payslips = () => {
   useEffect(() => {
     const fetchDropdowns = async () => {
       try {
-        const { data } = await axios.get('http://localhost:5000/api/v1/hr/payroll-periods', {
+        const { data } = await axios.get('/api/v1/hr/payroll-periods', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setPeriods(data);
@@ -46,7 +46,7 @@ const Payslips = () => {
       if (filters.status) params.append('status', filters.status);
       if (filters.period) params.append('period', filters.period);
 
-      const { data } = await axios.get(`http://localhost:5000/api/v1/hr/payslips?${params.toString()}`, {
+      const { data } = await axios.get(`/api/v1/hr/payslips?${params.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setPayslips(data);

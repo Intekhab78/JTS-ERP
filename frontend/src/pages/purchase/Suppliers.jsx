@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { getFileUrl } from '../../config/api';
 import { Truck, Plus, Search, MapPin, Edit, Download, Mail, Phone, Grid, List, Trash2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
@@ -36,7 +37,7 @@ const Suppliers = () => {
 
   const fetchPurchaseStats = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/purchase-orders', {
+      const res = await axios.get('/api/v1/purchase-orders', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         params: { limit: 1000 }
       });
@@ -53,7 +54,7 @@ const Suppliers = () => {
 
   const fetchStatusCounts = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/suppliers', {
+      const res = await axios.get('/api/v1/suppliers', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         params: { limit: 1000 }
       });
@@ -71,7 +72,7 @@ const Suppliers = () => {
     setLoading(true);
     try {
       const queryStatus = status === 'ALL' || status === 'PREFERRED' || status === 'PENDING' ? '' : status;
-      const res = await axios.get('http://localhost:5000/api/v1/suppliers', {
+      const res = await axios.get('/api/v1/suppliers', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         params: { search, location, status: queryStatus, page, limit: 12 }
       });
@@ -92,7 +93,7 @@ const Suppliers = () => {
   const handleDelete = async (supplierId) => {
     if (!window.confirm('Are you sure you want to delete this supplier?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/suppliers/${supplierId}`, {
+      await axios.delete(`/api/v1/suppliers/${supplierId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchSuppliers();
@@ -316,7 +317,7 @@ const Suppliers = () => {
                     <div className="flex items-center gap-3">
                       <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-sm shadow-sm overflow-hidden ${supplier.ownerPhoto?.url ? 'bg-slate-50' : `bg-gradient-to-tr text-white font-display font-extrabold ${getAvatarColor(supplier.name)}`}`}>
                         {supplier.ownerPhoto?.url ? (
-                          <img src={`http://localhost:5000${supplier.ownerPhoto.url}`} alt={supplier.name} className="w-full h-full object-cover" />
+                          <img src={getFileUrl(supplier.ownerPhoto.url)} alt={supplier.name} className="w-full h-full object-cover" />
                         ) : (
                           getInitials(supplier.name)
                         )}

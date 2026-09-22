@@ -31,7 +31,7 @@ const TaxMaster = () => {
   const fetchTaxes = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/taxes', {
+      const res = await axios.get('/api/v1/taxes', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTaxes(res.data);
@@ -48,11 +48,11 @@ const TaxMaster = () => {
     try {
       const token = localStorage.getItem('token');
       if (editingTax) {
-        await axios.put(`http://localhost:5000/api/v1/taxes/${editingTax._id}`, formData, {
+        await axios.put(`/api/v1/taxes/${editingTax._id}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       } else {
-        await axios.post('http://localhost:5000/api/v1/taxes', formData, {
+        await axios.post('/api/v1/taxes', formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
@@ -70,7 +70,7 @@ const TaxMaster = () => {
     if (!window.confirm('Are you sure you want to disable this tax?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/v1/taxes/${id}`, {
+      await axios.delete(`/api/v1/taxes/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchTaxes();

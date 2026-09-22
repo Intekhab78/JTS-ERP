@@ -21,7 +21,7 @@ const PayrollPeriods = () => {
   const fetchPeriods = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/hr/payroll-periods', {
+      const { data } = await axios.get('/api/v1/hr/payroll-periods', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setPeriods(data);

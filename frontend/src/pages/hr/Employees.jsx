@@ -32,7 +32,7 @@ const Employees = () => {
   const fetchEmployees = async () => {
     setIsLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/hr/employees', {
+      const res = await axios.get('/api/v1/hr/employees', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setEmployees(res.data);
@@ -46,7 +46,7 @@ const Employees = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/v1/hr/employees/${id}`, {
+        await axios.delete(`/api/v1/hr/employees/${id}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         fetchEmployees();

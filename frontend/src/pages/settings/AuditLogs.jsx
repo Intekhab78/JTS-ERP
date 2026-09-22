@@ -61,7 +61,7 @@ const AuditLogs = () => {
   const fetchBranches = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/branches', {
+      const res = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBranches(res.data);
@@ -80,7 +80,7 @@ const AuditLogs = () => {
         ...filters
       };
       
-      const res = await axios.get('http://localhost:5000/api/v1/audit/logs', {
+      const res = await axios.get('/api/v1/audit/logs', {
         headers: { Authorization: `Bearer ${token}` },
         params
       });

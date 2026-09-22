@@ -9,7 +9,7 @@ const EmployeeLeaveRequestsTab = ({ employeeId, hasPermission }) => {
   
   const fetchRequests = async () => {
     try {
-      const { data } = await axios.get(`http://localhost:5000/api/v1/hr/leave-requests?employeeId=${employeeId}`, {
+      const { data } = await axios.get(`/api/v1/hr/leave-requests?employeeId=${employeeId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRequests(data);

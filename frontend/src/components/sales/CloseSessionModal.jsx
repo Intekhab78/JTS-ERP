@@ -52,7 +52,7 @@ const CloseSessionModal = ({ isOpen, onClose, session, onSuccess }) => {
       // Fetch company settings to get POS Variance Limit
       const fetchCompany = async () => {
         try {
-          const { data } = await axios.get('http://localhost:5000/api/v1/company', {
+          const { data } = await axios.get('/api/v1/company', {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           setPosVarianceLimit(data.settings?.posVarianceLimit || 0);
@@ -142,7 +142,7 @@ const CloseSessionModal = ({ isOpen, onClose, session, onSuccess }) => {
         payload.overrideToken = overrideToken;
       }
 
-      await axios.post(`http://localhost:5000/api/v1/pos/sessions/${session._id}/close`, payload, {
+      await axios.post(`/api/v1/pos/sessions/${session._id}/close`, payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setShowManagerApproval(false);
@@ -176,7 +176,7 @@ const CloseSessionModal = ({ isOpen, onClose, session, onSuccess }) => {
           }))
       };
 
-      await axios.post(`http://localhost:5000/api/v1/pos/sessions/${session._id}/submit-audit`, payload, {
+      await axios.post(`/api/v1/pos/sessions/${session._id}/submit-audit`, payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       alert('Session submitted for audit successfully.');

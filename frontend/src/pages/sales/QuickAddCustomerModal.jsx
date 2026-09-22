@@ -57,7 +57,7 @@ export const QuickAddCustomerModal = ({ isOpen, onClose, onSuccess, initialName 
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      const res = await axios.post('http://localhost:5000/api/v1/crm/customers', formData, { headers });
+      const res = await axios.post('/api/v1/crm/customers', formData, { headers });
       onSuccess(res.data);
       onClose();
     } catch (error) {

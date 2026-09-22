@@ -25,9 +25,9 @@ const VendorBillForm = () => {
       try {
         const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
         const [supRes, brRes, poRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/v1/suppliers', { headers }),
-          axios.get('http://localhost:5000/api/v1/branches', { headers }),
-          axios.get('http://localhost:5000/api/v1/purchases', { headers })
+          axios.get('/api/v1/suppliers', { headers }),
+          axios.get('/api/v1/branches', { headers }),
+          axios.get('/api/v1/purchases', { headers })
         ]);
         setSuppliers(supRes.data);
         setBranches(brRes.data);
@@ -46,11 +46,11 @@ const VendorBillForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       // Fetch PO details to get the item prices
-      const poRes = await axios.get(`http://localhost:5000/api/v1/purchases/${poId}`, { headers });
+      const poRes = await axios.get(`/api/v1/purchases/${poId}`, { headers });
       const poItems = poRes.data.items || [];
 
       // Auto-fetch related GRNs for this PO to find billable items
-      const { data: grns } = await axios.get('http://localhost:5000/api/v1/grn', { headers });
+      const { data: grns } = await axios.get('/api/v1/grn', { headers });
       const validGrns = grns.filter(g => g.purchaseOrderId?._id === poId && g.status === 'VALIDATED');
       
       const billableItems = [];
@@ -106,7 +106,7 @@ const VendorBillForm = () => {
     e.preventDefault();
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      await axios.post('http://localhost:5000/api/v1/vendor-bills', formData, { headers });
+      await axios.post('/api/v1/vendor-bills', formData, { headers });
       alert('Vendor Bill created successfully');
       navigate('/purchases/bills');
     } catch (error) {

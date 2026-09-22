@@ -30,7 +30,7 @@ const SalaryComponentForm = () => {
     if (isEdit) {
       const fetchComponent = async () => {
         try {
-          const { data } = await axios.get('http://localhost:5000/api/v1/hr/salary-components', {
+          const { data } = await axios.get('/api/v1/hr/salary-components', {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           const comp = data.find(c => c._id === id);
@@ -56,11 +56,11 @@ const SalaryComponentForm = () => {
     setIsLoading(true);
     try {
       if (isEdit) {
-        await axios.put(`http://localhost:5000/api/v1/hr/salary-components/${id}`, formData, {
+        await axios.put(`/api/v1/hr/salary-components/${id}`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post('http://localhost:5000/api/v1/hr/salary-components', formData, {
+        await axios.post('/api/v1/hr/salary-components', formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }

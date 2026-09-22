@@ -25,7 +25,7 @@ const StockAdjustmentForm = () => {
   const fetchBranches = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/branches', {
+      const res = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBranches(res.data);
@@ -37,7 +37,7 @@ const StockAdjustmentForm = () => {
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/inventory/products', {
+      const res = await axios.get('/api/v1/inventory/products', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(res.data);
@@ -50,7 +50,7 @@ const StockAdjustmentForm = () => {
     if (!branchId || !productId) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:5000/api/v1/stock/${branchId}`, {
+      const res = await axios.get(`/api/v1/stock/${branchId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const stockItem = res.data.find(s => s.productId?._id === productId);
@@ -69,7 +69,7 @@ const StockAdjustmentForm = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/v1/stock/adjustments', formData, {
+      await axios.post('/api/v1/stock/adjustments', formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       navigate('/inventory/adjustments');

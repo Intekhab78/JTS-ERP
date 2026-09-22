@@ -23,7 +23,7 @@ const Attendance = () => {
   const fetchDailyAttendance = async () => {
     setIsLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/attendance/daily?date=${date}`, {
+      const res = await axios.get(`/api/v1/hr/attendance/daily?date=${date}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRecords(res.data);

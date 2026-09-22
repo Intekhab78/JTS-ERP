@@ -18,7 +18,7 @@ const ManufacturingOrders = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/manufacturing/orders', {
+      const res = await axios.get('/api/v1/manufacturing/orders', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setOrders(res.data);

@@ -21,7 +21,7 @@ const HolidayCalendars = () => {
   const fetchCalendars = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/hr/holiday-calendars', {
+      const { data } = await axios.get('/api/v1/hr/holiday-calendars', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCalendars(data);

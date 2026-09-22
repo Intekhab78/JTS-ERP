@@ -38,9 +38,9 @@ export default function RFQForm() {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       const [supRes, brRes, prodRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/suppliers', { headers }),
-        axios.get('http://localhost:5000/api/v1/branches', { headers }),
-        axios.get('http://localhost:5000/api/v1/inventory/products', { headers })
+        axios.get('/api/v1/suppliers', { headers }),
+        axios.get('/api/v1/branches', { headers }),
+        axios.get('/api/v1/inventory/products', { headers })
       ]);
       setSuppliers(supRes.data);
       setBranches(brRes.data);
@@ -54,7 +54,7 @@ export default function RFQForm() {
   const fetchRFQ = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/rfqs/${id}`, {
+      const res = await axios.get(`/api/v1/rfqs/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const { rfq, items } = res.data;
@@ -148,11 +148,11 @@ export default function RFQForm() {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/v1/rfqs/${id}`, formData, { headers });
+        await axios.put(`/api/v1/rfqs/${id}`, formData, { headers });
         alert('RFQ updated successfully');
         navigate(`/purchases/rfqs/${id}`);
       } else {
-        await axios.post('http://localhost:5000/api/v1/rfqs', formData, { headers });
+        await axios.post('/api/v1/rfqs', formData, { headers });
         navigate('/purchases/rfqs');
       }
     } catch (error) {

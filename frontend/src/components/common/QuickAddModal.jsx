@@ -20,7 +20,8 @@ export const QuickAddModal = ({ isOpen, onClose, onSuccess, endpoint, title, fie
     setIsSubmitting(true);
     setError(null);
     try {
-      const res = await axios.post(`http://localhost:5000${endpoint}`, formData, {
+      const url = endpoint.startsWith('http') ? endpoint : (endpoint.startsWith('/') ? endpoint : `/${endpoint}`);
+      const res = await axios.post(url, formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       // Invoke callback with new data so the parent can auto-select it

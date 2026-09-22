@@ -49,7 +49,7 @@ export const QuickAddProductModal = ({ isOpen, onClose, onSuccess, initialName }
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/inventory/categories', {
+      const res = await axios.get('/api/v1/inventory/categories', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCategories(res.data);
@@ -63,7 +63,7 @@ export const QuickAddProductModal = ({ isOpen, onClose, onSuccess, initialName }
 
   const fetchTaxes = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/taxes', {
+      const res = await axios.get('/api/v1/taxes', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setTaxes(res.data.filter(t => t.isActive));
@@ -82,7 +82,7 @@ export const QuickAddProductModal = ({ isOpen, onClose, onSuccess, initialName }
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      const res = await axios.post('http://localhost:5000/api/v1/inventory/products', formData, { headers });
+      const res = await axios.post('/api/v1/inventory/products', formData, { headers });
       onSuccess(res.data);
       onClose();
     } catch (error) {

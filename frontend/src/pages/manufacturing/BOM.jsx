@@ -24,7 +24,7 @@ const BOM = () => {
 
   const fetchBOMs = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/manufacturing/bom', {
+      const res = await axios.get('/api/v1/manufacturing/bom', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBoms(res.data);
@@ -35,7 +35,7 @@ const BOM = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/inventory/products', {
+      const res = await axios.get('/api/v1/inventory/products', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setProducts(res.data);
@@ -66,7 +66,7 @@ const BOM = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/v1/manufacturing/bom', formData, {
+      await axios.post('/api/v1/manufacturing/bom', formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setIsCreating(false);

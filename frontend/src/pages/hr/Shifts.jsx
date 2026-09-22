@@ -23,7 +23,7 @@ const Shifts = () => {
 
   const fetchShifts = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/hr/shifts', {
+      const res = await axios.get('/api/v1/hr/shifts', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setShifts(res.data);
@@ -37,7 +37,7 @@ const Shifts = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this shift?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/hr/shifts/${id}`, {
+      await axios.delete(`/api/v1/hr/shifts/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchShifts();

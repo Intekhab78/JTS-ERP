@@ -44,7 +44,7 @@ const Payroll = () => {
   const fetchPayslips = async () => {
     setIsLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/payroll', {
+      const res = await axios.get('/api/v1/payroll', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setPayslips(res.data);
@@ -57,7 +57,7 @@ const Payroll = () => {
 
   const fetchEmployees = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/hr/employees', {
+      const res = await axios.get('/api/v1/hr/employees', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setEmployees(res.data);
@@ -80,7 +80,7 @@ const Payroll = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await axios.post('http://localhost:5000/api/v1/payroll', formData, {
+      await axios.post('/api/v1/payroll', formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setIsCreating(false);
@@ -102,7 +102,7 @@ const Payroll = () => {
   const markAsPaid = async (id) => {
     if (!window.confirm("Mark this payslip as PAID? This cannot be undone.")) return;
     try {
-      await axios.put(`http://localhost:5000/api/v1/payroll/${id}/pay`, {}, {
+      await axios.put(`/api/v1/payroll/${id}/pay`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchPayslips();

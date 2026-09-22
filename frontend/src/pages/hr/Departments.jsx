@@ -33,7 +33,7 @@ const Departments = () => {
   const fetchDepartments = async () => {
     setIsLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/hr/departments', {
+      const res = await axios.get('/api/v1/hr/departments', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setDepartments(res.data);
@@ -54,11 +54,11 @@ const Departments = () => {
     setIsSubmitting(true);
     try {
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/v1/hr/departments/${editingId}`, formData, {
+        await axios.put(`/api/v1/hr/departments/${editingId}`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post('http://localhost:5000/api/v1/hr/departments', formData, {
+        await axios.post('/api/v1/hr/departments', formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }
@@ -87,7 +87,7 @@ const Departments = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this department?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/hr/departments/${id}`, {
+      await axios.delete(`/api/v1/hr/departments/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchDepartments();

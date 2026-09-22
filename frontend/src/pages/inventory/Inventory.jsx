@@ -29,8 +29,8 @@ const Inventory = () => {
       const headers = { Authorization: `Bearer ${token}` };
       
       const [productsRes, categoriesRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/inventory/products?includeInactive=true', { headers }),
-        axios.get('http://localhost:5000/api/v1/inventory/categories', { headers })
+        axios.get('/api/v1/inventory/products?includeInactive=true', { headers }),
+        axios.get('/api/v1/inventory/categories', { headers })
       ]);
       
       setProducts(productsRes.data);

@@ -12,7 +12,7 @@ const VendorBills = () => {
 
   const fetchBills = async () => {
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/vendor-bills', {
+      const { data } = await axios.get('/api/v1/vendor-bills', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBills(data);
@@ -30,7 +30,7 @@ const VendorBills = () => {
   const handlePost = async (id) => {
     if (!window.confirm('Are you sure you want to post this bill? It cannot be edited afterwards.')) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/vendor-bills/${id}/post`, {}, {
+      await axios.post(`/api/v1/vendor-bills/${id}/post`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       alert('Bill posted successfully');

@@ -34,7 +34,7 @@ const POSSessions = () => {
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/v1/branches', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+        const res = await axios.get('/api/v1/branches', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
         if (res.data) {
           let branchesData = Array.isArray(res.data) ? res.data : (res.data.data || []);
           const authUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -78,7 +78,7 @@ const POSSessions = () => {
 
   const fetchSessions = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/pos/sessions/reconciliation', {
+      const res = await axios.get('/api/v1/pos/sessions/reconciliation', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       

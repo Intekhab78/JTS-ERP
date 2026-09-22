@@ -21,7 +21,7 @@ const SalaryComponents = () => {
   const fetchComponents = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/hr/salary-components', {
+      const { data } = await axios.get('/api/v1/hr/salary-components', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setComponents(data);

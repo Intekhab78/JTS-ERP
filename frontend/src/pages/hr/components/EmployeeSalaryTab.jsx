@@ -40,11 +40,11 @@ const EmployeeSalaryTab = ({ employeeId, hasPermission }) => {
     try {
       if (hasPermission('PAYROLL.EMPLOYEE_SALARY.VIEW')) {
         const [salaryRes, historyRes, structsRes, payrollRes] = await Promise.all([
-          axios.get(`http://localhost:5000/api/v1/hr/employees/${employeeId}/salary`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-          axios.get(`http://localhost:5000/api/v1/hr/employees/${employeeId}/salary/history`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
-          axios.get(`http://localhost:5000/api/v1/hr/salary-structures`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+          axios.get(`/api/v1/hr/employees/${employeeId}/salary`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+          axios.get(`/api/v1/hr/employees/${employeeId}/salary/history`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
+          axios.get(`/api/v1/hr/salary-structures`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }),
           hasPermission('PAYROLL.PAYSLIP.VIEW') 
-            ? axios.get(`http://localhost:5000/api/v1/hr/payslips?employee=${employeeId}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+            ? axios.get(`/api/v1/hr/payslips?employee=${employeeId}`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
             : Promise.resolve({ data: [] })
         ]);
         setCurrentSalary(salaryRes.data);
@@ -106,11 +106,11 @@ const EmployeeSalaryTab = ({ employeeId, hasPermission }) => {
     e.preventDefault();
     try {
       if (isRevise) {
-        await axios.post(`http://localhost:5000/api/v1/hr/employees/${employeeId}/salary/revise`, formData, {
+        await axios.post(`/api/v1/hr/employees/${employeeId}/salary/revise`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post(`http://localhost:5000/api/v1/hr/employees/${employeeId}/salary`, formData, {
+        await axios.post(`/api/v1/hr/employees/${employeeId}/salary`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }

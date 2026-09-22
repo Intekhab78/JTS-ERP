@@ -28,13 +28,13 @@ const SalaryStructureForm = () => {
   useEffect(() => {
     const fetchDependencies = async () => {
       try {
-        const { data: compData } = await axios.get('http://localhost:5000/api/v1/hr/salary-components', {
+        const { data: compData } = await axios.get('/api/v1/hr/salary-components', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setAvailableComponents(compData.filter(c => c.status === 'ACTIVE'));
         
         if (isEdit) {
-          const { data: structData } = await axios.get(`http://localhost:5000/api/v1/hr/salary-structures/${id}`, {
+          const { data: structData } = await axios.get(`/api/v1/hr/salary-structures/${id}`, {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           setFormData(structData);
@@ -85,11 +85,11 @@ const SalaryStructureForm = () => {
     setIsLoading(true);
     try {
       if (isEdit) {
-        await axios.put(`http://localhost:5000/api/v1/hr/salary-structures/${id}`, formData, {
+        await axios.put(`/api/v1/hr/salary-structures/${id}`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post('http://localhost:5000/api/v1/hr/salary-structures', formData, {
+        await axios.post('/api/v1/hr/salary-structures', formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }

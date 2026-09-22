@@ -26,7 +26,7 @@ export default function ConsignmentReceiptDetail() {
 
   const fetchReceipt = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/consignment-receipts/${id}`, {
+      const res = await axios.get(`/api/v1/consignment-receipts/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setReceipt(res.data.data);
@@ -44,7 +44,7 @@ export default function ConsignmentReceiptDetail() {
     if (!window.confirm(msg)) return;
     
     try {
-      await axios.post(`http://localhost:5000/api/v1/consignment-receipts/${id}/${action}`, {}, {
+      await axios.post(`/api/v1/consignment-receipts/${id}/${action}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       if (action === 'validate') alert('Stock has been successfully updated.');

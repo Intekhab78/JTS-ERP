@@ -40,7 +40,7 @@ const POSRegisters = () => {
 
     const fetchBranches = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/v1/branches', { 
+        const res = await axios.get('/api/v1/branches', { 
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } 
         });
         if (res.data) {
@@ -66,7 +66,7 @@ const POSRegisters = () => {
   const fetchRegisters = async () => {
     setLoading(true);
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/pos/registers', {
+      const res = await axios.get('/api/v1/pos/registers', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRegisters(res.data);
@@ -113,11 +113,11 @@ const POSRegisters = () => {
 
     try {
       if (editingRegister) {
-        await axios.put(`http://localhost:5000/api/v1/pos/registers/${editingRegister._id}`, formData, {
+        await axios.put(`/api/v1/pos/registers/${editingRegister._id}`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post('http://localhost:5000/api/v1/pos/registers', formData, {
+        await axios.post('/api/v1/pos/registers', formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }
@@ -131,7 +131,7 @@ const POSRegisters = () => {
   const toggleStatus = async (register) => {
     try {
       const newStatus = register.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-      await axios.put(`http://localhost:5000/api/v1/pos/registers/${register._id}`, { status: newStatus }, {
+      await axios.put(`/api/v1/pos/registers/${register._id}`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchRegisters();

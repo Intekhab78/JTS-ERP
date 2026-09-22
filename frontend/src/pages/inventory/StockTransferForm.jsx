@@ -25,7 +25,7 @@ const StockTransferForm = () => {
   const fetchBranches = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/branches', {
+      const res = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBranches(res.data);
@@ -37,7 +37,7 @@ const StockTransferForm = () => {
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/inventory/products', {
+      const res = await axios.get('/api/v1/inventory/products', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setProducts(res.data);
@@ -51,7 +51,7 @@ const StockTransferForm = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/v1/stock/transfers', formData, {
+      await axios.post('/api/v1/stock/transfers', formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       navigate('/inventory/transfers');

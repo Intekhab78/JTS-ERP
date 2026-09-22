@@ -40,7 +40,7 @@ const Journal = () => {
 
   const fetchEntries = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/journal', {
+      const res = await axios.get('/api/v1/journal', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setEntries(res.data);
@@ -51,7 +51,7 @@ const Journal = () => {
 
   const fetchAccounts = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/accounts', {
+      const res = await axios.get('/api/v1/accounts', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setAccounts(res.data);
@@ -63,7 +63,7 @@ const Journal = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/v1/journal', {
+      await axios.post('/api/v1/journal', {
         description,
         reference,
         date,
@@ -87,7 +87,7 @@ const Journal = () => {
 
   const handleAction = async (id, action) => {
     try {
-      await axios.post(`http://localhost:5000/api/v1/journal/${id}/${action}`, {}, {
+      await axios.post(`/api/v1/journal/${id}/${action}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchEntries();

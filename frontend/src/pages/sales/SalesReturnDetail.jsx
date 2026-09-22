@@ -16,7 +16,7 @@ export default function SalesReturnDetail() {
 
   const fetchData = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/sales/returns/${id}`, {
+      const res = await axios.get(`/api/v1/sales/returns/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setReturnDoc(res.data);
@@ -28,7 +28,7 @@ export default function SalesReturnDetail() {
   const updateStatus = async (newStatus) => {
     if (!window.confirm(`Are you sure you want to mark this as ${newStatus}?`)) return;
     try {
-      await axios.patch(`http://localhost:5000/api/v1/sales/returns/${id}/status`, { status: newStatus }, {
+      await axios.patch(`/api/v1/sales/returns/${id}/status`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchData();
@@ -40,7 +40,7 @@ export default function SalesReturnDetail() {
   const validateReturn = async () => {
     if (!window.confirm('Validate Return? This will increase stock and create a stock movement. This action cannot be undone.')) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/sales/returns/${id}/validate`, {}, {
+      await axios.post(`/api/v1/sales/returns/${id}/validate`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchData();

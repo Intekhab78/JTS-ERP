@@ -18,7 +18,7 @@ const OrderView = () => {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/v1/sales/${id}`, {
+        const res = await axios.get(`/api/v1/sales/${id}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setData(res.data);
@@ -78,7 +78,7 @@ const OrderView = () => {
   const handleConfirmOrder = async () => {
     if (!window.confirm('Are you sure you want to confirm this Sales Order?')) return;
     try {
-      await axios.patch(`http://localhost:5000/api/v1/sales/${order._id}/confirm`, {}, {
+      await axios.patch(`/api/v1/sales/${order._id}/confirm`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       window.location.reload();
@@ -144,7 +144,7 @@ const OrderView = () => {
                 variant="default"
                 onClick={async () => {
                   try {
-                    const res = await axios.post(`http://localhost:5000/api/v1/tax-invoices/generate/order/${order._id}`, {}, {
+                    const res = await axios.post(`/api/v1/tax-invoices/generate/order/${order._id}`, {}, {
                       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
                     });
                     navigate(`/sales/tax-invoices/${res.data._id}`);

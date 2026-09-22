@@ -21,7 +21,7 @@ const POSOrders = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/v1/pos/orders', {
+        const res = await axios.get('/api/v1/pos/orders', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setOrders(res.data);

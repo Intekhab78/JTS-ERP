@@ -21,7 +21,7 @@ const LeaveTypes = () => {
   const fetchLeaveTypes = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/hr/leave-types', {
+      const { data } = await axios.get('/api/v1/hr/leave-types', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setLeaveTypes(data);

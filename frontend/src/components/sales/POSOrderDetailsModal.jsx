@@ -19,7 +19,7 @@ const POSOrderDetailsModal = ({ order, onClose }) => {
   React.useEffect(() => {
     if (order && order._id) {
       setLoading(true);
-      axios.get(`http://localhost:5000/api/v1/pos/orders/${order._id}`, {
+      axios.get(`/api/v1/pos/orders/${order._id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       }).then(res => {
         setFullOrder(res.data.order);
@@ -68,7 +68,7 @@ const POSOrderDetailsModal = ({ order, onClose }) => {
         payload.overrideToken = overrideToken;
       }
 
-      await axios.post(`http://localhost:5000/api/v1/pos/orders/${displayOrder._id}/void`, payload, {
+      await axios.post(`/api/v1/pos/orders/${displayOrder._id}/void`, payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       

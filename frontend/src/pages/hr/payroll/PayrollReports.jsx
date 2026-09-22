@@ -29,7 +29,7 @@ const PayrollReports = () => {
   useEffect(() => {
     const fetchPeriods = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/v1/hr/payroll-periods', {
+        const res = await axios.get('/api/v1/hr/payroll-periods', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setPeriods(res.data);
@@ -50,7 +50,7 @@ const PayrollReports = () => {
       const params = new URLSearchParams();
       if (selectedPeriod) params.append('period', selectedPeriod);
 
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/payroll-reports/${activeReport.endpoint}?${params.toString()}`, {
+      const res = await axios.get(`/api/v1/hr/payroll-reports/${activeReport.endpoint}?${params.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setData(res.data);
@@ -67,7 +67,7 @@ const PayrollReports = () => {
     if (selectedPeriod) params.append('period', selectedPeriod);
     params.append('download', 'true');
 
-    window.open(`http://localhost:5000/api/v1/hr/payroll-reports/${activeReport.endpoint}?${params.toString()}&token=${localStorage.getItem('token')}`, '_blank');
+    window.open(`/api/v1/hr/payroll-reports/${activeReport.endpoint}?${params.toString()}&token=${localStorage.getItem('token')}`, '_blank');
   };
 
   if (!hasPermission('PAYROLL.REPORT.VIEW')) {

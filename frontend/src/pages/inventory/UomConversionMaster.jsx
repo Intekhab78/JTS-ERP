@@ -28,8 +28,8 @@ export default function UomConversionMaster() {
       const headers = { Authorization: `Bearer ${token}` };
       
       const [convRes, uomRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/inventory/uom-conversions?includeInactive=true', { headers }),
-        axios.get('http://localhost:5000/api/v1/inventory/uoms', { headers })
+        axios.get('/api/v1/inventory/uom-conversions?includeInactive=true', { headers }),
+        axios.get('/api/v1/inventory/uoms', { headers })
       ]);
       
       setConversions(convRes.data);
@@ -77,9 +77,9 @@ export default function UomConversionMaster() {
       const headers = { Authorization: `Bearer ${token}` };
       
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/v1/inventory/uom-conversions/${editingId}`, formData, { headers });
+        await axios.put(`/api/v1/inventory/uom-conversions/${editingId}`, formData, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/inventory/uom-conversions', formData, { headers });
+        await axios.post('/api/v1/inventory/uom-conversions', formData, { headers });
       }
       setIsModalOpen(false);
       fetchData();
@@ -92,7 +92,7 @@ export default function UomConversionMaster() {
     if (!window.confirm('Are you sure you want to delete this conversion?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/v1/inventory/uom-conversions/${id}`, {
+      await axios.delete(`/api/v1/inventory/uom-conversions/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchData();

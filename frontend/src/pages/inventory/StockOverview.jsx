@@ -26,7 +26,7 @@ const StockOverview = () => {
   const fetchBranches = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/branches', {
+      const res = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBranches(res.data);
@@ -42,7 +42,7 @@ const StockOverview = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:5000/api/v1/stock/${selectedBranch}`, {
+      const res = await axios.get(`/api/v1/stock/${selectedBranch}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStock(res.data);

@@ -33,7 +33,7 @@ const ProductTable = ({ products, fetchInventory, onEdit }) => {
     if (!deleteId) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/v1/inventory/products/${deleteId}`, {
+      await axios.delete(`/api/v1/inventory/products/${deleteId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchInventory();

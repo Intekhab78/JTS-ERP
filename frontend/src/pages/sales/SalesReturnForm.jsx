@@ -26,7 +26,7 @@ export default function SalesReturnForm() {
 
   const fetchDeliveryNotes = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/delivery-notes', {
+      const res = await axios.get('/api/v1/delivery-notes', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       // Only validated (DELIVERED/PARTIALLY_DELIVERED) can be returned
@@ -39,7 +39,7 @@ export default function SalesReturnForm() {
 
   const fetchReturnData = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/sales/returns/${id}`, {
+      const res = await axios.get(`/api/v1/sales/returns/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setFormData(res.data);
@@ -53,7 +53,7 @@ export default function SalesReturnForm() {
 
   const fetchReturnableInfo = async (dnId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/sales/returns/returnable/${dnId}`, {
+      const res = await axios.get(`/api/v1/sales/returns/returnable/${dnId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setReturnableInfo(res.data);
@@ -108,8 +108,8 @@ export default function SalesReturnForm() {
 
       const method = isEdit ? 'put' : 'post';
       const url = isEdit 
-        ? `http://localhost:5000/api/v1/sales/returns/${id}`
-        : 'http://localhost:5000/api/v1/sales/returns';
+        ? `/api/v1/sales/returns/${id}`
+        : '/api/v1/sales/returns';
 
       await axios[method](url, payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }

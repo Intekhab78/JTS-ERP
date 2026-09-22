@@ -27,7 +27,7 @@ const LeaveBalances = () => {
 
   const fetchEmployees = async () => {
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/hr/employees', {
+      const { data } = await axios.get('/api/v1/hr/employees', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setEmployees(data);
@@ -39,7 +39,7 @@ const LeaveBalances = () => {
   const fetchBalances = async (employeeId, year) => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get(`http://localhost:5000/api/v1/hr/leave-balances?employeeId=${employeeId}&year=${year}`, {
+      const { data } = await axios.get(`/api/v1/hr/leave-balances?employeeId=${employeeId}&year=${year}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBalances(data);

@@ -11,7 +11,7 @@ const EmployeeLeaveBalanceTab = ({ employeeId, hasPermission }) => {
   useEffect(() => {
     const fetchBalances = async () => {
       try {
-        const { data } = await axios.get(`http://localhost:5000/api/v1/hr/leave-balances?employeeId=${employeeId}&year=${year}`, {
+        const { data } = await axios.get(`/api/v1/hr/leave-balances?employeeId=${employeeId}&year=${year}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setBalances(data);

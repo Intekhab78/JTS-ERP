@@ -60,7 +60,7 @@ const POS = () => {
 
   const fetchCompanyConfig = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/company', {
+      const res = await axios.get('/api/v1/company', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       if (res.data && res.data.settings && res.data.settings.posMaxDiscountLimit !== undefined) {
@@ -87,7 +87,7 @@ const POS = () => {
 
   const fetchBranches = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/branches', {
+      const res = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       let allowedBranches = res.data;
@@ -107,7 +107,7 @@ const POS = () => {
 
   const fetchCustomers = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/crm/customers', {
+      const res = await axios.get('/api/v1/crm/customers', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCustomers(res.data);
@@ -118,7 +118,7 @@ const POS = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/inventory/products?branchId=${selectedBranch}&inStockOnly=true`, {
+      const res = await axios.get(`/api/v1/inventory/products?branchId=${selectedBranch}&inStockOnly=true`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setProducts(res.data);
@@ -129,7 +129,7 @@ const POS = () => {
 
   const checkActiveSession = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/pos/sessions/active', {
+      const res = await axios.get('/api/v1/pos/sessions/active', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setActiveSession(res.data);
@@ -330,7 +330,7 @@ const POS = () => {
         }))
       };
 
-      const res = await axios.post('http://localhost:5000/api/v1/pos/orders', payload, {
+      const res = await axios.post('/api/v1/pos/orders', payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       
@@ -392,7 +392,7 @@ const POS = () => {
   const executeDrawerOpen = async (reason, overrideToken) => {
     setIsDrawerProcessing(true);
     try {
-      await axios.post(`http://localhost:5000/api/v1/pos/registers/${activeSession.registerId._id || activeSession.registerId}/drawer-open`, {
+      await axios.post(`/api/v1/pos/registers/${activeSession.registerId._id || activeSession.registerId}/drawer-open`, {
         reason,
         overrideToken,
         context: {

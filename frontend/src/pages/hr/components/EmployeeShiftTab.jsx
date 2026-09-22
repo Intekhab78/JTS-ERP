@@ -29,7 +29,7 @@ const EmployeeShiftTab = ({ employeeId, hasPermission }) => {
 
   const fetchAssignments = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/employees/${employeeId}/shifts`, {
+      const res = await axios.get(`/api/v1/hr/employees/${employeeId}/shifts`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setAssignments(res.data);
@@ -42,7 +42,7 @@ const EmployeeShiftTab = ({ employeeId, hasPermission }) => {
 
   const fetchShifts = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/shifts`, {
+      const res = await axios.get(`/api/v1/hr/shifts`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setShifts(res.data);
@@ -66,7 +66,7 @@ const EmployeeShiftTab = ({ employeeId, hasPermission }) => {
       const payload = { ...formData };
       if (!payload.effectiveTo) delete payload.effectiveTo;
 
-      await axios.post(`http://localhost:5000/api/v1/hr/employees/${employeeId}/shifts`, payload, {
+      await axios.post(`/api/v1/hr/employees/${employeeId}/shifts`, payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       
@@ -80,7 +80,7 @@ const EmployeeShiftTab = ({ employeeId, hasPermission }) => {
   const handleDelete = async (assignmentId) => {
     if (!window.confirm('Are you sure you want to delete this shift assignment?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/hr/employees/${employeeId}/shifts/${assignmentId}`, {
+      await axios.delete(`/api/v1/hr/employees/${employeeId}/shifts/${assignmentId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchAssignments();

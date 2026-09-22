@@ -39,7 +39,7 @@ const ImageManagerModal = ({ isOpen, onClose, product, refresh }) => {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.post(
-        `http://localhost:5000/api/v1/inventory/products/${product._id}/images`, 
+        `/api/v1/inventory/products/${product._id}/images`, 
         formData,
         {
           headers: { 
@@ -70,7 +70,7 @@ const ImageManagerModal = ({ isOpen, onClose, product, refresh }) => {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.delete(
-        `http://localhost:5000/api/v1/inventory/products/${product._id}/images/${imageName}`, 
+        `/api/v1/inventory/products/${product._id}/images/${imageName}`, 
         {
           headers: { Authorization: `Bearer ${token}` }
         }

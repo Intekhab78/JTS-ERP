@@ -32,7 +32,7 @@ const TenantManagement = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/company/all', {
+      const res = await axios.get('/api/v1/company/all', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCompanies(res.data);
@@ -52,7 +52,7 @@ const TenantManagement = () => {
     setIsCreating(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/v1/company', formData, {
+      await axios.post('/api/v1/company', formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setIsModalOpen(false);

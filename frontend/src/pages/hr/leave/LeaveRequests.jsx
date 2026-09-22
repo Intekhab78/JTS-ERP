@@ -21,7 +21,7 @@ const LeaveRequests = () => {
   const fetchRequests = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/hr/leave-requests', {
+      const { data } = await axios.get('/api/v1/hr/leave-requests', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRequests(data);
@@ -39,7 +39,7 @@ const LeaveRequests = () => {
   const handleApprove = async (id) => {
     if (!window.confirm('Are you sure you want to approve this leave request?')) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/hr/leave-requests/${id}/approve`, {}, {
+      await axios.post(`/api/v1/hr/leave-requests/${id}/approve`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchRequests();
@@ -52,7 +52,7 @@ const LeaveRequests = () => {
     const reason = window.prompt('Please enter a rejection reason:');
     if (reason === null) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/hr/leave-requests/${id}/reject`, { rejectionReason: reason }, {
+      await axios.post(`/api/v1/hr/leave-requests/${id}/reject`, { rejectionReason: reason }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchRequests();

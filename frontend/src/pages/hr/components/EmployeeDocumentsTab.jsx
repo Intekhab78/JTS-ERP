@@ -35,7 +35,7 @@ const EmployeeDocumentsTab = ({ employeeId, hasPermission }) => {
 
   const fetchDocuments = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/employees/${employeeId}/documents`, {
+      const res = await axios.get(`/api/v1/hr/employees/${employeeId}/documents`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setDocuments(res.data);
@@ -96,8 +96,8 @@ const EmployeeDocumentsTab = ({ employeeId, hasPermission }) => {
 
     try {
       const url = isEditing 
-        ? `http://localhost:5000/api/v1/hr/employees/${employeeId}/documents/${currentDoc._id}`
-        : `http://localhost:5000/api/v1/hr/employees/${employeeId}/documents`;
+        ? `/api/v1/hr/employees/${employeeId}/documents/${currentDoc._id}`
+        : `/api/v1/hr/employees/${employeeId}/documents`;
         
       const method = isEditing ? 'put' : 'post';
       
@@ -117,7 +117,7 @@ const EmployeeDocumentsTab = ({ employeeId, hasPermission }) => {
   const handleDelete = async (docId) => {
     if (!window.confirm('Are you sure you want to delete this document?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/hr/employees/${employeeId}/documents/${docId}`, {
+      await axios.delete(`/api/v1/hr/employees/${employeeId}/documents/${docId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchDocuments();
@@ -128,7 +128,7 @@ const EmployeeDocumentsTab = ({ employeeId, hasPermission }) => {
 
   const handleView = async (docId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/employees/${employeeId}/documents/${docId}/view`, {
+      const res = await axios.get(`/api/v1/hr/employees/${employeeId}/documents/${docId}/view`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         responseType: 'blob'
       });

@@ -36,8 +36,8 @@ export default function ConsignmentReceiptForm() {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       const [consRes, branchRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/consignments?limit=100', { headers }),
-        axios.get('http://localhost:5000/api/v1/branches', { headers })
+        axios.get('/api/v1/consignments?limit=100', { headers }),
+        axios.get('/api/v1/branches', { headers })
       ]);
       setConsignments(consRes.data.data.filter(c => c.status === 'ACTIVE'));
       setBranches(branchRes.data);
@@ -48,7 +48,7 @@ export default function ConsignmentReceiptForm() {
 
   const loadConsignmentItems = async (consignmentId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/consignments/${consignmentId}`, {
+      const res = await axios.get(`/api/v1/consignments/${consignmentId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const c = res.data.data;
@@ -97,7 +97,7 @@ export default function ConsignmentReceiptForm() {
     setLoading(true);
     try {
       const payload = { ...formData, items: validItems };
-      const res = await axios.post(`http://localhost:5000/api/v1/consignment-receipts`, payload, {
+      const res = await axios.post(`/api/v1/consignment-receipts`, payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       navigate(`/purchases/consignments/receipts/${res.data.data._id}`);
