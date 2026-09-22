@@ -16,7 +16,6 @@ export const ApiStatusBadge = () => {
   };
 
   useEffect(() => {
-    checkStatus();
     const handleModeChange = () => {
       setActiveConfig(getActiveConfig());
     };
@@ -30,10 +29,7 @@ export const ApiStatusBadge = () => {
     <div className="relative inline-block text-left">
       <button
         type="button"
-        onClick={() => {
-          setIsOpen(!isOpen);
-          checkStatus();
-        }}
+        onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all shadow-sm ${
           activeConfig.isOnline
             ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
