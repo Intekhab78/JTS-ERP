@@ -47,11 +47,11 @@ const PayrollRuleForm = () => {
     setIsLoading(true);
     try {
       if (isEdit) {
-        await axios.put(`http://localhost:5000/api/v1/hr/payroll-rules/${id}`, formData, {
+        await axios.put(`/api/v1/hr/payroll-rules/${id}`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post('http://localhost:5000/api/v1/hr/payroll-rules', formData, {
+        await axios.post('/api/v1/hr/payroll-rules', formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }

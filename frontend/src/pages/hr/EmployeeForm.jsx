@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import { getFileUrl } from '../../config/api';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Card } from '../../components/common/Card';
 import { FormField } from '../../components/common/FormField';
@@ -97,15 +98,15 @@ const EmployeeForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       const [deptRes, branchRes, empRes, locRes, teamRes, desigRes, jobLevelRes, shiftRes, docTypeRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/hr/departments', { headers }).catch(()=>({data:[]})),
-        axios.get('http://localhost:5000/api/v1/branches', { headers }).catch(()=>({data:[]})),
-        axios.get('http://localhost:5000/api/v1/hr/employees', { headers }).catch(()=>({data:[]})),
-        axios.get('http://localhost:5000/api/v1/hr/locations', { headers }).catch(()=>({data:[]})),
-        axios.get('http://localhost:5000/api/v1/hr/teams', { headers }).catch(()=>({data:[]})),
-        axios.get('http://localhost:5000/api/v1/hr/designations', { headers }).catch(()=>({data:[]})),
-        axios.get('http://localhost:5000/api/v1/hr/job-levels', { headers }).catch(()=>({data:[]})),
-        axios.get('http://localhost:5000/api/v1/hr/shifts', { headers }).catch(()=>({data:[]})),
-        axios.get('http://localhost:5000/api/v1/hr/document-types', { headers }).catch(()=>({data:[]}))
+        axios.get('/api/v1/hr/departments', { headers }).catch(()=>({data:[]})),
+        axios.get('/api/v1/branches', { headers }).catch(()=>({data:[]})),
+        axios.get('/api/v1/hr/employees', { headers }).catch(()=>({data:[]})),
+        axios.get('/api/v1/hr/locations', { headers }).catch(()=>({data:[]})),
+        axios.get('/api/v1/hr/teams', { headers }).catch(()=>({data:[]})),
+        axios.get('/api/v1/hr/designations', { headers }).catch(()=>({data:[]})),
+        axios.get('/api/v1/hr/job-levels', { headers }).catch(()=>({data:[]})),
+        axios.get('/api/v1/hr/shifts', { headers }).catch(()=>({data:[]})),
+        axios.get('/api/v1/hr/document-types', { headers }).catch(()=>({data:[]}))
       ]);
       setDepartments(deptRes.data); setBranches(branchRes.data); setEmployees(empRes.data);
       setLocations(locRes.data); setTeams(teamRes.data); setDesignations(desigRes.data);
@@ -116,7 +117,7 @@ const EmployeeForm = () => {
   const fetchEmployee = async () => {
     setIsLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/employees/${id}`, {
+      const res = await axios.get(`/api/v1/hr/employees/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const data = res.data;
@@ -179,7 +180,7 @@ const EmployeeForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const url = isEditing ? `http://localhost:5000/api/v1/hr/employees/${id}` : 'http://localhost:5000/api/v1/hr/employees';
+      const url = isEditing ? `/api/v1/hr/employees/${id}` : '/api/v1/hr/employees';
       const method = isEditing ? 'put' : 'post';
       
       const payload = JSON.parse(JSON.stringify(formData));
@@ -203,7 +204,7 @@ const EmployeeForm = () => {
       if (photoFile) {
         const photoData = new FormData();
         photoData.append('photo', photoFile);
-        await axios.post(`http://localhost:5000/api/v1/hr/employees/${newEmployeeId}/photo`, photoData, {
+        await axios.post(`/api/v1/hr/employees/${newEmployeeId}/photo`, photoData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' }
         });
       }
@@ -216,7 +217,7 @@ const EmployeeForm = () => {
           if (doc.documentNumber) docData.append('documentNumber', doc.documentNumber);
           if (doc.expiryDate) docData.append('expiryDate', doc.expiryDate);
           
-          await axios.post(`http://localhost:5000/api/v1/hr/employees/${newEmployeeId}/documents`, docData, {
+          await axios.post(`/api/v1/hr/employees/${newEmployeeId}/documents`, docData, {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' }
           });
         }
@@ -228,7 +229,7 @@ const EmployeeForm = () => {
         if (member.fileToUpload) {
           const familyDocData = new FormData();
           familyDocData.append('document', member.fileToUpload);
-          await axios.post(`http://localhost:5000/api/v1/hr/employees/${newEmployeeId}/family/${i}/document`, familyDocData, {
+          await axios.post(`/api/v1/hr/employees/${newEmployeeId}/family/${i}/document`, familyDocData, {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' }
           });
         }
@@ -336,7 +337,7 @@ const EmployeeForm = () => {
                   <div className="flex items-center gap-6">
                     <div className="h-20 w-20 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 overflow-hidden shrink-0">
                        {formData.profilePhoto?.url ? (
-                         <img src={formData.profilePhoto.url.startsWith('http') ? formData.profilePhoto.url : `http://localhost:5000${formData.profilePhoto.url}`} alt="Profile" className="h-full w-full object-cover" />
+                         <img src={formData.profilePhoto.url.startsWith('http') ? formData.profilePhoto.url : getFileUrl(formData.profilePhoto.url)} alt="Profile" className="h-full w-full object-cover" />
                        ) : (
                          <User size={32} className="text-slate-300" />
                        )}

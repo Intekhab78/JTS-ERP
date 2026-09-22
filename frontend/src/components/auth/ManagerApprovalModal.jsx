@@ -23,7 +23,7 @@ const ManagerApprovalModal = ({ isOpen, onClose, onSuccess, requestedAction, con
     setIsProcessing(true);
 
     try {
-      const res = await axios.post('http://localhost:5000/api/v1/auth/manager-override', {
+      const res = await axios.post('/api/v1/auth/manager-override', {
         managerEmail,
         posPin,
         requestedAction,

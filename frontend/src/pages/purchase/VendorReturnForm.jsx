@@ -55,7 +55,7 @@ export default function VendorReturnForm() {
 
   const fetchPurchaseOrders = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/purchases', {
+      const res = await axios.get('/api/v1/purchases', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const posData = res.data.data ? res.data.data : res.data;
@@ -70,7 +70,7 @@ export default function VendorReturnForm() {
 
   const fetchSuppliers = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/suppliers', {
+      const res = await axios.get('/api/v1/suppliers', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setSuppliers(res.data.data || res.data);
@@ -81,7 +81,7 @@ export default function VendorReturnForm() {
 
   const fetchBranches = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/branches', {
+      const res = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBranches(res.data);
@@ -94,7 +94,7 @@ export default function VendorReturnForm() {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      const res = await axios.get(`http://localhost:5000/api/v1/vendor-returns/${id}`, { headers });
+      const res = await axios.get(`/api/v1/vendor-returns/${id}`, { headers });
       const vr = res.data;
 
       setVrStatus(vr.status);
@@ -155,7 +155,7 @@ export default function VendorReturnForm() {
 
   const fetchGRNsForPo = async (poId) => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/grn', {
+      const res = await axios.get('/api/v1/grn', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const validatedGrns = res.data.filter(g => g.status === 'VALIDATED' && (g.purchaseOrderId?._id === poId || g.purchaseOrderId === poId));
@@ -169,14 +169,14 @@ export default function VendorReturnForm() {
     setLoadingItems(true);
     setError('');
     try {
-      const poRes = await axios.get(`http://localhost:5000/api/v1/purchases/${poId}`, {
+      const poRes = await axios.get(`/api/v1/purchases/${poId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setPoDetails(poRes.data);
 
       const url = grnId
-        ? `http://localhost:5000/api/v1/vendor-returns/po/${poId}/returnable-items?grnId=${grnId}`
-        : `http://localhost:5000/api/v1/vendor-returns/po/${poId}/returnable-items`;
+        ? `/api/v1/vendor-returns/po/${poId}/returnable-items?grnId=${grnId}`
+        : `/api/v1/vendor-returns/po/${poId}/returnable-items`;
 
       const itemsRes = await axios.get(url, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -203,7 +203,7 @@ export default function VendorReturnForm() {
     setLoadingItems(true);
     setError('');
     try {
-      let url = `http://localhost:5000/api/v1/vendor-returns/supplier/${suppId}/returnable-items?page=${page}&limit=${pagination.limit}`;
+      let url = `/api/v1/vendor-returns/supplier/${suppId}/returnable-items?page=${page}&limit=${pagination.limit}`;
       if (fromDate) url += `&fromDate=${fromDate}`;
       if (toDate) url += `&toDate=${toDate}`;
       if (selectedBranchId) url += `&branchId=${selectedBranchId}`;
@@ -337,7 +337,7 @@ export default function VendorReturnForm() {
         notes: reason || 'Auto-generated Return All Remaining'
       };
 
-      const res = await axios.post(`http://localhost:5000/api/v1/vendor-returns/supplier/${selectedSupplierId}/return-all`, payload, { headers });
+      const res = await axios.post(`/api/v1/vendor-returns/supplier/${selectedSupplierId}/return-all`, payload, { headers });
       
       alert(res.data.message);
       navigate(`/purchases/returns/${res.data.vendorReturnId}`);
@@ -435,10 +435,10 @@ export default function VendorReturnForm() {
       };
 
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/v1/vendor-returns/${id}`, payload, { headers });
+        await axios.put(`/api/v1/vendor-returns/${id}`, payload, { headers });
         navigate(`/purchases/returns/${id}`);
       } else {
-        const res = await axios.post('http://localhost:5000/api/v1/vendor-returns', payload, { headers });
+        const res = await axios.post('/api/v1/vendor-returns', payload, { headers });
         navigate(`/purchases/returns/${res.data._id}`);
       }
     } catch (err) {

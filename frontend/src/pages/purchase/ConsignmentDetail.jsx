@@ -22,7 +22,7 @@ export default function ConsignmentDetail() {
 
   const fetchConsignment = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/consignments/${id}`, {
+      const res = await axios.get(`/api/v1/consignments/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setConsignment(res.data.data);
@@ -37,7 +37,7 @@ export default function ConsignmentDetail() {
   const handleAction = async (action) => {
     if (!window.confirm(`Are you sure you want to ${action} this consignment?`)) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/consignments/${id}/${action}`, {}, {
+      await axios.post(`/api/v1/consignments/${id}/${action}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchConsignment();

@@ -21,7 +21,7 @@ const ManufacturingOrderDetail = () => {
 
   const fetchOrder = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/manufacturing/orders/${id}`, {
+      const res = await axios.get(`/api/v1/manufacturing/orders/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setOrder(res.data);
@@ -42,7 +42,7 @@ const ManufacturingOrderDetail = () => {
     
     setActionLoading(true);
     try {
-      await axios[method](`http://localhost:5000/api/v1/manufacturing/orders/${id}/${actionPath}`, data, {
+      await axios[method](`/api/v1/manufacturing/orders/${id}/${actionPath}`, data, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchOrder();

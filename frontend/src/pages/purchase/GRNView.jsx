@@ -32,7 +32,7 @@ const GRNView = () => {
   const fetchGRN = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/grn/${id}`, {
+      const res = await axios.get(`/api/v1/grn/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setGrn(res.data);
@@ -48,7 +48,7 @@ const GRNView = () => {
   const handleAction = async (action) => {
     if (!window.confirm(`Are you sure you want to ${action} this GRN?`)) return;
     try {
-      await axios.put(`http://localhost:5000/api/v1/grn/${id}/${action}`, {}, {
+      await axios.put(`/api/v1/grn/${id}/${action}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchGRN(); // reload

@@ -93,7 +93,7 @@ const PurchaseOrderDetail = () => {
       }
       setLoadingEqualPreview(true);
       try {
-        const res = await axios.post(`http://localhost:5000/api/v1/purchases/${id}/schedules/equal-distribution/preview`, {
+        const res = await axios.post(`/api/v1/purchases/${id}/schedules/equal-distribution/preview`, {
           branchIds: equalSelectedBranchIds,
           destinationType: equalBranchType
         }, {
@@ -140,7 +140,7 @@ const PurchaseOrderDetail = () => {
   const fetchMainSchedules = async () => {
     setLoadingSchedules(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/purchases/${id}/schedules`, {
+      const res = await axios.get(`/api/v1/purchases/${id}/schedules`, {
         params: { page: schedulePage, limit: scheduleLimit, search: debouncedScheduleSearch },
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
@@ -157,7 +157,7 @@ const PurchaseOrderDetail = () => {
   const fetchBulkSchedules = async () => {
     setLoadingBulkSchedules(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/purchases/${id}/schedules`, {
+      const res = await axios.get(`/api/v1/purchases/${id}/schedules`, {
         params: { page: bulkPage, limit: bulkLimit, search: debouncedBulkSearch },
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
@@ -187,7 +187,7 @@ const PurchaseOrderDetail = () => {
 
   const fetchBranches = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/branches', {
+      const res = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBranches(res.data);
@@ -198,7 +198,7 @@ const PurchaseOrderDetail = () => {
 
   const fetchPO = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/purchases/${id}`, {
+      const res = await axios.get(`/api/v1/purchases/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setPo(res.data);
@@ -235,7 +235,7 @@ const PurchaseOrderDetail = () => {
   const handleConfirm = async () => {
     if (!window.confirm('Are you sure you want to confirm this purchase order?')) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/purchases/${id}/confirm`, {}, {
+      await axios.post(`/api/v1/purchases/${id}/confirm`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchPO();
@@ -248,11 +248,11 @@ const PurchaseOrderDetail = () => {
     e.preventDefault();
     try {
       if (editingScheduleId) {
-        await axios.put(`http://localhost:5000/api/v1/purchases/${id}/schedules/${editingScheduleId}`, scheduleData, {
+        await axios.put(`/api/v1/purchases/${id}/schedules/${editingScheduleId}`, scheduleData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post(`http://localhost:5000/api/v1/purchases/${id}/schedules`, scheduleData, {
+        await axios.post(`/api/v1/purchases/${id}/schedules`, scheduleData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }
@@ -343,7 +343,7 @@ const PurchaseOrderDetail = () => {
     }
 
     try {
-      await axios.post(`http://localhost:5000/api/v1/purchases/${id}/schedules/bulk`, { schedules: payloadSchedules }, {
+      await axios.post(`/api/v1/purchases/${id}/schedules/bulk`, { schedules: payloadSchedules }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setIsBulkScheduleModalOpen(false);
@@ -371,7 +371,7 @@ const PurchaseOrderDetail = () => {
 
     setSubmittingEqual(true);
     try {
-      await axios.post(`http://localhost:5000/api/v1/purchases/${id}/schedules/equal-distribution`, {
+      await axios.post(`/api/v1/purchases/${id}/schedules/equal-distribution`, {
         branchIds: equalSelectedBranchIds,
         destinationType: equalBranchType,
         expectedDate: equalExpectedDate
@@ -485,7 +485,7 @@ const PurchaseOrderDetail = () => {
     e.preventDefault();
     if (!cancelReason.trim()) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/purchases/${id}/schedules/${cancelScheduleId}/cancel`, 
+      await axios.post(`/api/v1/purchases/${id}/schedules/${cancelScheduleId}/cancel`, 
         { cancelReason },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
@@ -500,7 +500,7 @@ const PurchaseOrderDetail = () => {
   const handleDeleteSchedule = async (scheduleId) => {
     if (!window.confirm('Are you sure you want to delete this schedule?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/purchases/${id}/schedules/${scheduleId}`, {
+      await axios.delete(`/api/v1/purchases/${id}/schedules/${scheduleId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchPO();

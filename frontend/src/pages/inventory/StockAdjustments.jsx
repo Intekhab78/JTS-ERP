@@ -19,7 +19,7 @@ const StockAdjustments = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/stock/adjustments', {
+      const res = await axios.get('/api/v1/stock/adjustments', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAdjustments(res.data);
@@ -33,7 +33,7 @@ const StockAdjustments = () => {
   const validateAdjustment = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/v1/stock/adjustments/${id}/validate`, {}, {
+      await axios.put(`/api/v1/stock/adjustments/${id}/validate`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchAdjustments();

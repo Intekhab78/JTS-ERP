@@ -29,7 +29,7 @@ const DeliveryNotes = () => {
 
   const fetchDeliveryNotes = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/delivery-notes', {
+      const res = await axios.get('/api/v1/delivery-notes', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setDeliveryNotes(res.data);
@@ -68,7 +68,7 @@ const DeliveryNotes = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this Delivery Note?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/v1/delivery-notes/${id}`, {
+        await axios.delete(`/api/v1/delivery-notes/${id}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         fetchDeliveryNotes();
@@ -83,7 +83,7 @@ const DeliveryNotes = () => {
     const actionText = action === 'dispatch' ? 'validate' : action;
     if (window.confirm(`Are you sure you want to ${actionText} this Delivery Note?`)) {
       try {
-        await axios.patch(`http://localhost:5000/api/v1/delivery-notes/${id}/${action}`, {}, {
+        await axios.patch(`/api/v1/delivery-notes/${id}/${action}`, {}, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         fetchDeliveryNotes();

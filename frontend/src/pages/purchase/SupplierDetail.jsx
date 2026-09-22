@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getFileUrl } from '../../config/api';
 import { ArrowLeft, Edit, MapPin, Phone, Mail, Building, FileText, Landmark, ShieldCheck, Camera, Trash2 } from 'lucide-react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Card, CardHeader, CardContent, CardTitle } from '../../components/common/Card';
@@ -23,7 +24,7 @@ export default function SupplierDetail() {
 
   const fetchSupplier = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/suppliers/${id}`, {
+      const res = await axios.get(`/api/v1/suppliers/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setSupplier(res.data);
@@ -54,7 +55,7 @@ export default function SupplierDetail() {
     formData.append('file', file);
 
     try {
-      await axios.put(`http://localhost:5000/api/v1/suppliers/${id}/documents/${docId}`, formData, {
+      await axios.put(`/api/v1/suppliers/${id}/documents/${docId}`, formData, {
         headers: { 
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'multipart/form-data'
@@ -69,7 +70,7 @@ export default function SupplierDetail() {
   const handleDocumentDelete = async (docId) => {
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/v1/suppliers/${id}/documents/${docId}`, {
+        await axios.delete(`/api/v1/suppliers/${id}/documents/${docId}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         fetchSupplier();
@@ -96,7 +97,7 @@ export default function SupplierDetail() {
     formData.append('photo', file);
 
     try {
-      await axios.post(`http://localhost:5000/api/v1/suppliers/${id}/owner-photo`, formData, {
+      await axios.post(`/api/v1/suppliers/${id}/owner-photo`, formData, {
         headers: { 
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'multipart/form-data'
@@ -111,7 +112,7 @@ export default function SupplierDetail() {
   const removePhoto = async () => {
     if (window.confirm('Are you sure you want to delete the owner photo?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/v1/suppliers/${id}/owner-photo`, {
+        await axios.delete(`/api/v1/suppliers/${id}/owner-photo`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         fetchSupplier(); // Reload to clear photo
@@ -152,7 +153,7 @@ export default function SupplierDetail() {
           <div className="relative group shrink-0">
             <div className="w-16 h-16 rounded-full border-2 border-slate-200 flex items-center justify-center bg-indigo-50 text-indigo-700 font-bold text-xl overflow-hidden">
               {supplier.ownerPhoto?.url ? (
-                <img src={`http://localhost:5000${supplier.ownerPhoto.url}`} alt={supplier.name} className="w-full h-full object-cover" />
+                <img src={getFileUrl(supplier.ownerPhoto.url)} alt={supplier.name} className="w-full h-full object-cover" />
               ) : (
                 supplier.name.substring(0, 2).toUpperCase()
               )}
@@ -371,7 +372,7 @@ export default function SupplierDetail() {
                           {doc.expiryDate ? `Expires: ${new Date(doc.expiryDate).toLocaleDateString()}` : 'No Expiry'}
                         </p>
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => window.open(`http://localhost:5000/api/v1/suppliers/${id}/documents/${doc._id}/view?token=${localStorage.getItem('token')}`, '_blank')}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => window.open(`/api/v1/suppliers/${id}/documents/${doc._id}/view?token=${localStorage.getItem('token')}`, '_blank')}>
                             View
                           </Button>
                           {hasPermission('EDIT_SUPPLIERS') && (

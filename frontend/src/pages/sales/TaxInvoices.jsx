@@ -21,7 +21,7 @@ const TaxInvoices = () => {
   useEffect(() => {
     const fetchInvoices = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/v1/tax-invoices', {
+        const res = await axios.get('/api/v1/tax-invoices', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setInvoices(res.data);

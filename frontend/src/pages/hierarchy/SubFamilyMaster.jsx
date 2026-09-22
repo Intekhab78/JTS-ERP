@@ -30,10 +30,10 @@ export default function SubFamilyMaster() {
       const headers = { Authorization: `Bearer ${token}` };
       
       const [sfRes, fRes, cRes, dRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/hierarchy/subfamilies', { headers }),
-        axios.get('http://localhost:5000/api/v1/hierarchy/families', { headers }),
-        axios.get('http://localhost:5000/api/v1/inventory/categories', { headers }),
-        axios.get('http://localhost:5000/api/v1/hierarchy/departments', { headers })
+        axios.get('/api/v1/hierarchy/subfamilies', { headers }),
+        axios.get('/api/v1/hierarchy/families', { headers }),
+        axios.get('/api/v1/inventory/categories', { headers }),
+        axios.get('/api/v1/hierarchy/departments', { headers })
       ]);
       
       setSubFamilies(sfRes.data);
@@ -93,9 +93,9 @@ export default function SubFamilyMaster() {
       const headers = { Authorization: `Bearer ${token}` };
       
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/v1/hierarchy/subfamilies/${editingId}`, formData, { headers });
+        await axios.put(`/api/v1/hierarchy/subfamilies/${editingId}`, formData, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/hierarchy/subfamilies', formData, { headers });
+        await axios.post('/api/v1/hierarchy/subfamilies', formData, { headers });
       }
       setIsModalOpen(false);
       fetchData();
@@ -108,7 +108,7 @@ export default function SubFamilyMaster() {
     if (!window.confirm('Are you sure you want to delete this Sub Family?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/v1/hierarchy/subfamilies/${id}`, {
+      await axios.delete(`/api/v1/hierarchy/subfamilies/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchData();

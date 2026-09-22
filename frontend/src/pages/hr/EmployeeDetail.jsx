@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getFileUrl } from '../../config/api';
 import { UserCircle, Briefcase, Mail, Phone, MapPin, Building2, Calendar, FileText, ArrowLeft, Edit, Shield, CheckCircle, XCircle, Target, FileCheck, Banknote, Users, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Card } from '../../components/common/Card';
@@ -40,7 +41,7 @@ const EmployeeDetail = () => {
 
   const fetchEmployee = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/employees/${id}`, {
+      const res = await axios.get(`/api/v1/hr/employees/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setEmployee(res.data);
@@ -53,7 +54,7 @@ const EmployeeDetail = () => {
 
   const fetchUnlinkedUsers = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/users`, {
+      const res = await axios.get(`/api/v1/users`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       // Filter out users who already have an employee linked
@@ -69,7 +70,7 @@ const EmployeeDetail = () => {
     if (!selectedUserId) return;
     setIsLinking(true);
     try {
-      await axios.post(`http://localhost:5000/api/v1/hr/employees/${id}/link-user`, 
+      await axios.post(`/api/v1/hr/employees/${id}/link-user`, 
         { userId: selectedUserId },
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
@@ -85,7 +86,7 @@ const EmployeeDetail = () => {
   const handleUnlinkUser = async () => {
     if (!window.confirm('Are you sure you want to unlink the user from this employee?')) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/hr/employees/${id}/unlink-user`, 
+      await axios.post(`/api/v1/hr/employees/${id}/unlink-user`, 
         {},
         { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
@@ -153,7 +154,7 @@ const EmployeeDetail = () => {
           <Card className="p-6 text-center">
             <div className="w-24 h-24 bg-blue-100 text-blue-600 rounded-full mx-auto flex items-center justify-center text-3xl font-bold mb-4">
               {employee.profilePhoto?.url ? (
-                <img src={employee.profilePhoto.url.startsWith('http') ? employee.profilePhoto.url : `http://localhost:5000${employee.profilePhoto.url}`} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                <img src={employee.profilePhoto.url.startsWith('http') ? employee.profilePhoto.url : getFileUrl(employee.profilePhoto.url)} alt="Profile" className="w-full h-full rounded-full object-cover" />
               ) : (
                 `${employee.firstName[0]}${employee.lastName[0]}`
               )}

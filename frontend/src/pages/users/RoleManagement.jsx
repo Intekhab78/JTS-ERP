@@ -31,7 +31,7 @@ const RoleManagement = () => {
   const fetchRoles = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/roles', {
+      const { data } = await axios.get('/api/v1/roles', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRoles(data);
@@ -77,11 +77,11 @@ const RoleManagement = () => {
     e.preventDefault();
     try {
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/v1/roles/${editingId}`, formData, {
+        await axios.put(`/api/v1/roles/${editingId}`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post('http://localhost:5000/api/v1/roles', formData, {
+        await axios.post('/api/v1/roles', formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }
@@ -109,7 +109,7 @@ const RoleManagement = () => {
     if (!window.confirm('Are you sure you want to delete this role?')) return;
     
     try {
-      await axios.delete(`http://localhost:5000/api/v1/roles/${roleId}`, {
+      await axios.delete(`/api/v1/roles/${roleId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchRoles();

@@ -3,6 +3,7 @@ import { Bell, Search, User, Menu, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SearchInput } from '../ui/SearchInput';
 import { DropdownMenu } from '../common/DropdownMenu';
+import { ApiStatusBadge } from '../common/ApiStatusBadge';
 
 const Header = ({ toggleSidebar }) => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -39,7 +40,9 @@ const Header = ({ toggleSidebar }) => {
       </div>
 
       {/* Right Actions */}
-      <div className="flex items-center gap-4 lg:gap-6">
+      <div className="flex items-center gap-3 lg:gap-5">
+        <ApiStatusBadge />
+
         <button aria-label="Notifications" className="relative p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Bell size={20} />
           <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-background"></span>
@@ -48,6 +51,7 @@ const Header = ({ toggleSidebar }) => {
         <button aria-label="Settings" className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Settings size={20} />
         </button>
+
         
         <DropdownMenu 
           items={userMenuItems}

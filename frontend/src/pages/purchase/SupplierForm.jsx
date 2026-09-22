@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
+import { getFileUrl } from '../../config/api';
 import { ArrowLeft, Save, Plus, Trash2, Camera, X, FileText } from 'lucide-react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Card, CardHeader, CardContent, CardTitle } from '../../components/common/Card';
@@ -49,7 +50,7 @@ export default function SupplierForm() {
 
   const fetchSupplier = async () => {
     try {
-      const { data } = await axios.get(`http://localhost:5000/api/v1/suppliers/${id}`, {
+      const { data } = await axios.get(`/api/v1/suppliers/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       // Merge with default structure to prevent uncontrolled components
@@ -95,7 +96,7 @@ export default function SupplierForm() {
       });
 
       if (data.ownerPhoto && data.ownerPhoto.url) {
-        setPhotoPreviewUrl(`http://localhost:5000${data.ownerPhoto.url}`);
+        setPhotoPreviewUrl(getFileUrl(data.ownerPhoto.url));
       }
     } catch (error) {
       alert('Failed to load supplier');
@@ -176,7 +177,7 @@ export default function SupplierForm() {
   const removeExistingComplianceDoc = async (docId) => {
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
-        await axios.delete(`http://localhost:5000/api/v1/suppliers/${id}/documents/${docId}`, {
+        await axios.delete(`/api/v1/suppliers/${id}/documents/${docId}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         fetchSupplier(); // Reload to reflect changes
@@ -190,7 +191,7 @@ export default function SupplierForm() {
     if (isEdit && formData.ownerPhoto) {
       if (window.confirm('Are you sure you want to delete the current owner photo?')) {
         try {
-          await axios.delete(`http://localhost:5000/api/v1/suppliers/${id}/owner-photo`, {
+          await axios.delete(`/api/v1/suppliers/${id}/owner-photo`, {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           setPhotoPreviewUrl('');
@@ -221,11 +222,11 @@ export default function SupplierForm() {
       let savedSupplierId = id;
 
       if (isEdit) {
-        await axios.put(`http://localhost:5000/api/v1/suppliers/${id}`, payload, {
+        await axios.put(`/api/v1/suppliers/${id}`, payload, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        const response = await axios.post('http://localhost:5000/api/v1/suppliers', payload, {
+        const response = await axios.post('/api/v1/suppliers', payload, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         savedSupplierId = response.data._id;
@@ -236,7 +237,7 @@ export default function SupplierForm() {
         const formDataUpload = new FormData();
         formDataUpload.append('photo', photoFile);
         
-        await axios.post(`http://localhost:5000/api/v1/suppliers/${savedSupplierId}/owner-photo`, formDataUpload, {
+        await axios.post(`/api/v1/suppliers/${savedSupplierId}/owner-photo`, formDataUpload, {
           headers: { 
             Authorization: `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'multipart/form-data'
@@ -258,7 +259,7 @@ export default function SupplierForm() {
           }
           
           try {
-            await axios.post(`http://localhost:5000/api/v1/suppliers/${savedSupplierId}/documents`, docFormData, {
+            await axios.post(`/api/v1/suppliers/${savedSupplierId}/documents`, docFormData, {
               headers: { 
                 Authorization: `Bearer ${localStorage.getItem('token')}`,
                 'Content-Type': 'multipart/form-data'
@@ -548,7 +549,7 @@ export default function SupplierForm() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={() => window.open(`http://localhost:5000/api/v1/suppliers/${id}/documents/${existingDoc._id}/view?token=${localStorage.getItem('token')}`, '_blank')}>
+                        <Button type="button" variant="outline" size="sm" onClick={() => window.open(`/api/v1/suppliers/${id}/documents/${existingDoc._id}/view?token=${localStorage.getItem('token')}`, '_blank')}>
                           View
                         </Button>
                         <Button type="button" variant="ghost" size="sm" className="text-red-500 hover:text-red-600" onClick={() => removeExistingComplianceDoc(existingDoc._id)}>

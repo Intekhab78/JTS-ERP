@@ -34,7 +34,7 @@ const EmployeeIdentificationTab = ({ employeeId, hasPermission }) => {
 
   const fetchIdentifications = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/employees/${employeeId}/identifications`, {
+      const res = await axios.get(`/api/v1/hr/employees/${employeeId}/identifications`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setIdentifications(res.data);
@@ -77,8 +77,8 @@ const EmployeeIdentificationTab = ({ employeeId, hasPermission }) => {
     
     try {
       const url = isEditing 
-        ? `http://localhost:5000/api/v1/hr/employees/${employeeId}/identifications/${currentId._id}`
-        : `http://localhost:5000/api/v1/hr/employees/${employeeId}/identifications`;
+        ? `/api/v1/hr/employees/${employeeId}/identifications/${currentId._id}`
+        : `/api/v1/hr/employees/${employeeId}/identifications`;
         
       const method = isEditing ? 'put' : 'post';
       
@@ -100,7 +100,7 @@ const EmployeeIdentificationTab = ({ employeeId, hasPermission }) => {
   const handleDelete = async (identId) => {
     if (!window.confirm('Are you sure you want to delete this identification?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/hr/employees/${employeeId}/identifications/${identId}`, {
+      await axios.delete(`/api/v1/hr/employees/${employeeId}/identifications/${identId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchIdentifications();
@@ -111,7 +111,7 @@ const EmployeeIdentificationTab = ({ employeeId, hasPermission }) => {
 
   const handleViewSensitive = async (identId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/employees/${employeeId}/identifications/${identId}/unmask`, {
+      const res = await axios.get(`/api/v1/hr/employees/${employeeId}/identifications/${identId}/unmask`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setUnmaskedData(prev => ({

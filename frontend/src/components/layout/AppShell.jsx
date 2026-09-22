@@ -15,7 +15,7 @@ const AppShell = () => {
       try {
         const token = localStorage.getItem('token');
         if (token) {
-          const { data } = await axios.get('http://localhost:5000/api/v1/auth/me', {
+          const { data } = await axios.get('/api/v1/auth/me', {
             headers: { Authorization: `Bearer ${token}` }
           });
           localStorage.setItem('user', JSON.stringify(data));

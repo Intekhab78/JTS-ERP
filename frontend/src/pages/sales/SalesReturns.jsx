@@ -15,7 +15,7 @@ export default function SalesReturns() {
 
   const fetchReturns = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/sales/returns', {
+      const res = await axios.get('/api/v1/sales/returns', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setReturns(res.data);

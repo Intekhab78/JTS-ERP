@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Checkbox } from '../../components/ui/Checkbox';
 import { Alert } from '../../components/ui/Alert';
 import { ArrowRight } from 'lucide-react';
+import { ApiStatusBadge } from '../../components/common/ApiStatusBadge';
 
 const Login = ({ onToggle }) => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -20,7 +21,7 @@ const Login = ({ onToggle }) => {
     setLoading(true);
     
     try {
-      const { data } = await axios.post('http://localhost:5000/api/v1/auth/login', formData);
+      const { data } = await axios.post('/api/v1/auth/login', formData);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify({ 
         email: data.email, 
@@ -39,10 +40,14 @@ const Login = ({ onToggle }) => {
 
   return (
     <div className="w-full max-w-md mx-auto flex flex-col justify-center h-full animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="mb-10 text-center md:text-left">
-        <h2 className="text-3xl font-extrabold text-slate-900 mb-2 tracking-tight">Welcome Back</h2>
-        <p className="text-sm font-semibold text-muted-foreground">Enter your credentials to access your workspace.</p>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h2 className="text-3xl font-extrabold text-slate-900 mb-2 tracking-tight">Welcome Back</h2>
+          <p className="text-sm font-semibold text-muted-foreground">Enter your credentials to access your workspace.</p>
+        </div>
+        <ApiStatusBadge />
       </div>
+
 
       {error && (
         <Alert variant="destructive" className="mb-6">

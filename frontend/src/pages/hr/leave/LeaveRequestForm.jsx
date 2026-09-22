@@ -30,10 +30,10 @@ const LeaveRequestForm = () => {
     const fetchData = async () => {
       try {
         const [empRes, typeRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/v1/hr/employees', {
+          axios.get('/api/v1/hr/employees', {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           }),
-          axios.get('http://localhost:5000/api/v1/hr/leave-types', {
+          axios.get('/api/v1/hr/leave-types', {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           })
         ]);
@@ -59,7 +59,7 @@ const LeaveRequestForm = () => {
     setIsSaving(true);
     
     try {
-      await axios.post('http://localhost:5000/api/v1/hr/leave-requests', formData, {
+      await axios.post('/api/v1/hr/leave-requests', formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       navigate('/leave-requests');

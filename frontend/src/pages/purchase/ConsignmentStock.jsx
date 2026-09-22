@@ -24,7 +24,7 @@ export default function ConsignmentStock() {
   const fetchStock = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/consignment-stock?page=${page}&limit=20`, {
+      const res = await axios.get(`/api/v1/consignment-stock?page=${page}&limit=20`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setStock(res.data.data);
@@ -52,7 +52,7 @@ export default function ConsignmentStock() {
     setActionLoading(true);
     try {
       const endpoint = modalType === 'consume' ? 'consume' : 'return';
-      await axios.post(`http://localhost:5000/api/v1/consignment-stock/stock/${selectedItem._id}/${endpoint}`, {
+      await axios.post(`/api/v1/consignment-stock/stock/${selectedItem._id}/${endpoint}`, {
         quantity: Number(actionQuantity),
         reason: actionReason
       }, {

@@ -24,7 +24,7 @@ const SalesHistory = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/sales', {
+      const res = await axios.get('/api/v1/sales', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setOrders(res.data);

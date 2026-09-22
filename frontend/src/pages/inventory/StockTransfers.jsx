@@ -19,7 +19,7 @@ const StockTransfers = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/stock/transfers', {
+      const res = await axios.get('/api/v1/stock/transfers', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTransfers(res.data);
@@ -33,7 +33,7 @@ const StockTransfers = () => {
   const validateTransfer = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/v1/stock/transfers/${id}/validate`, {}, {
+      await axios.put(`/api/v1/stock/transfers/${id}/validate`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchTransfers();

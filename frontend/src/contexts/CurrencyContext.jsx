@@ -28,7 +28,7 @@ export const CurrencyProvider = ({ children }) => {
         setIsLoading(false);
         return;
       }
-      const res = await axios.get('http://localhost:5000/api/v1/company', {
+      const res = await axios.get('/api/v1/company', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data && res.data.currency) {

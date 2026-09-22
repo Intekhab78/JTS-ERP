@@ -18,7 +18,7 @@ const VendorPaymentModal = ({ isOpen, onClose, bill, onPaymentSuccess }) => {
     try {
       setLoading(true);
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      await axios.post('http://localhost:5000/api/v1/vendor-payments', {
+      await axios.post('/api/v1/vendor-payments', {
         vendorBillId: bill._id,
         amount: Number(amount),
         paymentMethod,

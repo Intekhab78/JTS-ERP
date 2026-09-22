@@ -88,7 +88,7 @@ const DeliveryNoteForm = () => {
   const fetchSalesOrders = async () => {
     try {
       // Only fetch pending/paid orders that are not cancelled
-      const res = await axios.get('http://localhost:5000/api/v1/sales', {
+      const res = await axios.get('/api/v1/sales', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const validOrders = res.data.filter(o => !['COMPLETED', 'CANCELLED'].includes(o.status));
@@ -110,7 +110,7 @@ const DeliveryNoteForm = () => {
 
   const fetchDeliveryNote = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/delivery-notes/${id}`, {
+      const res = await axios.get(`/api/v1/delivery-notes/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const dn = res.data;
@@ -154,7 +154,7 @@ const DeliveryNoteForm = () => {
     if (!idToUse) return;
     setLoading(true);
     try {
-      const res = await axios.post(`http://localhost:5000/api/v1/delivery-notes/from-order/${idToUse}`, {}, {
+      const res = await axios.post(`/api/v1/delivery-notes/from-order/${idToUse}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const data = res.data;
@@ -195,9 +195,9 @@ const DeliveryNoteForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/v1/delivery-notes/${id}`, formData, { headers });
+        await axios.put(`/api/v1/delivery-notes/${id}`, formData, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/delivery-notes', formData, { headers });
+        await axios.post('/api/v1/delivery-notes', formData, { headers });
       }
       navigate(location.state?.from || '/sales/delivery-notes');
     } catch (error) {

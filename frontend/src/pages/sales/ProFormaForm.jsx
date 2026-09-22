@@ -50,8 +50,8 @@ const ProFormaForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       const [customersRes, productsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/crm/customers', { headers }),
-        axios.get('http://localhost:5000/api/v1/inventory/products', { headers })
+        axios.get('/api/v1/crm/customers', { headers }),
+        axios.get('/api/v1/inventory/products', { headers })
       ]);
       setCustomers(customersRes.data);
       setProducts(productsRes.data.filter(p => p.isActive !== false));
@@ -62,7 +62,7 @@ const ProFormaForm = () => {
 
   const fetchProForma = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/proforma/${id}`, {
+      const res = await axios.get(`/api/v1/proforma/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const pf = res.data;
@@ -182,9 +182,9 @@ const ProFormaForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/v1/proforma/${id}`, formData, { headers });
+        await axios.put(`/api/v1/proforma/${id}`, formData, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/proforma', formData, { headers });
+        await axios.post('/api/v1/proforma', formData, { headers });
       }
       navigate('/sales/proforma');
     } catch (error) {

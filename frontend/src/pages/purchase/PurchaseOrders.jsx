@@ -129,7 +129,7 @@ const PurchaseOrders = () => {
 
   const fetchCompanySettings = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/company', {
+      const res = await axios.get('/api/v1/company', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setCompanySettings(res.data?.settings || {});
@@ -140,7 +140,7 @@ const PurchaseOrders = () => {
 
   const fetchPOs = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/purchases', {
+      const res = await axios.get('/api/v1/purchases', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setPos(res.data);
@@ -151,7 +151,7 @@ const PurchaseOrders = () => {
 
   const fetchSuppliers = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/suppliers', {
+      const res = await axios.get('/api/v1/suppliers', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setSuppliers(res.data);
@@ -162,7 +162,7 @@ const PurchaseOrders = () => {
 
   const fetchBranches = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/branches', {
+      const res = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBranches(res.data);
@@ -173,7 +173,7 @@ const PurchaseOrders = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/inventory/products', {
+      const res = await axios.get('/api/v1/inventory/products', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setProducts(res.data);
@@ -184,7 +184,7 @@ const PurchaseOrders = () => {
 
   const handleEditPO = async (poId) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/purchases/${poId}`, {
+      const res = await axios.get(`/api/v1/purchases/${poId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const poData = res.data;
@@ -206,7 +206,7 @@ const PurchaseOrders = () => {
   const handleDeletePO = async (poId) => {
     if (!window.confirm('Are you sure you want to delete this draft purchase order?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/purchases/${poId}`, {
+      await axios.delete(`/api/v1/purchases/${poId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchPOs();
@@ -218,7 +218,7 @@ const PurchaseOrders = () => {
   const handleConfirmPO = async (poId) => {
     if (!window.confirm('Are you sure you want to confirm this purchase order?')) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/purchases/${poId}/confirm`, {}, {
+      await axios.post(`/api/v1/purchases/${poId}/confirm`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchPOs();
@@ -230,7 +230,7 @@ const PurchaseOrders = () => {
   const handleCancelPO = async (poId) => {
     if (!window.confirm('Are you sure you want to cancel this purchase order?')) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/purchases/${poId}/cancel`, {}, {
+      await axios.post(`/api/v1/purchases/${poId}/cancel`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchPOs();
@@ -251,9 +251,9 @@ const PurchaseOrders = () => {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
 
       if (editingPOId) {
-        await axios.put(`http://localhost:5000/api/v1/purchases/${editingPOId}`, payload, { headers });
+        await axios.put(`/api/v1/purchases/${editingPOId}`, payload, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/purchases', payload, { headers });
+        await axios.post('/api/v1/purchases', payload, { headers });
       }
 
       closeModal();

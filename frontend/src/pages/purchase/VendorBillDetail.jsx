@@ -20,7 +20,7 @@ const VendorBillDetail = () => {
 
   const fetchBill = async () => {
     try {
-      const { data } = await axios.get(`http://localhost:5000/api/v1/vendor-bills/${id}`, {
+      const { data } = await axios.get(`/api/v1/vendor-bills/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBill(data);
@@ -39,7 +39,7 @@ const VendorBillDetail = () => {
   const handlePost = async () => {
     if (!window.confirm('Are you sure you want to post this bill? It cannot be edited afterwards.')) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/vendor-bills/${id}/post`, {}, {
+      await axios.post(`/api/v1/vendor-bills/${id}/post`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       alert('Bill posted successfully');
@@ -52,7 +52,7 @@ const VendorBillDetail = () => {
   const handleCancel = async () => {
     if (!window.confirm('Are you sure you want to cancel this bill?')) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/vendor-bills/${id}/cancel`, {}, {
+      await axios.post(`/api/v1/vendor-bills/${id}/cancel`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       alert('Bill cancelled');

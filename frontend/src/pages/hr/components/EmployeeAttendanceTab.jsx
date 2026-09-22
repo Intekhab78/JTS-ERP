@@ -35,7 +35,7 @@ const EmployeeAttendanceTab = ({ employeeId, hasPermission }) => {
   const fetchAttendance = async () => {
     setIsLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/employees/${employeeId}/attendance?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`, {
+      const res = await axios.get(`/api/v1/hr/employees/${employeeId}/attendance?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRecords(res.data);
@@ -70,7 +70,7 @@ const EmployeeAttendanceTab = ({ employeeId, hasPermission }) => {
         timestamp: new Date(formData.timestamp).toISOString()
       };
 
-      await axios.post(`http://localhost:5000/api/v1/hr/employees/${employeeId}/attendance`, payload, {
+      await axios.post(`/api/v1/hr/employees/${employeeId}/attendance`, payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       

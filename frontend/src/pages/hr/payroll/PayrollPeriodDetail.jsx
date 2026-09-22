@@ -21,7 +21,7 @@ const PayrollPeriodDetail = () => {
 
   const fetchPeriod = async () => {
     try {
-      const { data } = await axios.get(`http://localhost:5000/api/v1/hr/payroll-periods/${id}`, {
+      const { data } = await axios.get(`/api/v1/hr/payroll-periods/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setPeriod(data);
@@ -39,7 +39,7 @@ const PayrollPeriodDetail = () => {
   const handleAction = async (actionPath) => {
     setActionLoading(true);
     try {
-      await axios.post(`http://localhost:5000/api/v1/hr/payroll-periods/${id}/${actionPath}`, {}, {
+      await axios.post(`/api/v1/hr/payroll-periods/${id}/${actionPath}`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchPeriod();

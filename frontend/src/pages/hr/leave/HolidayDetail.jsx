@@ -30,10 +30,10 @@ const HolidayDetail = () => {
     setIsLoading(true);
     try {
       const [calRes, holRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/hr/holiday-calendars', {
+        axios.get('/api/v1/hr/holiday-calendars', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         }),
-        axios.get(`http://localhost:5000/api/v1/hr/holiday-calendars/${id}/holidays`, {
+        axios.get(`/api/v1/hr/holiday-calendars/${id}/holidays`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         })
       ]);
@@ -53,7 +53,7 @@ const HolidayDetail = () => {
   const handleAddSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`http://localhost:5000/api/v1/hr/holiday-calendars/${id}/holidays`, formData, {
+      await axios.post(`/api/v1/hr/holiday-calendars/${id}/holidays`, formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setIsAdding(false);
@@ -67,7 +67,7 @@ const HolidayDetail = () => {
   const handleDelete = async (holidayId) => {
     if (!window.confirm('Are you sure you want to delete this holiday?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/hr/holidays/${holidayId}`, {
+      await axios.delete(`/api/v1/hr/holidays/${holidayId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchData();

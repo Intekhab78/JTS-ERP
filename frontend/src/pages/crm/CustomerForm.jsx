@@ -47,7 +47,7 @@ const CustomerForm = () => {
 
   const fetchCustomer = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/crm/customers/${id}`, {
+      const res = await axios.get(`/api/v1/crm/customers/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const data = res.data;
@@ -96,9 +96,9 @@ const CustomerForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/v1/crm/customers/${id}`, formData, { headers });
+        await axios.put(`/api/v1/crm/customers/${id}`, formData, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/crm/customers', formData, { headers });
+        await axios.post('/api/v1/crm/customers', formData, { headers });
       }
       navigate('/customers');
     } catch (error) {

@@ -31,7 +31,7 @@ const BranchManagement = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/branches', {
+      const res = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBranches(res.data);
@@ -46,7 +46,7 @@ const BranchManagement = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/v1/branches', formData, {
+      await axios.post('/api/v1/branches', formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchBranches();
@@ -67,7 +67,7 @@ const BranchManagement = () => {
     if (!branchToDelete) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/v1/branches/${branchToDelete}`, {
+      await axios.delete(`/api/v1/branches/${branchToDelete}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setDeleteConfirmOpen(false);

@@ -15,7 +15,7 @@ export default function RFQs() {
 
   const fetchRFQs = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/rfqs', {
+      const res = await axios.get('/api/v1/rfqs', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRfqs(res.data);

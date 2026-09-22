@@ -47,7 +47,7 @@ const LeaveTypeForm = () => {
 
   const fetchLeaveType = async () => {
     try {
-      const { data } = await axios.get(`http://localhost:5000/api/v1/hr/leave-types/${id}`, {
+      const { data } = await axios.get(`/api/v1/hr/leave-types/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       // The get by id might not exist, but let's assume we fetch all and find it, or build a specific GET route.
@@ -62,7 +62,7 @@ const LeaveTypeForm = () => {
     if (isEditing) {
       const fetchAll = async () => {
         try {
-          const { data } = await axios.get(`http://localhost:5000/api/v1/hr/leave-types`, {
+          const { data } = await axios.get(`/api/v1/hr/leave-types`, {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           const found = data.find(l => l._id === id);
@@ -91,11 +91,11 @@ const LeaveTypeForm = () => {
     
     try {
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/v1/hr/leave-types/${id}`, formData, {
+        await axios.put(`/api/v1/hr/leave-types/${id}`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post('http://localhost:5000/api/v1/hr/leave-types', formData, {
+        await axios.post('/api/v1/hr/leave-types', formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }

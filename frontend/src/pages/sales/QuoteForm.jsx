@@ -175,9 +175,9 @@ const QuoteForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       const [branchesRes, customersRes, productsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/branches', { headers }),
-        axios.get('http://localhost:5000/api/v1/crm/customers', { headers }),
-        axios.get('http://localhost:5000/api/v1/inventory/products', { headers })
+        axios.get('/api/v1/branches', { headers }),
+        axios.get('/api/v1/crm/customers', { headers }),
+        axios.get('/api/v1/inventory/products', { headers })
       ]);
       setBranches(branchesRes.data);
       setCustomers(customersRes.data);
@@ -193,7 +193,7 @@ const QuoteForm = () => {
 
   const fetchQuote = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/quotes/${id}`, {
+      const res = await axios.get(`/api/v1/quotes/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const q = res.data;
@@ -232,7 +232,7 @@ const QuoteForm = () => {
 
   const fetchRevisions = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/quotes/${id}/revisions`, {
+      const res = await axios.get(`/api/v1/quotes/${id}/revisions`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRevisions(res.data);
@@ -314,10 +314,10 @@ const QuoteForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/v1/quotes/${id}`, formData, { headers });
+        await axios.put(`/api/v1/quotes/${id}`, formData, { headers });
         fetchQuote();
       } else {
-        const res = await axios.post('http://localhost:5000/api/v1/quotes', formData, { headers });
+        const res = await axios.post('/api/v1/quotes', formData, { headers });
         navigate(`/sales/quotes/edit/${res.data._id}`);
       }
     } catch (error) {
@@ -333,7 +333,7 @@ const QuoteForm = () => {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      await axios.post(`http://localhost:5000/api/v1/quotes/${id}/convert`, {}, { headers });
+      await axios.post(`/api/v1/quotes/${id}/convert`, {}, { headers });
       fetchQuote();
     } catch (error) {
       console.error('Conversion failed', error);
@@ -348,7 +348,7 @@ const QuoteForm = () => {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      const res = await axios.post(`http://localhost:5000/api/v1/proforma/generate/quote/${id}`, {}, { headers });
+      const res = await axios.post(`/api/v1/proforma/generate/quote/${id}`, {}, { headers });
       navigate(`/sales/proforma/edit/${res.data._id}`);
     } catch (error) {
       console.error('Generation failed', error);
@@ -363,11 +363,11 @@ const QuoteForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       // Create a new revision
-      const res = await axios.post(`http://localhost:5000/api/v1/quotes/${id}/revise`, {}, { headers });
+      const res = await axios.post(`/api/v1/quotes/${id}/revise`, {}, { headers });
       const newQuoteId = res.data._id;
 
       // Save current form data into the new revision
-      await axios.put(`http://localhost:5000/api/v1/quotes/${newQuoteId}`, formData, { headers });
+      await axios.put(`/api/v1/quotes/${newQuoteId}`, formData, { headers });
 
       setShowReviseModal(false);
       navigate(`/sales/quotes/edit/${newQuoteId}`);
@@ -385,7 +385,7 @@ const QuoteForm = () => {
     setLoading(true);
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      await axios.patch(`http://localhost:5000/api/v1/quotes/${id}/status`, { status: newStatus }, { headers });
+      await axios.patch(`/api/v1/quotes/${id}/status`, { status: newStatus }, { headers });
       fetchQuote();
     } catch (error) {
       console.error('Status update failed', error);

@@ -22,7 +22,7 @@ const ManufacturingOrderForm = () => {
 
   const fetchBOMs = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/manufacturing/bom', {
+      const res = await axios.get('/api/v1/manufacturing/bom', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBoms(res.data);
@@ -33,7 +33,7 @@ const ManufacturingOrderForm = () => {
 
   const fetchBranches = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/branches', {
+      const res = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBranches(res.data);
@@ -46,7 +46,7 @@ const ManufacturingOrderForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/v1/manufacturing/orders', formData, {
+      const res = await axios.post('/api/v1/manufacturing/orders', formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       navigate(`/manufacturing/${res.data._id}`);

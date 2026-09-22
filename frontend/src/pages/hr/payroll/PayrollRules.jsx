@@ -21,7 +21,7 @@ const PayrollRules = () => {
   const fetchRules = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/hr/payroll-rules', {
+      const { data } = await axios.get('/api/v1/hr/payroll-rules', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRules(data);

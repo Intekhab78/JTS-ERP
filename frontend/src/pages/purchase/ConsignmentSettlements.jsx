@@ -25,7 +25,7 @@ export default function ConsignmentSettlements() {
   const fetchSettlements = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/consignment-settlements?page=${page}&limit=20&search=${search}`, {
+      const res = await axios.get(`/api/v1/consignment-settlements?page=${page}&limit=20&search=${search}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setSettlements(res.data.data);

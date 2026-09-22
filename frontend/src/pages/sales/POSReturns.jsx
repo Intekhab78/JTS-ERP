@@ -27,7 +27,7 @@ const POSReturns = () => {
   const fetchRecentReturns = async () => {
     try {
       setLoadingRecent(true);
-      const res = await axios.get('http://localhost:5000/api/v1/pos/returns', {
+      const res = await axios.get('/api/v1/pos/returns', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRecentReturns(res.data);
@@ -45,14 +45,14 @@ const POSReturns = () => {
     setOrder(null);
     setReturnItems({});
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/pos/orders?receiptNumber=${receiptNum}`, {
+      const res = await axios.get(`/api/v1/pos/orders?receiptNumber=${receiptNum}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const orders = res.data;
       const found = orders.find(o => o.receiptNumber === receiptNum);
       if (found) {
         // Fetch full details including returns
-        const detailRes = await axios.get(`http://localhost:5000/api/v1/pos/orders/${found._id}`, {
+        const detailRes = await axios.get(`/api/v1/pos/orders/${found._id}`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         
@@ -168,7 +168,7 @@ const POSReturns = () => {
         payload.overrideToken = overrideToken;
       }
 
-      await axios.post('http://localhost:5000/api/v1/pos/returns', payload, {
+      await axios.post('/api/v1/pos/returns', payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       alert('Return processed successfully!');

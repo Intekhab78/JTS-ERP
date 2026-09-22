@@ -47,7 +47,7 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/users', {
+      const { data } = await axios.get('/api/v1/users', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setUsers(data);
@@ -60,7 +60,7 @@ const UserManagement = () => {
 
   const fetchRoles = async () => {
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/roles', {
+      const { data } = await axios.get('/api/v1/roles', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setRoles(data);
@@ -71,7 +71,7 @@ const UserManagement = () => {
 
   const fetchBranches = async () => {
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/branches', {
+      const { data } = await axios.get('/api/v1/branches', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setBranches(data);
@@ -82,7 +82,7 @@ const UserManagement = () => {
 
   const fetchEmployees = async () => {
     try {
-      const { data } = await axios.get('http://localhost:5000/api/v1/hr/employees', {
+      const { data } = await axios.get('/api/v1/hr/employees', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       // Filter out employees already linked to a user (if possible on frontend)
@@ -105,11 +105,11 @@ const UserManagement = () => {
     try {
       if (editUserId) {
         // Exclude password if empty during edit, though our backend ignores it for update anyway right now
-        await axios.put(`http://localhost:5000/api/v1/users/${editUserId}`, formData, {
+        await axios.put(`/api/v1/users/${editUserId}`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post('http://localhost:5000/api/v1/users', formData, {
+        await axios.post('/api/v1/users', formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }
@@ -158,7 +158,7 @@ const UserManagement = () => {
   const handleDelete = async () => {
     if (!userToDelete) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/users/${userToDelete}`, {
+      await axios.delete(`/api/v1/users/${userToDelete}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setDeleteConfirmOpen(false);
@@ -177,7 +177,7 @@ const UserManagement = () => {
       return;
     }
     try {
-      await axios.post('http://localhost:5000/api/v1/auth/set-pos-pin', {
+      await axios.post('/api/v1/auth/set-pos-pin', {
         userId: selectedUserIdForPin,
         posPin: posPinValue
       }, {

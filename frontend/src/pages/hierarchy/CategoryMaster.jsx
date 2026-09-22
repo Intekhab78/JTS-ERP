@@ -28,8 +28,8 @@ export default function CategoryMaster() {
       const headers = { Authorization: `Bearer ${token}` };
       
       const [catRes, depRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/inventory/categories', { headers }),
-        axios.get('http://localhost:5000/api/v1/hierarchy/departments', { headers })
+        axios.get('/api/v1/inventory/categories', { headers }),
+        axios.get('/api/v1/hierarchy/departments', { headers })
       ]);
       
       setCategories(catRes.data);
@@ -72,9 +72,9 @@ export default function CategoryMaster() {
       const headers = { Authorization: `Bearer ${token}` };
       
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/v1/inventory/categories/${editingId}`, formData, { headers });
+        await axios.put(`/api/v1/inventory/categories/${editingId}`, formData, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/inventory/categories', formData, { headers });
+        await axios.post('/api/v1/inventory/categories', formData, { headers });
       }
       setIsModalOpen(false);
       fetchData();
@@ -87,7 +87,7 @@ export default function CategoryMaster() {
     if (!window.confirm('Are you sure you want to delete this Category?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/v1/inventory/categories/${id}`, {
+      await axios.delete(`/api/v1/inventory/categories/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchData();

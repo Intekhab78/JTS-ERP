@@ -31,7 +31,7 @@ const Accounts = () => {
 
   const fetchAccounts = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/accounts', {
+      const res = await axios.get('/api/v1/accounts', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setAccounts(res.data);
@@ -43,7 +43,7 @@ const Accounts = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:5000/api/v1/accounts', formData, {
+      await axios.post('/api/v1/accounts', formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setIsCreating(false);

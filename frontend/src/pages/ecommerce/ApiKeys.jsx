@@ -24,7 +24,7 @@ const ApiKeys = () => {
 
   const fetchKeys = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/ecommerce-admin/apikeys', {
+      const res = await axios.get('/api/v1/ecommerce-admin/apikeys', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setKeys(res.data);
@@ -35,7 +35,7 @@ const ApiKeys = () => {
 
   const handleGenerate = async () => {
     try {
-      await axios.post('http://localhost:5000/api/v1/ecommerce-admin/apikeys', { name: 'E-Commerce Storefront' }, {
+      await axios.post('/api/v1/ecommerce-admin/apikeys', { name: 'E-Commerce Storefront' }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchKeys();

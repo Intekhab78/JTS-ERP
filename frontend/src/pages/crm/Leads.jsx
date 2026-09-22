@@ -27,7 +27,7 @@ const Leads = () => {
 
   const fetchLeads = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/crm/leads', {
+      const res = await axios.get('/api/v1/crm/leads', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setLeads(res.data);
@@ -40,7 +40,7 @@ const Leads = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await axios.post('http://localhost:5000/api/v1/crm/leads', formData, {
+      await axios.post('/api/v1/crm/leads', formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setIsCreating(false);
@@ -55,7 +55,7 @@ const Leads = () => {
 
   const updateLeadStatus = async (id, newStatus) => {
     try {
-      await axios.put(`http://localhost:5000/api/v1/crm/leads/${id}`, { status: newStatus }, {
+      await axios.put(`/api/v1/crm/leads/${id}`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchLeads();

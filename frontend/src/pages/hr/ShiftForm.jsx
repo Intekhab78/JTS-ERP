@@ -41,7 +41,7 @@ const ShiftForm = () => {
   const fetchShift = async () => {
     setIsLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/shifts`, {
+      const res = await axios.get(`/api/v1/hr/shifts`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const shift = res.data.find(s => s._id === id);
@@ -85,8 +85,8 @@ const ShiftForm = () => {
     
     try {
       const url = isEditing 
-        ? `http://localhost:5000/api/v1/hr/shifts/${id}`
-        : 'http://localhost:5000/api/v1/hr/shifts';
+        ? `/api/v1/hr/shifts/${id}`
+        : '/api/v1/hr/shifts';
       
       const method = isEditing ? 'put' : 'post';
       

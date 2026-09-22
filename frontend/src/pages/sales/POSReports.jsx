@@ -10,7 +10,7 @@ const POSReports = () => {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/v1/pos/reports', {
+        const res = await axios.get('/api/v1/pos/reports', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         setReports(res.data);

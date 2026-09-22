@@ -23,7 +23,7 @@ export default function GenericMasterPage({ title, endpoint }) {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:5000/api/v1/${endpoint}`, {
+      const res = await axios.get(`/api/v1/${endpoint}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setItems(res.data);
@@ -59,9 +59,9 @@ export default function GenericMasterPage({ title, endpoint }) {
       const headers = { Authorization: `Bearer ${token}` };
       
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/v1/${endpoint}/${editingId}`, formData, { headers });
+        await axios.put(`/api/v1/${endpoint}/${editingId}`, formData, { headers });
       } else {
-        await axios.post(`http://localhost:5000/api/v1/${endpoint}`, formData, { headers });
+        await axios.post(`/api/v1/${endpoint}`, formData, { headers });
       }
       setIsModalOpen(false);
       fetchItems();
@@ -74,7 +74,7 @@ export default function GenericMasterPage({ title, endpoint }) {
     if (!window.confirm(`Are you sure you want to delete this ${title}?`)) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/v1/${endpoint}/${id}`, {
+      await axios.delete(`/api/v1/${endpoint}/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchItems();

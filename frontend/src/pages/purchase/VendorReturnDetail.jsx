@@ -29,7 +29,7 @@ export default function VendorReturnDetail() {
 
   const fetchVendorReturn = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/vendor-returns/${id}`, {
+      const res = await axios.get(`/api/v1/vendor-returns/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setVr(res.data);
@@ -45,11 +45,11 @@ export default function VendorReturnDetail() {
   const updateStatus = async (status) => {
     try {
       if (status === 'CONFIRMED') {
-        await axios.post(`http://localhost:5000/api/v1/vendor-returns/${id}/confirm`, {}, {
+        await axios.post(`/api/v1/vendor-returns/${id}/confirm`, {}, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.patch(`http://localhost:5000/api/v1/vendor-returns/${id}/status`, { status }, {
+        await axios.patch(`/api/v1/vendor-returns/${id}/status`, { status }, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }
@@ -62,7 +62,7 @@ export default function VendorReturnDetail() {
   const validateReturn = async () => {
     if (!window.confirm('Validate this Vendor Return? This will permanently decrease inventory and cannot be undone.')) return;
     try {
-      await axios.post(`http://localhost:5000/api/v1/vendor-returns/${id}/validate`, {}, {
+      await axios.post(`/api/v1/vendor-returns/${id}/validate`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       alert('Vendor Return validated successfully. Inventory has been updated.');

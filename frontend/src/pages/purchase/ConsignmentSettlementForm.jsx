@@ -31,7 +31,7 @@ export default function ConsignmentSettlementForm() {
   const fetchLookups = async () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      const consRes = await axios.get('http://localhost:5000/api/v1/consignments?limit=100', { headers });
+      const consRes = await axios.get('/api/v1/consignments?limit=100', { headers });
       setConsignments(consRes.data.data.filter(c => c.status === 'ACTIVE' || c.status === 'CLOSED'));
     } catch (error) {
       console.error('Failed to load lookups', error);
@@ -43,13 +43,13 @@ export default function ConsignmentSettlementForm() {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       
       // We need to find stock lines for this consignment that have (consumed - settled) > 0
-      const stockRes = await axios.get(`http://localhost:5000/api/v1/consignment-stock/all?limit=1000`, { headers });
+      const stockRes = await axios.get(`/api/v1/consignment-stock/all?limit=1000`, { headers });
       const relevantStock = stockRes.data.data.filter(s => 
         s.consignmentId?._id === consignmentId && (s.consumedQuantity - s.settledQuantity) > 0
       );
 
       // Also get the consignment terms to get the unit price
-      const consRes = await axios.get(`http://localhost:5000/api/v1/consignments/${consignmentId}`, { headers });
+      const consRes = await axios.get(`/api/v1/consignments/${consignmentId}`, { headers });
       const consTerms = consRes.data.data.items;
 
       const items = relevantStock.map(stock => {
@@ -100,12 +100,12 @@ export default function ConsignmentSettlementForm() {
         items: itemsToSettle
       };
 
-      const res = await axios.post(`http://localhost:5000/api/v1/consignment-settlements`, payload, {
+      const res = await axios.post(`/api/v1/consignment-settlements`, payload, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       
       // Auto-validate it for simplicity since we don't have a detail screen built yet
-      await axios.post(`http://localhost:5000/api/v1/consignment-settlements/${res.data.data._id}/validate`, {}, {
+      await axios.post(`/api/v1/consignment-settlements/${res.data.data._id}/validate`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
 

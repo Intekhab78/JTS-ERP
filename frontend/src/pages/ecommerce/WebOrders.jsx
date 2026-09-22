@@ -25,7 +25,7 @@ const WebOrders = () => {
 
   const fetchOrders = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/v1/ecommerce-admin/orders', {
+      const res = await axios.get('/api/v1/ecommerce-admin/orders', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setOrders(res.data);
@@ -36,7 +36,7 @@ const WebOrders = () => {
 
   const updateStatus = async (id, newStatus) => {
     try {
-      await axios.put(`http://localhost:5000/api/v1/ecommerce-admin/orders/${id}/status`, { status: newStatus }, {
+      await axios.put(`/api/v1/ecommerce-admin/orders/${id}/status`, { status: newStatus }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchOrders();

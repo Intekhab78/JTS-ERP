@@ -145,15 +145,15 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
         const [taxRes, uomRes, convRes, supplierRes, famRes, subFamRes, sizeRes, colorRes, deptRes] = await Promise.all([
-          axios.get('http://localhost:5000/api/v1/taxes', { headers }).catch(() => ({ data: [] })),
-          axios.get('http://localhost:5000/api/v1/inventory/uoms', { headers }).catch(() => ({ data: [] })),
-          axios.get('http://localhost:5000/api/v1/inventory/uom-conversions', { headers }).catch(() => ({ data: [] })),
-          axios.get('http://localhost:5000/api/v1/suppliers', { headers }).catch(() => ({ data: [] })),
-          axios.get('http://localhost:5000/api/v1/hierarchy/families', { headers }).catch(() => ({ data: [] })),
-          axios.get('http://localhost:5000/api/v1/hierarchy/subfamilies', { headers }).catch(() => ({ data: [] })),
-          axios.get('http://localhost:5000/api/v1/hierarchy/sizes', { headers }).catch(() => ({ data: [] })),
-          axios.get('http://localhost:5000/api/v1/hierarchy/colors', { headers }).catch(() => ({ data: [] })),
-          axios.get('http://localhost:5000/api/v1/hierarchy/departments', { headers }).catch(() => ({ data: [] }))
+          axios.get('/api/v1/taxes', { headers }).catch(() => ({ data: [] })),
+          axios.get('/api/v1/inventory/uoms', { headers }).catch(() => ({ data: [] })),
+          axios.get('/api/v1/inventory/uom-conversions', { headers }).catch(() => ({ data: [] })),
+          axios.get('/api/v1/suppliers', { headers }).catch(() => ({ data: [] })),
+          axios.get('/api/v1/hierarchy/families', { headers }).catch(() => ({ data: [] })),
+          axios.get('/api/v1/hierarchy/subfamilies', { headers }).catch(() => ({ data: [] })),
+          axios.get('/api/v1/hierarchy/sizes', { headers }).catch(() => ({ data: [] })),
+          axios.get('/api/v1/hierarchy/colors', { headers }).catch(() => ({ data: [] })),
+          axios.get('/api/v1/hierarchy/departments', { headers }).catch(() => ({ data: [] }))
         ]);
         setTaxes(taxRes.data.filter(t => t.isActive !== false));
         setUoms(uomRes.data.filter(u => u.isActive !== false));
@@ -217,7 +217,7 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
       let finalCategoryId = formData.categoryId;
 
       if (isAddingCategory && newCategoryName.trim()) {
-        const catRes = await axios.post('http://localhost:5000/api/v1/inventory/categories', 
+        const catRes = await axios.post('/api/v1/inventory/categories', 
           { name: newCategoryName }, 
           { headers }
         );
@@ -253,13 +253,13 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
       let productId = null;
 
       if (isEditing) {
-        const res = await axios.put(`http://localhost:5000/api/v1/inventory/products/${productToEdit._id}`, 
+        const res = await axios.put(`/api/v1/inventory/products/${productToEdit._id}`, 
           payload, 
           { headers }
         );
         productId = productToEdit._id;
       } else {
-        const res = await axios.post('http://localhost:5000/api/v1/inventory/products', 
+        const res = await axios.post('/api/v1/inventory/products', 
           payload, 
           { headers }
         );
@@ -270,7 +270,7 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
       for (const imgUrl of imagesToDelete) {
         const imageName = imgUrl.split('/').pop();
         try {
-          await axios.delete(`http://localhost:5000/api/v1/inventory/products/${productId}/images/${imageName}`, { headers });
+          await axios.delete(`/api/v1/inventory/products/${productId}/images/${imageName}`, { headers });
         } catch(e) { console.error("Failed to delete image", e); }
       }
 
@@ -278,7 +278,7 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
       if (selectedFiles.length > 0) {
         const imgData = new FormData();
         selectedFiles.forEach(f => imgData.append('images', f));
-        await axios.post(`http://localhost:5000/api/v1/inventory/products/${productId}/images`, imgData, {
+        await axios.post(`/api/v1/inventory/products/${productId}/images`, imgData, {
           headers: { ...headers, 'Content-Type': 'multipart/form-data' }
         });
       }

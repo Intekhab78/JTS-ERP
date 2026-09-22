@@ -30,7 +30,7 @@ const CompanySettings = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/company', {
+      const res = await axios.get('/api/v1/company', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCompany(res.data);
@@ -46,7 +46,7 @@ const CompanySettings = () => {
     setIsSaving(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.put('http://localhost:5000/api/v1/company', company, {
+      await axios.put('/api/v1/company', company, {
         headers: { Authorization: `Bearer ${token}` }
       });
       // Trigger a global currency update so CurrencyContext fetches the new setting

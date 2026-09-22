@@ -50,8 +50,8 @@ const TaxInvoiceForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       const [customersRes, productsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/crm/customers', { headers }),
-        axios.get('http://localhost:5000/api/v1/inventory/products', { headers })
+        axios.get('/api/v1/crm/customers', { headers }),
+        axios.get('/api/v1/inventory/products', { headers })
       ]);
       setCustomers(customersRes.data);
       setProducts(productsRes.data.filter(p => p.isActive !== false));
@@ -62,7 +62,7 @@ const TaxInvoiceForm = () => {
 
   const fetchTaxInvoice = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/tax-invoices/${id}`, {
+      const res = await axios.get(`/api/v1/tax-invoices/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const pf = res.data;
@@ -165,9 +165,9 @@ const TaxInvoiceForm = () => {
       
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/v1/tax-invoices/${id}`, payload, { headers });
+        await axios.put(`/api/v1/tax-invoices/${id}`, payload, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/tax-invoices', payload, { headers });
+        await axios.post('/api/v1/tax-invoices', payload, { headers });
       }
       navigate('/sales/tax-invoices');
     } catch (error) {

@@ -24,7 +24,7 @@ export default function UomMaster() {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:5000/api/v1/inventory/uoms?includeInactive=true', {
+      const res = await axios.get('/api/v1/inventory/uoms?includeInactive=true', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUoms(res.data);
@@ -60,9 +60,9 @@ export default function UomMaster() {
       const headers = { Authorization: `Bearer ${token}` };
       
       if (editingId) {
-        await axios.put(`http://localhost:5000/api/v1/inventory/uoms/${editingId}`, formData, { headers });
+        await axios.put(`/api/v1/inventory/uoms/${editingId}`, formData, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/inventory/uoms', formData, { headers });
+        await axios.post('/api/v1/inventory/uoms', formData, { headers });
       }
       setIsModalOpen(false);
       fetchUoms();
@@ -75,7 +75,7 @@ export default function UomMaster() {
     if (!window.confirm('Are you sure you want to delete this UOM?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/v1/inventory/uoms/${id}`, {
+      await axios.delete(`/api/v1/inventory/uoms/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchUoms();

@@ -34,9 +34,9 @@ export default function ConsignmentForm() {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       const [suppRes, branchRes, prodRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/suppliers', { headers }),
-        axios.get('http://localhost:5000/api/v1/branches', { headers }),
-        axios.get('http://localhost:5000/api/v1/inventory/products', { headers })
+        axios.get('/api/v1/suppliers', { headers }),
+        axios.get('/api/v1/branches', { headers }),
+        axios.get('/api/v1/inventory/products', { headers })
       ]);
       setSuppliers(suppRes.data);
       setBranches(branchRes.data);
@@ -48,7 +48,7 @@ export default function ConsignmentForm() {
 
   const fetchConsignment = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/consignments/${id}`, {
+      const res = await axios.get(`/api/v1/consignments/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const c = res.data.data;
@@ -91,7 +91,7 @@ export default function ConsignmentForm() {
 
     setLoading(true);
     try {
-      const url = isEdit ? `http://localhost:5000/api/v1/consignments/${id}` : `http://localhost:5000/api/v1/consignments`;
+      const url = isEdit ? `/api/v1/consignments/${id}` : `/api/v1/consignments`;
       const method = isEdit ? 'put' : 'post';
       
       const res = await axios[method](url, formData, {

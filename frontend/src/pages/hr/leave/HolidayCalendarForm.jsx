@@ -26,7 +26,7 @@ const HolidayCalendarForm = () => {
     if (isEditing) {
       const fetchAll = async () => {
         try {
-          const { data } = await axios.get(`http://localhost:5000/api/v1/hr/holiday-calendars`, {
+          const { data } = await axios.get(`/api/v1/hr/holiday-calendars`, {
             headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
           });
           const found = data.find(c => c._id === id);
@@ -60,11 +60,11 @@ const HolidayCalendarForm = () => {
     
     try {
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/v1/hr/holiday-calendars/${id}`, formData, {
+        await axios.put(`/api/v1/hr/holiday-calendars/${id}`, formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       } else {
-        await axios.post('http://localhost:5000/api/v1/hr/holiday-calendars', formData, {
+        await axios.post('/api/v1/hr/holiday-calendars', formData, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
       }

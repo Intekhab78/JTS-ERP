@@ -23,7 +23,7 @@ const NewCustomerModal = ({ isOpen, onClose, onSuccess }) => {
     
     setIsSubmitting(true);
     try {
-      const res = await axios.post('http://localhost:5000/api/v1/crm/customers', formData, {
+      const res = await axios.post('/api/v1/crm/customers', formData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       onSuccess(res.data);

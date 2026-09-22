@@ -84,10 +84,10 @@ const GRNForm = () => {
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       const [suppRes, brRes, poRes, prodRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/v1/suppliers', { headers }),
-        axios.get('http://localhost:5000/api/v1/branches', { headers }),
-        axios.get('http://localhost:5000/api/v1/purchases', { headers }),
-        axios.get('http://localhost:5000/api/v1/inventory/products', { headers })
+        axios.get('/api/v1/suppliers', { headers }),
+        axios.get('/api/v1/branches', { headers }),
+        axios.get('/api/v1/purchases', { headers }),
+        axios.get('/api/v1/inventory/products', { headers })
       ]);
       setSuppliers(suppRes.data);
       setBranches(brRes.data);
@@ -100,7 +100,7 @@ const GRNForm = () => {
 
   const fetchGRN = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/grn/${id}`, {
+      const res = await axios.get(`/api/v1/grn/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const g = res.data;
@@ -135,10 +135,10 @@ const GRNForm = () => {
     }
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
-      const res = await axios.get(`http://localhost:5000/api/v1/purchases/${poId}`, { headers });
+      const res = await axios.get(`/api/v1/purchases/${poId}`, { headers });
       const selectedPO = res.data;
       
-      const schedulesRes = await axios.get(`http://localhost:5000/api/v1/purchases/${poId}/schedules`, { headers });
+      const schedulesRes = await axios.get(`/api/v1/purchases/${poId}/schedules`, { headers });
       const schedules = schedulesRes.data;
       setPoSchedules(schedules);
 
@@ -446,9 +446,9 @@ const GRNForm = () => {
 
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/v1/grn/${id}`, payload, { headers });
+        await axios.put(`/api/v1/grn/${id}`, payload, { headers });
       } else {
-        await axios.post('http://localhost:5000/api/v1/grn', payload, { headers });
+        await axios.post('/api/v1/grn', payload, { headers });
       }
       
       navigate('/purchases/grn');

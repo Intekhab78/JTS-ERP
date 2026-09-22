@@ -31,8 +31,8 @@ const DocumentManager = ({ employeeId }) => {
       setLoading(true);
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       const [docsRes, typesRes] = await Promise.all([
-        axios.get(`http://localhost:5000/api/v1/hr/employees/${employeeId}/documents`, { headers }),
-        axios.get(`http://localhost:5000/api/v1/hr/document-types`, { headers }).catch(() => ({ data: [] }))
+        axios.get(`/api/v1/hr/employees/${employeeId}/documents`, { headers }),
+        axios.get(`/api/v1/hr/document-types`, { headers }).catch(() => ({ data: [] }))
       ]);
       setDocuments(docsRes.data);
       setDocumentTypes(typesRes.data);
@@ -66,7 +66,7 @@ const DocumentManager = ({ employeeId }) => {
     if (uploadData.expiryDate) formData.append('expiryDate', uploadData.expiryDate);
 
     try {
-      await axios.post(`http://localhost:5000/api/v1/hr/employees/${employeeId}/documents`, formData, {
+      await axios.post(`/api/v1/hr/employees/${employeeId}/documents`, formData, {
         headers: { 
           Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'multipart/form-data'
@@ -84,7 +84,7 @@ const DocumentManager = ({ employeeId }) => {
 
   const handleView = async (doc) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/v1/hr/employees/${employeeId}/documents/${doc._id}/view`, {
+      const res = await axios.get(`/api/v1/hr/employees/${employeeId}/documents/${doc._id}/view`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         responseType: 'blob'
       });
@@ -98,7 +98,7 @@ const DocumentManager = ({ employeeId }) => {
   const handleDelete = async (docId) => {
     if (!window.confirm('Are you sure you want to delete this document?')) return;
     try {
-      await axios.delete(`http://localhost:5000/api/v1/hr/employees/${employeeId}/documents/${docId}`, {
+      await axios.delete(`/api/v1/hr/employees/${employeeId}/documents/${docId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       fetchData();
