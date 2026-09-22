@@ -4,6 +4,60 @@ const { verifyBranchAccess, verifyPOSOverrideToken } = require('../../core/middl
 const auditService = require('../audit/auditService');
 const Company = require('../../core/models/Company');
 
+/**
+ * Policy-aware session lookup helper.
+ *
+ * SINGLE_CASHIER:  finds an OPEN session where openedBy = req.user._id
+ *                   (and optionally matches branchId / registerId).
+ * MULTIPLE_CASHIERS: finds an OPEN session on the given register where the
+ *                   user is the opener OR is already in authorizedCashiers[].
+ *
+ * Returns the session or null.
+ * Throws an Error with a user-facing message when the cashier is not
+ * authorised to use the session found (SINGLE_CASHIER mode, wrong cashier).
+ */
+exports.getPOSSessionForCashier = async (req, { branchId, registerId } = {}) => {
+  const company = await Company.findById(req.user.tenantId).select('settings');
+  const policy = company?.settings?.posCashierPolicy || 'SINGLE_CASHIER';
+
+  if (policy === 'MULTIPLE_CASHIERS') {
+    // Find the OPEN session on this register (or branch if no registerId given)
+    const query = {
+      tenantId: req.user.tenantId,
+      status: 'OPEN'
+    };
+    if (registerId) {
+      query.registerId = registerId;
+    } else if (branchId) {
+      query.branchId = branchId;
+    }
+
+    const session = await POSSession.findOne(query);
+
+    if (!session) return null;
+
+    const userId = req.user._id.toString();
+    const isOpener = session.openedBy.toString() === userId;
+    const isAuthorized = isOpener || session.authorizedCashiers.some(id => id.toString() === userId);
+
+    if (!isAuthorized) {
+      // The session exists but this cashier has not joined it
+      throw new Error('No active POS session found for this user. Please open or join a session first.');
+    }
+
+    return session;
+  }
+
+  // SINGLE_CASHIER — original behaviour
+  const query = {
+    tenantId: req.user.tenantId,
+    openedBy: req.user._id,
+    status: 'OPEN'
+  };
+  if (branchId) query.branchId = branchId;
+  return POSSession.findOne(query);
+};
+
 // @desc    Open a new POS session
 // @route   POST /api/v1/pos/sessions/open
 // @access  Private
@@ -28,17 +82,6 @@ exports.openSession = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
     }
 
-    // Check if user already has an open session
-    const existingSession = await POSSession.findOne({
-      tenantId: req.user.tenantId,
-      openedBy: req.user._id,
-      status: 'OPEN'
-    });
-
-    if (existingSession) {
-      return res.status(400).json({ message: 'You already have an active POS session. Please close it first.' });
-    }
-
     // Verify register belongs to tenant and branch and is ACTIVE
     const Register = require('../../core/models/Register');
     const register = await Register.findOne({
@@ -55,15 +98,71 @@ exports.openSession = async (req, res) => {
       return res.status(400).json({ message: 'This register is not currently ACTIVE.' });
     }
 
-    // Prevent multiple active sessions on the same register
+    // Read the company cashier policy
+    const company = await Company.findById(req.user.tenantId).select('settings');
+    const policy = company?.settings?.posCashierPolicy || 'SINGLE_CASHIER';
+
+    // Check for an existing OPEN session on this register
     const registerInUse = await POSSession.findOne({
       registerId,
-      status: { $in: ['OPEN', 'CLOSING_AUDIT'] }
+      status: 'OPEN'
     });
 
+    // ── MULTIPLE_CASHIERS: Join the existing session ──────────────────────────
+    if (policy === 'MULTIPLE_CASHIERS' && registerInUse) {
+      const userId = req.user._id.toString();
+      const isOpener = registerInUse.openedBy.toString() === userId;
+      const alreadyAuthorized = registerInUse.authorizedCashiers.some(id => id.toString() === userId);
+
+      if (!isOpener && !alreadyAuthorized) {
+        // Add this cashier to authorizedCashiers
+        registerInUse.authorizedCashiers.push(req.user._id);
+        await registerInUse.save();
+
+        await auditService.logAuditEventSync(req, {
+          action: 'POS_SESSION_CASHIER_JOIN',
+          entityType: 'POSSession',
+          entityId: registerInUse._id,
+          branchId: registerInUse.branchId,
+          registerId: registerInUse.registerId,
+          sessionId: registerInUse._id,
+          metadata: {
+            joinedCashierId: req.user._id,
+            sessionOpenedBy: registerInUse.openedBy
+          }
+        });
+      }
+
+      // Return the existing session with a joined flag so the frontend knows
+      const populatedSession = await POSSession.findById(registerInUse._id)
+        .populate('branchId', 'name')
+        .populate('registerId', 'name code')
+        .populate('openedBy', 'firstName lastName')
+        .populate('authorizedCashiers', 'firstName lastName');
+
+      return res.status(200).json({ ...populatedSession.toObject(), joined: true });
+    }
+
+    // ── SINGLE_CASHIER or MULTIPLE_CASHIERS first opener ─────────────────────
+    // Block if register is already in use (SINGLE_CASHIER, or no open session to join)
     if (registerInUse) {
       return res.status(400).json({ message: 'Another active session is already using this register.' });
     }
+
+    // In SINGLE_CASHIER: also prevent the same cashier from opening 2 sessions
+    if (policy === 'SINGLE_CASHIER') {
+      const existingUserSession = await POSSession.findOne({
+        tenantId: req.user.tenantId,
+        openedBy: req.user._id,
+        status: 'OPEN'
+      });
+      if (existingUserSession) {
+        return res.status(400).json({ message: 'You already have an active POS session. Please close it first.' });
+      }
+    }
+
+    // Build initial authorizedCashiers — include opener so the array is never empty
+    const initialAuthorizedCashiers = policy === 'MULTIPLE_CASHIERS' ? [req.user._id] : [];
 
     const session = await POSSession.create({
       tenantId: req.user.tenantId,
@@ -71,6 +170,7 @@ exports.openSession = async (req, res) => {
       registerId,
       locationId: locationId || undefined,
       openedBy: req.user._id,
+      authorizedCashiers: initialAuthorizedCashiers,
       openingCash,
       openingDenominations: openingDenominations || [],
       notes
@@ -83,7 +183,7 @@ exports.openSession = async (req, res) => {
       branchId: session.branchId,
       registerId: session.registerId,
       sessionId: session._id,
-      metadata: { openingCash: session.openingCash }
+      metadata: { openingCash: session.openingCash, policy }
     });
 
     res.status(201).json(session);
@@ -97,27 +197,30 @@ exports.openSession = async (req, res) => {
 // @access  Private
 exports.getActiveSession = async (req, res) => {
   try {
+    const userId = req.user._id;
+
+    // Find session where user is opener OR is in authorizedCashiers
+    // This works for both SINGLE_CASHIER (opener only) and MULTIPLE_CASHIERS (any authorized cashier)
     const session = await POSSession.findOne({
       tenantId: req.user.tenantId,
-      openedBy: req.user._id,
-      status: 'OPEN'
+      status: 'OPEN',
+      $or: [
+        { openedBy: userId },
+        { authorizedCashiers: userId }
+      ]
     })
       .populate('branchId', 'name')
-      .populate('registerId', 'name code');
+      .populate('registerId', 'name code')
+      .populate('openedBy', 'firstName lastName')
+      .populate('authorizedCashiers', 'firstName lastName');
 
     if (!session) {
       return res.status(404).json({ message: 'No active session found' });
     }
 
-    const POSPayment = require('../../core/models/POSPayment');
     const payments = await POSPayment.aggregate([
       { $match: { sessionId: session._id } },
-      {
-        $group: {
-          _id: '$method',
-          total: { $sum: '$amount' }
-        }
-      }
+      { $group: { _id: '$method', total: { $sum: '$amount' } } }
     ]);
 
     let currentCashSales = 0;
@@ -458,6 +561,7 @@ exports.getAllSessions = async (req, res) => {
       .populate('branchId', 'name')
       .populate('registerId', 'name code')
       .populate('openedBy', 'firstName lastName')
+      .populate('authorizedCashiers', 'firstName lastName')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -513,6 +617,7 @@ exports.getReconciliationReport = async (req, res) => {
       .populate('registerId', 'name code')
       .populate('openedBy', 'firstName lastName')
       .populate('closedBy', 'firstName lastName')
+      .populate('authorizedCashiers', 'firstName lastName')
       .sort({ openedAt: -1 })
       .skip(skip)
       .limit(limit);

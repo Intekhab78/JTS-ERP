@@ -7,6 +7,7 @@ const {
   createEmployee,
   getEmployeeById,
   updateEmployee,
+  deleteEmployee,
   linkUser,
   unlinkUser,
   uploadFamilyDocument
@@ -61,7 +62,8 @@ router.use('/document-types', documentTypeRoutes);
 
 router.route('/employees/:id')
   .get(protect, getEmployeeById)
-  .put(protect, updateEmployee);
+  .put(protect, updateEmployee)
+  .delete(protect, authorize('HR.EMPLOYEE.DELETE', '*'), deleteEmployee);
 
 router.route('/employees/:id/link-user')
   .post(protect, linkUser);

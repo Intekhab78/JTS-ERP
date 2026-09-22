@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { UserCircle, Briefcase, Mail, Phone, MapPin, Building2, Calendar, FileText, ArrowLeft, Edit, Shield, CheckCircle, XCircle, Target, FileCheck, Banknote, Users, AlertTriangle } from 'lucide-react';
+import { UserCircle, Briefcase, Mail, Phone, MapPin, Building2, Calendar, FileText, ArrowLeft, Edit, Shield, CheckCircle, XCircle, Target, FileCheck, Banknote, Users, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Input } from '../../components/ui/Input';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/ui/Button';
@@ -30,6 +31,16 @@ const EmployeeDetail = () => {
   const [selectedUserId, setSelectedUserId] = useState('');
   const [isLinking, setIsLinking] = useState(false);
 
+  // Grant Portal Access Modal state
+  const [isGrantModalOpen, setIsGrantModalOpen] = useState(false);
+  const [roles, setRoles] = useState([]);
+  const [isGranting, setIsGranting] = useState(false);
+  const [grantError, setGrantError] = useState('');
+  const [grantForm, setGrantForm] = useState({
+    firstName: '', lastName: '', email: '', password: '',
+    roleId: '', portalAccess: 'WEB LOGIN'
+  });
+
   const authUser = JSON.parse(localStorage.getItem('user') || '{}');
   const userPermissions = authUser.permissions || [];
   const hasPermission = (perm) => userPermissions.includes('*') || userPermissions.includes(perm);
@@ -56,11 +67,58 @@ const EmployeeDetail = () => {
       const res = await axios.get(`http://localhost:5000/api/v1/users`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      // Filter out users who already have an employee linked
       const available = res.data.filter(u => !u.employeeId);
       setUnlinkedUsers(available);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/v1/roles', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setRoles(res.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const openGrantModal = () => {
+    setGrantError('');
+    setGrantForm({
+      firstName: employee.firstName || '',
+      lastName: employee.lastName || '',
+      email: employee.email || employee.personalEmail || '',
+      password: '',
+      roleId: '',
+      portalAccess: 'WEB LOGIN'
+    });
+    fetchRoles();
+    setIsGrantModalOpen(true);
+  };
+
+  const handleGrantAccess = async (e) => {
+    e.preventDefault();
+    setGrantError('');
+    setIsGranting(true);
+    try {
+      // Create user with employee pre-linked
+      const branchIds = employee.branchId?._id ? [employee.branchId._id] : [];
+      await axios.post('http://localhost:5000/api/v1/users', {
+        ...grantForm,
+        branches: branchIds,
+        employeeId: employee._id
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setIsGrantModalOpen(false);
+      fetchEmployee();
+    } catch (error) {
+      setGrantError(error.response?.data?.message || 'Failed to create user account.');
+    } finally {
+      setIsGranting(false);
     }
   };
 
@@ -346,9 +404,14 @@ const EmployeeDetail = () => {
                       Unlink User
                     </Button>
                   ) : (
-                    <Button onClick={() => { fetchUnlinkedUsers(); setIsLinkUserModalOpen(true); }}>
-                      Link Existing User
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={() => { fetchUnlinkedUsers(); setIsLinkUserModalOpen(true); }}>
+                        Link Existing User
+                      </Button>
+                      <Button onClick={openGrantModal} className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                        <ShieldCheck size={16} /> Grant Portal Access
+                      </Button>
+                    </div>
                   )}
                 </div>
 
@@ -372,6 +435,7 @@ const EmployeeDetail = () => {
                     <XCircle className="text-slate-400 mx-auto mb-2" size={32} />
                     <div className="font-medium text-slate-900">No User Account Linked</div>
                     <p className="text-sm text-slate-500 mt-1">This employee exists in HR but cannot login to the system.</p>
+                    <p className="text-xs text-slate-400 mt-1">Click <strong>Grant Portal Access</strong> to create a login for this employee, or <strong>Link Existing User</strong> if an account already exists.</p>
                   </div>
                 )}
               </Card>
@@ -380,6 +444,7 @@ const EmployeeDetail = () => {
         </div>
       </div>
 
+      {/* Link Existing User Modal */}
       <Modal isOpen={isLinkUserModalOpen} onClose={() => setIsLinkUserModalOpen(false)} title="Link User Account">
         <form onSubmit={handleLinkUser} className="space-y-4">
           <FormField label="Select User Account" required>
@@ -396,6 +461,72 @@ const EmployeeDetail = () => {
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => setIsLinkUserModalOpen(false)}>Cancel</Button>
             <Button type="submit" disabled={isLinking}>{isLinking ? 'Linking...' : 'Link User'}</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Grant Portal Access Modal — pre-filled from employee data */}
+      <Modal isOpen={isGrantModalOpen} onClose={() => setIsGrantModalOpen(false)} title="Grant Portal Access" size="lg">
+        <div className="flex items-center gap-3 mb-5 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+          <ShieldCheck className="text-emerald-600 shrink-0" size={20} />
+          <p className="text-sm text-emerald-800">
+            A new login account will be created for <strong>{employee.firstName} {employee.lastName}</strong> and automatically linked to their HR profile.
+          </p>
+        </div>
+
+        <form onSubmit={handleGrantAccess} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="First Name" required>
+              <Input required value={grantForm.firstName} onChange={e => setGrantForm({ ...grantForm, firstName: e.target.value })} />
+            </FormField>
+            <FormField label="Last Name" required>
+              <Input required value={grantForm.lastName} onChange={e => setGrantForm({ ...grantForm, lastName: e.target.value })} />
+            </FormField>
+          </div>
+
+          <FormField label="Email Address (Login)" required>
+            <Input type="email" required value={grantForm.email} onChange={e => setGrantForm({ ...grantForm, email: e.target.value })} placeholder="employee@company.com" />
+          </FormField>
+
+          <FormField label="Temporary Password" required>
+            <Input type="password" required value={grantForm.password} onChange={e => setGrantForm({ ...grantForm, password: e.target.value })} placeholder="Minimum 6 characters" />
+          </FormField>
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Assign Role" required>
+              <Select required value={grantForm.roleId} onChange={e => setGrantForm({ ...grantForm, roleId: e.target.value })}>
+                <option value="" disabled>Select a Role</option>
+                {roles.map(role => (
+                  <option key={role._id} value={role._id}>{role.name}</option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Portal Access" required>
+              <Select required value={grantForm.portalAccess} onChange={e => setGrantForm({ ...grantForm, portalAccess: e.target.value })}>
+                <option value="WEB LOGIN">Web Login Only</option>
+                <option value="MOBILE LOGIN">Mobile Login Only</option>
+                <option value="WEB + MOBILE">Web + Mobile</option>
+                <option value="NO ACCESS">No Access (Disabled)</option>
+              </Select>
+            </FormField>
+          </div>
+
+          {employee.branchId && (
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600">
+              <span className="font-medium">Branch access:</span> {employee.branchId.name} (auto-assigned from HR profile)
+            </div>
+          )}
+
+          {grantError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{grantError}</div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setIsGrantModalOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={isGranting} className="bg-emerald-600 hover:bg-emerald-700">
+              {isGranting ? 'Creating Account...' : 'Create & Grant Access'}
+            </Button>
           </div>
         </form>
       </Modal>

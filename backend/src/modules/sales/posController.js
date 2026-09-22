@@ -12,6 +12,7 @@ const Customer = require('../../core/models/Customer');
 const Company = require('../../core/models/Company');
 const { verifyBranchAccess, verifyProductAccess, verifyPOSOverrideToken } = require('../../core/middleware/authMiddleware');
 const auditService = require('../audit/auditService');
+const { getPOSSessionForCashier } = require('./posSessionController');
 
 const generateReceiptNumber = async (tenantId, session) => {
   const currentYear = new Date().getFullYear();
@@ -60,12 +61,8 @@ exports.createOrder = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
     }
 
-    // 1. Verify Active Session
-    const posSession = await POSSession.findOne({
-      tenantId: req.user.tenantId,
-      openedBy: req.user._id,
-      status: 'OPEN'
-    }).session(session);
+    // 1. Verify Active Session — policy-aware (supports both SINGLE and MULTIPLE cashier modes)
+    const posSession = await getPOSSessionForCashier(req, { branchId });
 
     if (!posSession) {
       throw new Error('No active POS session found for this user. Please open a session first.');
@@ -691,13 +688,8 @@ exports.createReturn = async (req, res) => {
       throw new Error('Forbidden: You do not have access to this branch');
     }
 
-    // Verify Active Session so refunds deduct from expected cash properly, or at least log the session
-    const posSession = await POSSession.findOne({
-      tenantId: req.user.tenantId,
-      branchId: originalOrder.branchId,
-      openedBy: req.user._id,
-      status: 'OPEN'
-    }).session(session);
+    // Verify Active Session — policy-aware (supports both SINGLE and MULTIPLE cashier modes)
+    const posSession = await getPOSSessionForCashier(req, { branchId: originalOrder.branchId });
 
     if (!posSession) {
       throw new Error('No active POS session found. Please open a session before processing returns.');

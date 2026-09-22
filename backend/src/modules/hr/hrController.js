@@ -1,6 +1,7 @@
 const Department = require('../../core/models/Department');
 const Employee = require('../../core/models/Employee');
 const Counter = require('../../core/models/Counter');
+const User = require('../../core/models/User');
 const { verifyBranchAccess } = require('../../core/middleware/authMiddleware');
 
 const generateEmployeeCode = async (tenantId) => {
@@ -201,6 +202,28 @@ exports.updateEmployee = async (req, res) => {
     .populate('branchId', 'name');
 
     res.status(200).json(employee);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Delete employee
+// @route   DELETE /api/v1/hr/employees/:id
+// @access  Private
+exports.deleteEmployee = async (req, res) => {
+  try {
+    const employee = await Employee.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // If this employee is linked to a User, remove the back-reference
+    if (employee.userId) {
+      await User.findByIdAndUpdate(employee.userId, { $unset: { employeeId: 1 } });
+    }
+
+    await employee.deleteOne();
+    res.status(200).json({ message: 'Employee deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

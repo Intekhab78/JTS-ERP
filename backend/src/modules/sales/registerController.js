@@ -2,6 +2,7 @@ const Register = require('../../core/models/Register');
 const POSSession = require('../../core/models/POSSession');
 const { verifyBranchAccess, verifyPOSOverrideToken } = require('../../core/middleware/authMiddleware');
 const auditService = require('../audit/auditService');
+const { getPOSSessionForCashier } = require('./posSessionController');
 
 // @desc    Create a new POS Register
 // @route   POST /api/v1/pos/registers
@@ -188,12 +189,8 @@ exports.openDrawer = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
     }
 
-    const activeSession = await POSSession.findOne({
-      registerId: register._id,
-      tenantId: req.user.tenantId,
-      status: 'OPEN',
-      openedBy: req.user._id
-    });
+    // Policy-aware: works for SINGLE_CASHIER (opener only) and MULTIPLE_CASHIERS (any authorized cashier)
+    const activeSession = await getPOSSessionForCashier(req, { registerId: req.params.id });
 
     if (!activeSession) {
       return res.status(400).json({ message: 'Active POS session is required to open the drawer' });
