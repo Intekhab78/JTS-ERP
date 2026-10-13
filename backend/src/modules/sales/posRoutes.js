@@ -18,6 +18,7 @@ router.post('/sessions/:id/resolve-audit', authorize('AUDIT_POS_SESSIONS'), posS
 router.get('/sessions/reconciliation', authorize('VIEW_POS_SESSIONS', 'VIEW_POS_REPORTS'), posSessionController.getReconciliationReport);
 
 // Order Routes
+router.post('/promotions/evaluate', authorize('CREATE_POS_ORDERS', 'VIEW_POS_ORDERS'), posController.evaluateCartPromotions);
 router.post('/orders', authorize('CREATE_POS_ORDERS'), posController.createOrder);
 router.get('/orders', authorize('VIEW_POS_ORDERS'), posController.getOrders);
 router.get('/orders/:id', authorize('VIEW_POS_ORDERS'), posController.getOrderById);

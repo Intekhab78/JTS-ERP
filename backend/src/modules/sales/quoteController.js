@@ -7,6 +7,7 @@ const OrderItem = require('../../core/models/OrderItem');
 const Stock = require('../../core/models/Stock');
 const mongoose = require('mongoose');
 const { verifyBranchAccess, verifyProductAccess, verifyCustomerAccess } = require('../../core/middleware/authMiddleware');
+const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
 
 const generateQuoteNumber = async (tenantId) => {
   const currentYear = new Date().getFullYear();
@@ -22,11 +23,13 @@ const generateQuoteNumber = async (tenantId) => {
   return `QT-${currentYear}-${paddedSequence}`;
 };
 
-const calculateTotals = async (items, req) => {
+const calculateTotals = async (items, req, branchId) => {
   const processedItems = [];
   let subtotal = 0;
   let discountTotal = 0;
   let taxTotal = 0;
+
+  const companyItemService = require('../../services/companyItemService');
 
   for (const item of items) {
     const isProductAuthorized = await verifyProductAccess(item.productId, req, true);
@@ -34,16 +37,32 @@ const calculateTotals = async (items, req) => {
       throw new Error(`Forbidden: Product ${item.productId} does not belong to this tenant or is inactive`);
     }
 
-    const product = await Product.findOne({ _id: item.productId, tenantId: req.user.tenantId });
+    const tenantContext = req.user.activeTenantId || req.user.tenantId;
+    const product = await Product.findOne({ _id: item.productId, tenantId: tenantContext });
     if (!product) throw new Error(`Product ${item.productId} not found`);
 
+    let resolvedItem;
+    try {
+      resolvedItem = await companyItemService.validateSaleable({
+        tenantId: req.user.tenantId,
+        productId: product._id,
+        branchId,
+        user: req.user
+      });
+    } catch (err) {
+      if (err.name === 'CompanyItemNotConfiguredError') {
+        throw new Error(`Product ${product.name} is not configured for this branch: ${err.message}`);
+      }
+      throw err;
+    }
+
     const quantity = Number(item.quantity) || 1;
-    const unitPrice = Number(item.unitPrice) >= 0 ? Number(item.unitPrice) : product.salesPrice;
+    const unitPrice = Number(item.unitPrice) >= 0 ? Number(item.unitPrice) : resolvedItem.salesPrice;
     const discount = Number(item.discount) || 0;
-    const taxRate = Number(item.taxRate) || product.taxRate || 0;
+    const taxRate = Number(item.taxRate) || resolvedItem.taxRate || 0;
 
     const lineSubtotal = quantity * unitPrice;
-    const discountAmount = discount; // assuming discount is absolute amount per line for simplicity, or we can treat as percentage. Let's treat as absolute amount for this line. Wait, if it's percentage? Let's use absolute.
+    const discountAmount = discount; 
     const taxableAmount = Math.max(0, lineSubtotal - discountAmount);
     const taxAmount = (taxableAmount * taxRate) / 100;
     const lineTotal = taxableAmount + taxAmount;
@@ -51,7 +70,7 @@ const calculateTotals = async (items, req) => {
     processedItems.push({
       productId: product._id,
       itemName: product.name,
-      sku: product.sku,
+      sku: resolvedItem.companySku,
       uom: product.uom,
       quantity,
       unitPrice,
@@ -78,7 +97,8 @@ exports.createQuote = async (req, res) => {
       tenantId = req.body.tenantId;
     }
 
-    const { branchId, customerId, items, quoteDate, validUntil, currency, paymentTerms, deliveryTerms, notes, termsAndConditions, internalNotes, shippingCharges, otherCharges } = req.body;
+    const scopedBody = validateCreateScope(req, req.body);
+    const { branchId, customerId, items, quoteDate, validUntil, currency, paymentTerms, deliveryTerms, notes, termsAndConditions, internalNotes, shippingCharges, otherCharges } = scopedBody;
 
     if (!branchId || !customerId || !items || items.length === 0) {
       return res.status(400).json({ message: 'Branch, Customer, and Items are required' });
@@ -90,10 +110,11 @@ exports.createQuote = async (req, res) => {
     const isCustomerAuthorized = await verifyCustomerAccess(customerId, req);
     if (!isCustomerAuthorized) return res.status(403).json({ message: 'Forbidden: Customer does not belong to this tenant' });
 
-    const customer = await Customer.findOne({ _id: customerId, tenantId });
+    const tenantContext = req.user.activeTenantId || req.user.tenantId;
+    const customer = await Customer.findOne({ _id: customerId, tenantId: tenantContext });
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
 
-    const { processedItems, subtotal, discountTotal, taxTotal } = await calculateTotals(items, req);
+    const { processedItems, subtotal, discountTotal, taxTotal } = await calculateTotals(items, req, branchId);
     
     const shipCharge = Number(shippingCharges) || 0;
     const othCharge = Number(otherCharges) || 0;
@@ -103,6 +124,7 @@ exports.createQuote = async (req, res) => {
 
     const quote = await Quote.create({
       tenantId,
+      legalCompanyId: scopedBody.legalCompanyId,
       branchId,
       quoteNumber,
       customerId,
@@ -146,7 +168,7 @@ exports.createQuote = async (req, res) => {
 
 exports.getQuotes = async (req, res) => {
   try {
-    const filter = { tenantId: req.user.tenantId, isActive: true, isCurrentRevision: true };
+    const filter = { ...getReadFilter(req), isActive: true, isCurrentRevision: true };
     
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
     if (req.user.branches && req.user.branches.length > 0) {
@@ -172,7 +194,8 @@ exports.getQuotes = async (req, res) => {
 
 exports.getQuoteById = async (req, res) => {
   try {
-    const quote = await Quote.findOne({ _id: req.params.id, tenantId: req.user.tenantId, isActive: true })
+    const filter = getReadFilter(req);
+    const quote = await Quote.findOne({ _id: req.params.id, ...filter, isActive: true })
       .populate('branchId', 'name')
       .populate('customerId', 'name email phone')
       .populate('salespersonId', 'firstName lastName');
@@ -196,7 +219,8 @@ exports.getQuoteById = async (req, res) => {
 
 exports.updateQuote = async (req, res) => {
   try {
-    const quote = await Quote.findOne({ _id: req.params.id, tenantId: req.user.tenantId, isActive: true });
+    const filter = getReadFilter(req);
+    const quote = await Quote.findOne({ _id: req.params.id, ...filter, isActive: true });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
 
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
@@ -217,7 +241,7 @@ exports.updateQuote = async (req, res) => {
     const { items, validUntil, paymentTerms, deliveryTerms, notes, termsAndConditions, internalNotes, shippingCharges, otherCharges } = req.body;
 
     if (items && items.length > 0) {
-      const { processedItems, subtotal, discountTotal, taxTotal } = await calculateTotals(items, req);
+      const { processedItems, subtotal, discountTotal, taxTotal } = await calculateTotals(items, req, quote.branchId);
       quote.items = processedItems;
       quote.subtotal = subtotal;
       quote.discountTotal = discountTotal;
@@ -254,7 +278,8 @@ exports.updateQuoteStatus = async (req, res) => {
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    const quote = await Quote.findOne({ _id: req.params.id, tenantId: req.user.tenantId, isActive: true });
+    const filter = getReadFilter(req);
+    const quote = await Quote.findOne({ _id: req.params.id, ...filter, isActive: true });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
 
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
@@ -283,7 +308,8 @@ exports.updateQuoteStatus = async (req, res) => {
 
 exports.deleteQuote = async (req, res) => {
   try {
-    const quote = await Quote.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const quote = await Quote.findOne({ _id: req.params.id, ...filter });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
 
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
@@ -314,9 +340,10 @@ exports.convertQuote = async (req, res) => {
     const tenantId = req.user.tenantId;
 
     // 1. Fetch & Verify Quote
+    const filter = getReadFilter(req);
     let quote = await Quote.findOne({ 
       _id: req.params.id, 
-      tenantId 
+      ...filter 
     });
 
     if (!quote) throw new Error("Quote not found or belongs to another tenant");
@@ -348,6 +375,7 @@ exports.convertQuote = async (req, res) => {
     // 4. Create Order
     const order = await Order.create([{
       tenantId,
+      legalCompanyId: quote.legalCompanyId,
       branchId: quote.branchId,
       customerId: quote.customerId,
       userId: req.user._id,
@@ -372,6 +400,7 @@ exports.convertQuote = async (req, res) => {
 
       await OrderItem.create([{
         tenantId,
+        legalCompanyId: quote.legalCompanyId,
         orderId: newOrderId,
         productId: item.productId,
         quantity: item.quantity,
@@ -411,9 +440,10 @@ exports.reviseQuote = async (req, res) => {
   try {
     const tenantId = req.user.tenantId;
     const oldQuoteId = req.params.id;
+    const filter = getReadFilter(req);
 
     // 1. Fetch the existing quote
-    const oldQuote = await Quote.findOne({ _id: oldQuoteId, tenantId, isActive: true });
+    const oldQuote = await Quote.findOne({ _id: oldQuoteId, ...filter, isActive: true });
     if (!oldQuote) throw new Error("Quote not found");
 
     // 2. Authorize
@@ -498,14 +528,15 @@ exports.reviseQuote = async (req, res) => {
 exports.getQuoteRevisions = async (req, res) => {
   try {
     const quoteId = req.params.id;
-    const currentQuote = await Quote.findOne({ _id: quoteId, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const currentQuote = await Quote.findOne({ _id: quoteId, ...filter });
     
     if (!currentQuote) return res.status(404).json({ message: 'Quote not found' });
 
     // Fetch all revisions sharing the same rootQuoteId
     const rootId = currentQuote.rootQuoteId || currentQuote._id;
 
-    const revisions = await Quote.find({ rootQuoteId: rootId, tenantId: req.user.tenantId })
+    const revisions = await Quote.find({ rootQuoteId: rootId, ...filter })
       .populate('createdBy', 'firstName lastName')
       .populate('revisedBy', 'firstName lastName')
       .sort({ revisionNumber: -1 });

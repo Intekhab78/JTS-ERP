@@ -3,13 +3,14 @@ const OrderItem = require('../../core/models/OrderItem');
 const Stock = require('../../core/models/Stock');
 const mongoose = require('mongoose');
 const { verifyBranchAccess, verifyProductAccess } = require('../../core/middleware/authMiddleware');
+const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
 
 // @desc    Get all sales orders for a branch (or all branches for global admin)
 // @route   GET /api/v1/sales
 // @access  Private
 exports.getSales = async (req, res) => {
   try {
-    const filter = { tenantId: req.user.tenantId };
+    const filter = getReadFilter(req);
     
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
     
@@ -48,7 +49,8 @@ exports.createSale = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { branchId, customerId, customerName, items, paymentMethod, discountAmount, taxAmount } = req.body;
+    const scopedBody = validateCreateScope(req, req.body);
+    const { branchId, customerId, customerName, items, paymentMethod, discountAmount, taxAmount } = scopedBody;
     
     if (!branchId) {
       throw new Error('Branch ID is required for a POS sale');
@@ -63,6 +65,8 @@ exports.createSale = async (req, res) => {
       throw new Error('No items in the cart');
     }
 
+    const companyItemService = require('../../services/companyItemService');
+    
     // Calculate total
     let totalAmount = 0;
     for (const item of items) {
@@ -71,7 +75,24 @@ exports.createSale = async (req, res) => {
         throw new Error(`Forbidden: Product ${item.productId} does not belong to this tenant or is inactive`);
       }
 
-      totalAmount += (item.quantity * item.unitPrice);
+      let resolvedItem;
+      try {
+        resolvedItem = await companyItemService.validateSaleable({
+          tenantId: req.user.tenantId,
+          productId: item.productId,
+          branchId,
+          user: req.user
+        });
+      } catch (err) {
+        if (err.name === 'CompanyItemNotConfiguredError') {
+          throw new Error(`Product is not configured for this branch: ${err.message}`);
+        }
+        throw err;
+      }
+      
+      const unitPrice = resolvedItem.salesPrice || 0;
+      item.unitPrice = unitPrice; // Fix the price for the order item creation later
+      totalAmount += (item.quantity * unitPrice);
     }
     
     totalAmount = totalAmount - (discountAmount || 0) + (taxAmount || 0);
@@ -79,6 +100,7 @@ exports.createSale = async (req, res) => {
     // 1. Create the Order
     const order = await Order.create([{
       tenantId: req.user.tenantId,
+      legalCompanyId: scopedBody.legalCompanyId,
       branchId,
       customerId: customerId || undefined,
       userId: req.user._id,
@@ -94,6 +116,7 @@ exports.createSale = async (req, res) => {
     for (const item of items) {
       await OrderItem.create([{
         tenantId: req.user.tenantId,
+        legalCompanyId: scopedBody.legalCompanyId,
         orderId: order[0]._id,
         productId: item.productId,
         quantity: item.quantity,
@@ -104,6 +127,7 @@ exports.createSale = async (req, res) => {
       // Find stock for this branch and product
       const stock = await Stock.findOne({
         tenantId: req.user.tenantId,
+        legalCompanyId: scopedBody.legalCompanyId,
         branchId,
         productId: item.productId
       }).session(session);
@@ -132,7 +156,8 @@ exports.createSale = async (req, res) => {
 // @access  Private
 exports.getSaleById = async (req, res) => {
   try {
-    const order = await Order.findOne({ _id: req.params.id, tenantId: req.user.tenantId })
+    const filter = getReadFilter(req);
+    const order = await Order.findOne({ _id: req.params.id, ...filter })
       .populate('branchId', 'name')
       .populate('userId', 'firstName lastName')
       .populate('customerId', 'name email phone address');
@@ -150,7 +175,7 @@ exports.getSaleById = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const items = await OrderItem.find({ orderId: order._id, tenantId: req.user.tenantId })
+    const items = await OrderItem.find({ orderId: order._id, ...filter })
       .populate('productId', 'name sku uom');
 
     res.status(200).json({ order, items });
@@ -164,7 +189,8 @@ exports.getSaleById = async (req, res) => {
 // @access  Private
 exports.confirmOrder = async (req, res) => {
   try {
-    const order = await Order.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const order = await Order.findOne({ _id: req.params.id, ...filter });
     
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });

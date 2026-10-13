@@ -23,7 +23,7 @@ const getUsers = async (req, res) => {
 // @access  Private
 const createUser = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, roleId, branches, employeeId, mobile, portalAccess } = req.body;
+    const { firstName, lastName, email, password, roleId, branches, legalCompanyIds, employeeId, mobile, portalAccess } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -40,7 +40,8 @@ const createUser = async (req, res) => {
       branches: Array.isArray(branches) ? branches : [],
       employeeId: employeeId || null,
       mobile: mobile || null,
-      portalAccess: portalAccess || 'NO ACCESS'
+      portalAccess: portalAccess || 'NO ACCESS',
+      legalCompanyIds: Array.isArray(legalCompanyIds) ? legalCompanyIds : []
     });
 
     if (employeeId) {
@@ -90,7 +91,7 @@ const updateUser = async (req, res) => {
     const query = { _id: req.params.id };
     if (req.user.tenantId) query.tenantId = req.user.tenantId;
 
-    const { firstName, lastName, roleId, branches, employeeId, mobile, portalAccess, isActive } = req.body;
+    const { firstName, lastName, roleId, branches, legalCompanyIds, employeeId, mobile, portalAccess, isActive, password } = req.body;
 
     let user = await User.findOne(query);
     if (!user) {
@@ -103,10 +104,14 @@ const updateUser = async (req, res) => {
     user.lastName = lastName || user.lastName;
     if (roleId !== undefined) user.roleId = roleId;
     if (branches !== undefined) user.branches = Array.isArray(branches) ? branches : [];
+    if (legalCompanyIds !== undefined) user.legalCompanyIds = Array.isArray(legalCompanyIds) ? legalCompanyIds : [];
     if (employeeId !== undefined) user.employeeId = employeeId || null;
     if (mobile !== undefined) user.mobile = mobile;
     if (portalAccess !== undefined) user.portalAccess = portalAccess;
     if (isActive !== undefined) user.isActive = isActive;
+    if (password && password.trim().length >= 6) {
+      user.password = password.trim();
+    }
 
     await user.save();
 
@@ -158,10 +163,41 @@ const setPosPin = async (req, res) => {
   }
 };
 
+// @desc    Admin reset user password
+// @route   PUT /api/v1/users/:id/reset-password
+// @access  Private
+const resetUserPassword = async (req, res) => {
+  try {
+    const query = { _id: req.params.id };
+    if (req.user.tenantId) query.tenantId = req.user.tenantId;
+
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+
+    const user = await User.findOne(query);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.password = password;
+    await user.save();
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Password for ${user.firstName} ${user.lastName} has been reset successfully` 
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getUsers,
   createUser,
   deleteUser,
   updateUser,
-  setPosPin
+  setPosPin,
+  resetUserPassword
 };

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getUsers, createUser, updateUser, deleteUser, setPosPin } = require('./userController');
+const { getUsers, createUser, updateUser, deleteUser, setPosPin, resetUserPassword } = require('./userController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 router.route('/')
@@ -14,4 +14,8 @@ router.route('/:id')
 router.route('/:id/pos-pin')
   .put(protect, authorize('EDIT_USERS'), setPosPin);
 
+router.route('/:id/reset-password')
+  .put(protect, authorize('EDIT_USERS'), resetUserPassword);
+
 module.exports = router;
+

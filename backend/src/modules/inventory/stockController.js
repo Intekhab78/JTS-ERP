@@ -3,7 +3,9 @@ const Stock = require('../../core/models/Stock');
 const StockMovement = require('../../core/models/StockMovement');
 const StockTransfer = require('../../core/models/StockTransfer');
 const StockAdjustment = require('../../core/models/StockAdjustment');
+const Branch = require('../../core/models/Branch');
 const { verifyBranchAccess, verifyProductAccess } = require('../../core/middleware/authMiddleware');
+const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
 
 // @desc    Get all stock for a specific branch
 // @route   GET /api/v1/stock/:branchId
@@ -15,7 +17,7 @@ exports.getBranchStock = async (req, res) => {
     }
 
     const stock = await Stock.find({
-      tenantId: req.user.tenantId,
+      ...getReadFilter(req),
       branchId: req.params.branchId
     }).populate('productId');
     
@@ -35,7 +37,7 @@ exports.getStockMovements = async (req, res) => {
     }
 
     const movements = await StockMovement.find({
-      tenantId: req.user.tenantId,
+      ...getReadFilter(req),
       branchId: req.params.branchId
     }).populate('productId', 'name sku').sort({ createdAt: -1 });
 
@@ -49,7 +51,7 @@ exports.getStockMovements = async (req, res) => {
 
 exports.getTransfers = async (req, res) => {
   try {
-    const filter = { tenantId: req.user.tenantId };
+    const filter = getReadFilter(req);
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
     if (req.user.branches && req.user.branches.length > 0) {
       filter.$or = [
@@ -84,9 +86,37 @@ exports.createTransfer = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: You do not have access to the source branch' });
     }
 
+    const sourceBranch = await Branch.findById(sourceBranchId);
+    const destBranch = await Branch.findById(destinationBranchId);
+
+    const CompanyItem = require('../../core/models/CompanyItem');
+
+    if (!sourceBranch || !destBranch) {
+      return res.status(404).json({ message: 'Branch not found' });
+    }
+
+    const destCompanyId = destBranch.legalCompanyId;
+    
+    if (destCompanyId && (!req.user.accessibleCompanyIds || !req.user.accessibleCompanyIds.includes(destCompanyId.toString()))) {
+      return res.status(403).json({ message: 'Forbidden: You do not have access to the destination Legal Company.' });
+    }
+
+    const uniqueProductIds = [...new Set(items.map(item => item.productId.toString()))];
+    const tenantContext = req.user.activeTenantId || req.user.tenantId;
+    const companyItems = await CompanyItem.find({
+      tenantId: tenantContext,
+      legalCompanyId: destCompanyId,
+      productId: { $in: uniqueProductIds }
+    });
+
+    if (companyItems.length !== uniqueProductIds.length) {
+      return res.status(400).json({ message: 'Product is not configured for the destination Legal Company.' });
+    }
+
     const referenceNumber = `TRF-${Date.now()}`;
     const transfer = await StockTransfer.create({
       tenantId: req.user.tenantId,
+      legalCompanyId: sourceBranch.legalCompanyId,
       sourceBranchId,
       destinationBranchId,
       referenceNumber,
@@ -107,7 +137,8 @@ exports.validateTransfer = async (req, res) => {
   session.startTransaction();
   
   try {
-    const transfer = await StockTransfer.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const transfer = await StockTransfer.findOne({ _id: req.params.id, ...filter }).session(session);
     
     if (!transfer) throw new Error('Transfer not found');
     if (transfer.status !== 'DRAFT') throw new Error('Transfer is not in DRAFT status');
@@ -115,13 +146,39 @@ exports.validateTransfer = async (req, res) => {
     const sourceBranchId = transfer.sourceBranchId;
     const destinationBranchId = transfer.destinationBranchId;
 
+    const Branch = require('../../core/models/Branch');
+    const CompanyItem = require('../../core/models/CompanyItem');
+
+    const destBranch = await Branch.findById(destinationBranchId).session(session);
+    if (!destBranch) throw new Error('Destination branch not found');
+
+    const destCompanyId = destBranch.legalCompanyId;
+
+    const tenantContext = req.user.activeTenantId || req.user.tenantId;
+    const uniqueProductIds = [...new Set(transfer.items.map(item => item.productId.toString()))];
+    const companyItems = await CompanyItem.find({
+      tenantId: tenantContext,
+      legalCompanyId: destCompanyId,
+      productId: { $in: uniqueProductIds }
+    }).session(session);
+
+    if (companyItems.length !== uniqueProductIds.length) {
+      throw new Error('Product is not configured for the destination Legal Company.');
+    }
+
     for (const item of transfer.items) {
       const productId = item.productId;
       const quantity = item.quantity;
 
       // 1. Deduct from source
       const sourceStock = await Stock.findOneAndUpdate(
-        { tenantId: req.user.tenantId, branchId: sourceBranchId, productId, quantity: { $gte: quantity } },
+        { 
+          tenantId: req.user.tenantId, 
+          legalCompanyId: transfer.legalCompanyId,
+          branchId: sourceBranchId, 
+          productId, 
+          quantity: { $gte: quantity } 
+        },
         { $inc: { quantity: -quantity } },
         { session, returnDocument: 'after' }
       );
@@ -131,10 +188,17 @@ exports.validateTransfer = async (req, res) => {
       }
 
       // 2. Add to destination
-      let destStock = await Stock.findOne({ tenantId: req.user.tenantId, branchId: destinationBranchId, productId }).session(session);
+      let destStock = await Stock.findOne({ 
+        tenantId: req.user.tenantId, 
+        legalCompanyId: destCompanyId,
+        branchId: destinationBranchId, 
+        productId 
+      }).session(session);
+      
       if (!destStock) {
         destStock = await Stock.create([{
           tenantId: req.user.tenantId,
+          legalCompanyId: destCompanyId,
           branchId: destinationBranchId,
           productId,
           quantity
@@ -147,6 +211,7 @@ exports.validateTransfer = async (req, res) => {
       // 3. Create Movements
       await StockMovement.create([{
         tenantId: req.user.tenantId,
+        legalCompanyId: transfer.legalCompanyId,
         branchId: sourceBranchId,
         productId,
         quantity: -quantity,
@@ -159,6 +224,7 @@ exports.validateTransfer = async (req, res) => {
 
       await StockMovement.create([{
         tenantId: req.user.tenantId,
+        legalCompanyId: destCompanyId,
         branchId: destinationBranchId,
         productId,
         quantity,
@@ -189,7 +255,7 @@ exports.validateTransfer = async (req, res) => {
 
 exports.getAdjustments = async (req, res) => {
   try {
-    const filter = { tenantId: req.user.tenantId };
+    const filter = getReadFilter(req);
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
     if (req.user.branches && req.user.branches.length > 0) {
       filter.branchId = { $in: req.user.branches };
@@ -226,8 +292,11 @@ exports.createAdjustment = async (req, res) => {
       difference: item.actualQuantity - item.expectedQuantity
     }));
 
+    const scopedBody = validateCreateScope(req, req.body);
+
     const adjustment = await StockAdjustment.create({
       tenantId: req.user.tenantId,
+      legalCompanyId: scopedBody.legalCompanyId,
       branchId,
       referenceNumber,
       items: formattedItems,
@@ -248,7 +317,8 @@ exports.validateAdjustment = async (req, res) => {
   session.startTransaction();
   
   try {
-    const adjustment = await StockAdjustment.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const adjustment = await StockAdjustment.findOne({ _id: req.params.id, ...filter }).session(session);
     
     if (!adjustment) throw new Error('Adjustment not found');
     if (adjustment.status !== 'DRAFT') throw new Error('Adjustment is not in DRAFT status');
@@ -259,7 +329,12 @@ exports.validateAdjustment = async (req, res) => {
       const productId = item.productId;
       const quantity = item.difference;
 
-      let stock = await Stock.findOne({ tenantId: req.user.tenantId, branchId: adjustment.branchId, productId }).session(session);
+      let stock = await Stock.findOne({ 
+        tenantId: req.user.tenantId, 
+        legalCompanyId: adjustment.legalCompanyId,
+        branchId: adjustment.branchId, 
+        productId 
+      }).session(session);
       
       if (!stock) {
         if (item.actualQuantity < 0) {
@@ -267,6 +342,7 @@ exports.validateAdjustment = async (req, res) => {
         }
         stock = await Stock.create([{
           tenantId: req.user.tenantId,
+          legalCompanyId: adjustment.legalCompanyId,
           branchId: adjustment.branchId,
           productId,
           quantity: item.actualQuantity
@@ -282,6 +358,7 @@ exports.validateAdjustment = async (req, res) => {
 
       await StockMovement.create([{
         tenantId: req.user.tenantId,
+        legalCompanyId: adjustment.legalCompanyId,
         branchId: adjustment.branchId,
         productId,
         quantity,

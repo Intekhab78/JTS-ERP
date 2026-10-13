@@ -8,14 +8,16 @@ import { DataTable } from '../../components/common/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { SearchInput } from '../../components/ui/SearchInput';
-import { Eye, Printer, Loader2 } from 'lucide-react';
+import { Eye, Printer, Mail, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { EmailSendModal } from '../../components/common/EmailSendModal';
 
 const TaxInvoices = () => {
   const [invoices, setInvoices] = useState([]);
   const { formatCurrency, currencySymbol } = useCurrency();
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [emailModal, setEmailModal] = useState({ isOpen: false, invoice: null });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -100,8 +102,18 @@ const TaxInvoices = () => {
             size="icon" 
             className="h-8 w-8 text-slate-400 hover:text-indigo-600"
             onClick={() => window.open(`/sales/tax-invoices/${row._id}/print`, '_blank')}
+            title="Print Invoice"
           >
             <Printer className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 text-slate-400 hover:text-emerald-600"
+            onClick={() => setEmailModal({ isOpen: true, invoice: row })}
+            title="Send Invoice by Email"
+          >
+            <Mail className="h-4 w-4" />
           </Button>
         </div>
       )
@@ -149,6 +161,18 @@ const TaxInvoices = () => {
           />
         )}
       </Card>
+
+      {emailModal.isOpen && emailModal.invoice && (
+        <EmailSendModal
+          isOpen={emailModal.isOpen}
+          onClose={() => setEmailModal({ isOpen: false, invoice: null })}
+          documentType="Tax Invoice"
+          documentNumber={emailModal.invoice.invoiceNumber}
+          recipientName={emailModal.invoice.customerSnapshot?.name}
+          defaultEmail={emailModal.invoice.customerSnapshot?.email}
+          sendEndpoint={`/api/v1/email/tax-invoice/${emailModal.invoice._id}`}
+        />
+      )}
     </div>
   );
 };

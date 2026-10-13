@@ -3,27 +3,29 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Save, X, Plus, Trash2, ArrowLeft, RefreshCw, FileText, History, Info, CheckCircle2, Printer } from 'lucide-react';
+import { Save, X, Plus, Trash2, ArrowLeft, RefreshCw, FileText, History, Info, CheckCircle2, Printer, Zap, Mail } from 'lucide-react';
+import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { QuickAddProductModal } from './QuickAddProductModal';
 import { QuickAddCustomerModal } from './QuickAddCustomerModal';
+import { EmailSendModal } from '../../components/common/EmailSendModal';
 
 const getRevisionDiffSummary = (currentRev, previousRev, currencySymbol) => {
   if (!previousRev) return ["Initial quotation created."];
-  
+
   const changes = [];
-  
+
   if (currentRev.grandTotal !== previousRev.grandTotal) {
     const diff = (currentRev.grandTotal || 0) - (previousRev.grandTotal || 0);
     changes.push(`Total ${diff > 0 ? 'increased' : 'decreased'} by ${currencySymbol}${Math.abs(diff).toFixed(2)}`);
   }
-  
+
   const currItems = currentRev.items || [];
   const prevItems = previousRev.items || [];
-  
+
   const currMap = {};
   currItems.forEach(i => currMap[i.productId] = i);
   const prevMap = {};
@@ -65,15 +67,15 @@ const getRevisionDiffSummary = (currentRev, previousRev, currencySymbol) => {
       changes.push(`${itemChanges.length} line items modified`);
     }
   }
-  
+
   if (currentRev.status !== previousRev.status) {
     changes.push(`Status changed to ${currentRev.status}`);
   }
-  
+
   if (changes.length === 0) {
     return ["Minor details or terms updated."];
   }
-  
+
   return changes;
 };
 
@@ -87,6 +89,7 @@ const QuoteForm = () => {
   const hasPermission = (perm) => userPermissions.includes('*') || userPermissions.includes(perm);
 
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const { formatCurrency, currencySymbol } = useCurrency();
   const [branches, setBranches] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -96,6 +99,7 @@ const QuoteForm = () => {
   const [showReviseModal, setShowReviseModal] = useState(false);
   const [showHistoryPanel, setShowHistoryPanel] = useState(false);
   const [printTitle, setPrintTitle] = useState('QUOTATION');
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [customerModalInitialName, setCustomerModalInitialName] = useState('');
@@ -107,39 +111,85 @@ const QuoteForm = () => {
   const selectStyles = {
     control: (base, state) => ({
       ...base,
-      minHeight: '42px',
-      borderRadius: '0.75rem',
-      border: state.isFocused ? '2px solid #3b82f6' : '1px solid #e2e8f0',
-      backgroundColor: '#ffffff',
-      boxShadow: state.isFocused ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
+      minHeight: '40px',
+      borderRadius: '0.375rem',
+      border: state.isFocused ? '2px solid #2563eb' : '2px solid #e2e8f0',
+      backgroundColor: '#f8fafc', // bg-slate-50
+      boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)', // shadow-sm
       transition: 'all 0.2s ease',
+      fontFamily: 'inherit',
+      fontWeight: '700', // font-bold
+      fontSize: '0.875rem', // text-sm
+      color: '#0f172a', // text-slate-900
       '&:hover': {
-        borderColor: '#94a3b8'
+        borderColor: state.isFocused ? '#2563eb' : '#60a5fa' // hover:border-blue-400
       }
     }),
-    valueContainer: (base) => ({
+    valueContainer: (base) => ({ ...base, padding: '0 12px' }),
+    singleValue: (base) => ({ ...base, fontFamily: 'inherit', fontWeight: '700', fontSize: '0.875rem', color: '#0f172a' }),
+    input: (base) => ({ ...base, fontFamily: 'inherit', fontWeight: '700', fontSize: '0.875rem', color: '#0f172a' }),
+    placeholder: (base) => ({ ...base, fontFamily: 'inherit', fontWeight: '400', fontSize: '0.875rem', color: '#94a3b8' }),
+    option: (base, state) => ({
       ...base,
-      padding: '0 12px',
+      fontFamily: 'inherit',
+      fontSize: '0.875rem',
+      fontWeight: state.isSelected ? '700' : '500',
+      color: state.isSelected ? '#ffffff' : '#0f172a',
+      backgroundColor: state.isSelected ? '#2563eb' : state.isFocused ? '#eff6ff' : '#ffffff',
+      cursor: 'pointer',
+      '&:active': { backgroundColor: '#1d4ed8' }
     }),
+    menu: (base) => ({
+      ...base,
+      fontFamily: 'inherit',
+      borderRadius: '0.5rem',
+      overflow: 'hidden',
+      border: '1px solid #e2e8f0',
+      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+      zIndex: 9999
+    })
   };
 
   const selectStylesSmall = {
     control: (base, state) => ({
       ...base,
-      minHeight: '38px',
-      borderRadius: '0.5rem',
-      border: state.isFocused ? '2px solid #3b82f6' : '1px solid transparent',
-      backgroundColor: state.isFocused ? '#ffffff' : '#f1f5f9',
-      boxShadow: 'none',
+      minHeight: '40px',
+      borderRadius: '0.375rem',
+      border: state.isFocused ? '2px solid #2563eb' : '2px solid #e2e8f0',
+      backgroundColor: '#ffffff',
+      boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
       transition: 'all 0.2s ease',
+      fontFamily: 'inherit',
+      fontWeight: '700',
+      fontSize: '0.875rem',
+      color: '#0f172a',
       '&:hover': {
-        backgroundColor: '#e2e8f0'
+        borderColor: state.isFocused ? '#2563eb' : '#60a5fa'
       }
     }),
-    valueContainer: (base) => ({
+    valueContainer: (base) => ({ ...base, padding: '0 8px' }),
+    singleValue: (base) => ({ ...base, fontFamily: 'inherit', fontWeight: '700', fontSize: '0.875rem', color: '#0f172a' }),
+    input: (base) => ({ ...base, fontFamily: 'inherit', fontWeight: '700', fontSize: '0.875rem', color: '#0f172a' }),
+    placeholder: (base) => ({ ...base, fontFamily: 'inherit', fontWeight: '400', fontSize: '0.875rem', color: '#94a3b8' }),
+    option: (base, state) => ({
       ...base,
-      padding: '0 8px',
+      fontFamily: 'inherit',
+      fontSize: '0.875rem',
+      fontWeight: state.isSelected ? '700' : '500',
+      color: state.isSelected ? '#ffffff' : '#0f172a',
+      backgroundColor: state.isSelected ? '#2563eb' : state.isFocused ? '#eff6ff' : '#ffffff',
+      cursor: 'pointer',
+      '&:active': { backgroundColor: '#1d4ed8' }
     }),
+    menu: (base) => ({
+      ...base,
+      fontFamily: 'inherit',
+      borderRadius: '0.5rem',
+      overflow: 'hidden',
+      border: '1px solid #e2e8f0',
+      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+      zIndex: 9999
+    })
   };
 
   const [formData, setFormData] = useState({
@@ -164,11 +214,15 @@ const QuoteForm = () => {
   });
 
   useEffect(() => {
-    fetchDependencies();
-    if (isEditing) {
-      fetchQuote();
-      fetchRevisions();
-    }
+    const loadData = async () => {
+      setInitialLoading(true);
+      await fetchDependencies();
+      if (isEditing) {
+        await Promise.all([fetchQuote(), fetchRevisions()]);
+      }
+      setInitialLoading(false);
+    };
+    loadData();
   }, [id]);
 
   const fetchDependencies = async () => {
@@ -422,53 +476,89 @@ const QuoteForm = () => {
     (isEditing && !hasPermission('EDIT_QUOTATIONS')) ||
     (!isEditing && !hasPermission('CREATE_QUOTATIONS'));
 
+  if (initialLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#f8fafc]">
+        <div className="animate-spin rounded-none h-12 w-12 border-4 border-slate-200 border-t-blue-600 mb-4"></div>
+        <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">Fetching Database...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-slate-50 min-h-screen print:bg-white print:p-0">
+    <div className="animate-in fade-in zoom-in-95 duration-500 space-y-6 max-w-[1400px] mx-auto pb-10 bg-[#f8fafc] min-h-screen print:bg-white print:p-0">
+      
       {/* Screen View */}
-      <div className="flex flex-col min-h-screen print:hidden">
-        {/* Dynamic Header */}
-        <div className="sticky top-0 z-[60] bg-white/80 backdrop-blur-xl border-b border-slate-200 px-4 py-4 md:px-8 transition-all duration-300">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/sales/quotes')}
-                className="p-2.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:shadow-sm transition-all duration-200 group"
-              >
-                <ArrowLeft className="h-5 w-5 text-slate-500 group-hover:text-slate-800" />
-              </button>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                    {isEditing ? formData.quoteNumber : 'New Quotation'}
-                  </h1>
-                  {isEditing && (
-                    <Badge
-                      variant={formData.status === 'ACCEPTED' ? 'success' : formData.status === 'CONVERTED' ? 'purple' : 'default'}
-                      className={`px-3 py-1 text-sm font-semibold uppercase tracking-wider ${formData.status === 'CONVERTED' ? 'bg-indigo-600 text-white' : ''}`}
-                    >
-                      {formData.status}
-                    </Badge>
-                  )}
+      <div className="flex flex-col print:hidden">
+        
+        {/* Aggressive Tech Header */}
+        <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
+          
+          <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <button
+                  onClick={() => navigate('/sales/quotes')}
+                  className="p-2 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 group"
+                >
+                  <ArrowLeft className="h-5 w-5 text-slate-400 group-hover:text-white" />
+                </button>
+                <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
+                  <FileText size={18} className="text-white" />
                 </div>
-                {isEditing && (
-                  <p className="text-sm text-slate-500 font-medium mt-1">
-                    Revision {formData.revisionNumber} {formData.isCurrentRevision ? '(Active)' : '(Archived)'}
-                  </p>
-                )}
+                <h1 className="text-3xl font-black tracking-tight text-white uppercase">
+                  {isEditing ? formData.quoteNumber : 'New Quotation'}
+                </h1>
+                
+                <div className="ml-4 flex items-center gap-3 bg-[#111827] border border-slate-800 p-2 rounded-lg shadow-inner hidden sm:flex">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                  <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">System Online</span>
+                </div>
               </div>
+              
+              {isEditing ? (
+                <div className="flex items-center gap-3 mt-2 pl-14">
+                  <p className="text-slate-400 text-sm font-medium tracking-wide">
+                    REVISION {formData.revisionNumber} {formData.isCurrentRevision ? '(ACTIVE)' : '(ARCHIVED)'}
+                  </p>
+                  <Badge
+                    variant={formData.status === 'ACCEPTED' ? 'success' : formData.status === 'CONVERTED' ? 'purple' : 'default'}
+                    className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${formData.status === 'CONVERTED' ? 'bg-indigo-600 text-white' : ''}`}
+                  >
+                    {formData.status}
+                  </Badge>
+                </div>
+              ) : (
+                <p className="text-slate-400 text-sm font-medium tracking-wide pl-14">
+                  CREATE NEW COMMERCIAL OFFER
+                </p>
+              )}
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0 hide-scrollbar">
+            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto mt-4 lg:mt-0">
               {isEditing && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => { setPrintTitle('QUOTATION'); setTimeout(() => window.print(), 100); }}
-                  leftIcon={<Printer className="w-4 h-4" />}
-                  className="whitespace-nowrap transition-colors"
-                >
-                  Print
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEmailModalOpen(true)}
+                    leftIcon={<Mail className="w-4 h-4" />}
+                    className="whitespace-nowrap transition-colors bg-emerald-600/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-600/30"
+                  >
+                    Email
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { setPrintTitle('QUOTATION'); setTimeout(() => window.print(), 100); }}
+                    leftIcon={<Printer className="w-4 h-4" />}
+                    className="whitespace-nowrap transition-colors bg-white/10 text-white border-white/20 hover:bg-white/20"
+                  >
+                    Print
+                  </Button>
+                </>
               )}
 
               {isEditing && !formData.isCurrentRevision && (
@@ -481,40 +571,38 @@ const QuoteForm = () => {
                   variant="outline"
                   onClick={() => setShowHistoryPanel(!showHistoryPanel)}
                   leftIcon={<History className="w-4 h-4" />}
-                  className={`whitespace-nowrap transition-colors ${showHistoryPanel ? 'bg-slate-100 text-slate-900 border-slate-300' : ''}`}
+                  className={`whitespace-nowrap transition-colors ${showHistoryPanel ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/10 text-white border-white/20 hover:bg-white/20'}`}
                 >
                   History
                 </Button>
               )}
 
-              {/* The standalone Revise Offer button has been removed per user request */}
-
               {formData.status === 'CONVERTED' && formData.convertedToOrderId && (
-                <Button type="button" variant="outline" onClick={() => navigate(`/sales/orders/${formData.convertedToOrderId}`)} leftIcon={<FileText className="w-4 h-4" />} className="whitespace-nowrap shadow-sm hover:shadow">
+                <Button type="button" variant="outline" onClick={() => navigate(`/sales/orders/${formData.convertedToOrderId}`)} leftIcon={<FileText className="w-4 h-4" />} className="whitespace-nowrap bg-white/10 text-white border-white/20 hover:bg-white/20">
                   View Order
                 </Button>
               )}
 
               {formData.status === 'CONVERTED' && hasPermission('EDIT_QUOTATIONS') && (
-                <Button type="button" onClick={handleGenerateProForma} isLoading={loading} className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-md hover:shadow-lg transition-all whitespace-nowrap border-0" leftIcon={<FileText className="w-4 h-4" />}>
+                <Button type="button" onClick={handleGenerateProForma} isLoading={loading} className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-lg transition-all whitespace-nowrap border-0" leftIcon={<FileText className="w-4 h-4" />}>
                   Generate Pro-Forma
                 </Button>
               )}
 
               {formData.status === 'ACCEPTED' && hasPermission('EDIT_QUOTATIONS') && (
-                <Button type="button" onClick={handleConvert} isLoading={loading} className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md hover:shadow-lg transition-all whitespace-nowrap border-0" leftIcon={<RefreshCw className="w-4 h-4" />}>
+                <Button type="button" onClick={handleConvert} isLoading={loading} className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white shadow-lg transition-all whitespace-nowrap border-0" leftIcon={<RefreshCw className="w-4 h-4" />}>
                   Convert to Order
                 </Button>
               )}
 
               {isEditing && ['DRAFT', 'SENT', 'VIEWED'].includes(formData.status) && hasPermission('APPROVE_QUOTATION') && (
-                <Button type="button" onClick={() => handleStatusUpdate('ACCEPTED')} isLoading={loading} className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm whitespace-nowrap border-0" leftIcon={<CheckCircle2 className="w-4 h-4" />}>
+                <Button type="button" onClick={() => handleStatusUpdate('ACCEPTED')} isLoading={loading} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg whitespace-nowrap border-0" leftIcon={<CheckCircle2 className="w-4 h-4" />}>
                   Accept
                 </Button>
               )}
 
               {!isReadOnly && (
-                <Button type="submit" onClick={handleSubmit} isLoading={loading} leftIcon={<Save className="w-4 h-4" />} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm whitespace-nowrap">
+                <Button type="submit" onClick={handleSubmit} isLoading={loading} leftIcon={<Save className="w-4 h-4" />} className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg whitespace-nowrap border-0">
                   Save Changes
                 </Button>
               )}
@@ -522,23 +610,23 @@ const QuoteForm = () => {
           </div>
         </div>
 
-        <div className="p-4 md:p-8 pt-8 flex-1">
-          <div className="max-w-7xl mx-auto space-y-8 pb-20 relative">
+        <div className="pt-2">
+          <div className="space-y-8 relative">
             <div className="flex gap-8 relative">
               <div className={`flex-1 min-w-0 transition-all duration-300 ${showHistoryPanel ? 'lg:pr-96' : ''}`}>
-                <form onSubmit={handleSubmit} className="space-y-8">
-                  <fieldset disabled={isReadOnly} className="space-y-8">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <fieldset disabled={isReadOnly} className="space-y-6">
 
                     {/* Core Details Section */}
-                    <section>
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">1</div>
-                        <h2 className="text-xl font-bold text-slate-800">Commercial Details</h2>
+                    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+                        <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                          <FileText size={14} className="text-blue-500" /> Commercial Details
+                        </h2>
                       </div>
-                      <Card className="p-6 md:p-8 bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
+                      <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                           <div className="col-span-1 md:col-span-2">
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Client / Customer *</label>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Client / Customer *</label>
                             <CreatableSelect
                               isClearable
                               required
@@ -557,75 +645,75 @@ const QuoteForm = () => {
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Issue Date *</label>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Issue Date *</label>
                             <input
                               type="date"
                               required
                               value={formData.quoteDate}
                               onChange={e => setFormData({ ...formData, quoteDate: e.target.value })}
-                              className="w-full h-[42px] px-4 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-sm text-slate-700"
+                              className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors uppercase outline-none"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Valid Until *</label>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Valid Until *</label>
                             <input
                               type="date"
                               required
                               value={formData.validUntil}
                               onChange={e => setFormData({ ...formData, validUntil: e.target.value })}
-                              className="w-full h-[42px] px-4 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-sm text-slate-700"
+                              className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors uppercase outline-none"
                             />
                           </div>
                           <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-2">
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Assigned Branch *</label>
-                            <select
-                              required
-                              value={formData.branchId}
-                              onChange={e => setFormData({ ...formData, branchId: e.target.value })}
-                              className="w-full md:w-1/2 h-[42px] px-4 bg-white border border-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all text-sm text-slate-700"
-                            >
-                              <option value="">Select Branch</option>
-                              {branches.map(b => (
-                                <option key={b._id} value={b._id}>{b.name}</option>
-                              ))}
-                            </select>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Assigned Branch *</label>
+                            <div className="w-full md:w-1/2">
+                              <Select
+                                isDisabled={isReadOnly}
+                                styles={selectStyles}
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                                value={branches.find(b => b._id === formData.branchId) ? { value: formData.branchId, label: branches.find(b => b._id === formData.branchId).name } : null}
+                                options={branches.map(b => ({ value: b._id, label: b.name }))}
+                                onChange={(option) => setFormData({ ...formData, branchId: option ? option.value : '' })}
+                                placeholder="-- SELECT BRANCH --"
+                                components={{ IndicatorSeparator: () => null }}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      </Card>
-                    </section>
+                      </div>
+                    </div>
 
                     {/* Line Items Section */}
-                    <section>
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">2</div>
-                          <h2 className="text-xl font-bold text-slate-800">Products & Services</h2>
+                    <div className="bg-white shadow-sm border border-slate-200 overflow-hidden rounded-xl">
+                      <div className="bg-slate-50 border-b border-slate-200 px-5 py-3 flex justify-between items-center">
+                        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                          <Zap size={16} className="text-blue-500" /> Products & Services Matrix
+                        </h2>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-slate-500 font-mono px-2 py-1 bg-white border border-slate-200 rounded">ROWS: {formData.items.length}</span>
+                          {!isReadOnly && (
+                            <Button type="button" onClick={addItem} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 h-8 text-[10px] uppercase font-bold tracking-widest flex items-center">
+                              <Plus size={14} className="mr-1" /> Add Line
+                            </Button>
+                          )}
                         </div>
-                        {!isReadOnly && (
-                          <Button type="button" onClick={addItem} leftIcon={<Plus className="w-4 h-4" />} className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-5">
-                            Add Line
-                          </Button>
-                        )}
                       </div>
-
-                      <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl overflow-hidden">
-                        <div className="overflow-x-auto">
-                          <table className="w-full min-w-[900px]">
-                            <thead>
-                              <tr className="bg-slate-50 border-b border-slate-100 text-left text-xs font-bold text-slate-500 uppercase tracking-widest">
-                                <th className="py-4 pl-6 pr-4 rounded-tl-2xl">Item / Description</th>
-                                <th className="py-4 px-4 w-28">Quantity</th>
-                                <th className="py-4 px-4 w-36">Rate</th>
-                                <th className="py-4 px-4 w-32">Discount</th>
-                                <th className="py-4 px-4 w-28">Tax (%)</th>
-                                <th className="py-4 px-4 w-36 text-right">Amount</th>
-                                <th className="py-4 pr-6 pl-2 w-16 text-center rounded-tr-2xl"></th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
+                      <div className="overflow-x-auto p-0">
+                        <div className="min-w-[900px] p-6 pb-2">
+                            <div className="grid grid-cols-12 gap-4 px-2 pb-2 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b-2 border-slate-100">
+                              <div className="col-span-4">Item / Description</div>
+                              <div className="col-span-1">Quantity</div>
+                              <div className="col-span-2">Rate</div>
+                              <div className="col-span-2">Discount</div>
+                              <div className="col-span-1 text-center">Tax (%)</div>
+                              <div className="col-span-1 text-right">Amount</div>
+                              <div className="col-span-1 text-center"></div>
+                            </div>
+                            
+                            <div className="space-y-3 mt-3">
                               {formData.items.map((item, index) => (
-                                <tr key={index} className="group hover:bg-slate-50/50 transition-colors">
-                                  <td className="py-3 pl-6 pr-4 align-top">
+                                <div key={index} className="grid grid-cols-12 gap-4 items-center bg-slate-50 p-2 rounded-lg border border-slate-200 group">
+                                  <div className="col-span-4">
                                     <CreatableSelect
                                       isClearable
                                       required
@@ -642,20 +730,20 @@ const QuoteForm = () => {
                                       placeholder="Search..."
                                       noOptionsMessage={() => "Type to search or create..."}
                                     />
-                                  </td>
-                                  <td className="py-3 px-4 align-top">
+                                  </div>
+                                  <div className="col-span-1">
                                     <input
                                       type="number"
                                       min="1"
                                       required
                                       value={item.quantity}
                                       onChange={e => handleItemChange(index, 'quantity', e.target.value)}
-                                      className="w-full h-[38px] px-3 bg-slate-50 border-0 ring-1 ring-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm transition-all"
+                                      className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 shadow-sm outline-none focus:border-blue-600 focus:ring-0 transition-colors"
                                     />
-                                  </td>
-                                  <td className="py-3 px-4 align-top">
+                                  </div>
+                                  <div className="col-span-2">
                                     <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">{currencySymbol}</span>
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">{currencySymbol}</span>
                                       <input
                                         type="number"
                                         min="0"
@@ -663,24 +751,24 @@ const QuoteForm = () => {
                                         required
                                         value={item.unitPrice}
                                         onChange={e => handleItemChange(index, 'unitPrice', e.target.value)}
-                                        className="w-full h-[38px] pl-12 pr-3 bg-slate-50 border-0 ring-1 ring-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm transition-all"
+                                        className="flex h-10 w-full pl-12 pr-3 rounded-md border-2 border-slate-200 bg-white py-2 text-sm font-bold text-slate-900 shadow-sm outline-none focus:border-blue-600 focus:ring-0 transition-colors"
                                       />
                                     </div>
-                                  </td>
-                                  <td className="py-3 px-4 align-top">
+                                  </div>
+                                  <div className="col-span-2">
                                     <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">{currencySymbol}</span>
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">{currencySymbol}</span>
                                       <input
                                         type="number"
                                         min="0"
                                         step="0.01"
                                         value={item.discount}
                                         onChange={e => handleItemChange(index, 'discount', e.target.value)}
-                                        className="w-full h-[38px] pl-12 pr-3 bg-slate-50 border-0 ring-1 ring-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm transition-all"
+                                        className="flex h-10 w-full pl-12 pr-3 rounded-md border-2 border-slate-200 bg-white py-2 text-sm font-bold text-slate-900 shadow-sm outline-none focus:border-blue-600 focus:ring-0 transition-colors"
                                       />
                                     </div>
-                                  </td>
-                                  <td className="py-3 px-4 align-top">
+                                  </div>
+                                  <div className="col-span-1">
                                     <div className="relative">
                                       <input
                                         type="number"
@@ -688,29 +776,29 @@ const QuoteForm = () => {
                                         step="0.01"
                                         value={item.taxRate}
                                         onChange={e => handleItemChange(index, 'taxRate', e.target.value)}
-                                        className="w-full h-[38px] px-3 pr-7 bg-slate-50 border-0 ring-1 ring-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm transition-all text-right"
+                                        className="flex h-10 w-full px-2 pr-6 rounded-md border-2 border-slate-200 bg-white py-2 text-sm font-bold text-slate-900 shadow-sm text-right outline-none focus:border-blue-600 focus:ring-0 transition-colors"
                                       />
-                                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
+                                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">%</span>
                                     </div>
-                                  </td>
-                                  <td className="py-3 px-4 text-right font-semibold text-slate-800 align-middle text-base">
+                                  </div>
+                                  <div className="col-span-1 text-right font-black text-slate-800 text-base">
                                     {currencySymbol}{(Number(item.lineTotal) || 0).toFixed(2)}
-                                  </td>
-                                  <td className="py-3 pr-6 pl-2 text-center align-middle">
+                                  </div>
+                                  <div className="col-span-1 text-center">
                                     {!isReadOnly && (
                                       <button
                                         type="button"
                                         onClick={() => removeItem(index)}
-                                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                                       >
-                                        <Trash2 className="h-5 w-5" />
+                                        <Trash2 className="h-5 w-5 mx-auto" />
                                       </button>
                                     )}
-                                  </td>
-                                </tr>
+                                  </div>
+                                </div>
                               ))}
-                            </tbody>
-                          </table>
+                            </div>
+                          </div>
                           {formData.items.length === 0 && (
                             <div className="py-12 flex flex-col items-center justify-center text-center">
                               <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-3">
@@ -725,62 +813,65 @@ const QuoteForm = () => {
                               )}
                             </div>
                           )}
-                        </div>
-                      </Card>
-                    </section>
+                      </div>
+                    </div>
 
                     {/* Totals & Notes Section */}
-                    <section className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                      <div className="col-span-1 lg:col-span-7 space-y-6">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm">3</div>
-                          <h2 className="text-xl font-bold text-slate-800">Terms & Conditions</h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                      <div className="col-span-1 lg:col-span-7">
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+                            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                              <FileText size={14} className="text-blue-500" /> Terms & Conditions
+                            </h2>
+                          </div>
+                          <div className="p-6 space-y-5">
+                          <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Public Notes (Visible on PDF)</label>
+                              <textarea
+                                value={formData.notes}
+                                onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                                placeholder="Thank you for your business..."
+                                className="w-full px-3 py-2 rounded-md border-2 border-slate-200 bg-slate-50 focus:border-blue-600 focus:ring-0 hover:border-blue-400 text-sm font-bold text-slate-900 shadow-sm h-28 resize-none transition-all outline-none"
+                              />
+                          </div>
+                          <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Terms and Conditions</label>
+                              <textarea
+                                value={formData.termsAndConditions}
+                                onChange={e => setFormData({ ...formData, termsAndConditions: e.target.value })}
+                                placeholder="1. Validity of quote is 30 days..."
+                                className="w-full px-3 py-2 rounded-md border-2 border-slate-200 bg-slate-50 focus:border-blue-600 focus:ring-0 hover:border-blue-400 text-sm font-bold text-slate-900 shadow-sm h-28 resize-none transition-all outline-none"
+                              />
+                          </div>
+                          <div>
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1 flex items-center gap-2">
+                                Internal Notes
+                                <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">Private</span>
+                              </label>
+                              <textarea
+                                value={formData.internalNotes}
+                                onChange={e => setFormData({ ...formData, internalNotes: e.target.value })}
+                                placeholder="Internal pricing logic..."
+                                className="w-full px-3 py-2 rounded-md border-2 border-amber-200 bg-amber-50/50 focus:border-amber-600 focus:ring-0 hover:border-amber-400 text-sm font-bold text-amber-900 shadow-sm h-20 resize-none transition-all outline-none"
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <Card className="p-6 bg-white border-0 shadow-sm ring-1 ring-slate-100 rounded-2xl space-y-5">
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Public Notes (Visible on PDF)</label>
-                            <textarea
-                              value={formData.notes}
-                              onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                              placeholder="Thank you for your business..."
-                              className="w-full p-4 bg-slate-50 border-0 ring-1 ring-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:ring-inset focus:ring-blue-500 text-sm h-28 resize-none transition-all"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Terms and Conditions</label>
-                            <textarea
-                              value={formData.termsAndConditions}
-                              onChange={e => setFormData({ ...formData, termsAndConditions: e.target.value })}
-                              placeholder="1. Validity of quote is 30 days..."
-                              className="w-full p-4 bg-slate-50 border-0 ring-1 ring-slate-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:ring-inset focus:ring-blue-500 text-sm h-28 resize-none transition-all"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-                              Internal Notes
-                              <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">Private</span>
-                            </label>
-                            <textarea
-                              value={formData.internalNotes}
-                              onChange={e => setFormData({ ...formData, internalNotes: e.target.value })}
-                              placeholder="Internal pricing logic..."
-                              className="w-full p-4 bg-amber-50/30 border-0 ring-1 ring-amber-200/50 rounded-xl focus:ring-4 focus:ring-amber-500/10 focus:ring-inset focus:ring-amber-500 text-sm h-20 resize-none transition-all"
-                            />
-                          </div>
-                        </Card>
                       </div>
 
                       <div className="col-span-1 lg:col-span-5">
-                        <div className="flex items-center gap-2 mb-2 lg:mb-4">
-                          <div className="w-8 h-8 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-bold text-sm">4</div>
-                          <h2 className="text-xl font-bold text-slate-800">Calculation</h2>
-                        </div>
-                        <Card className="p-8 bg-gradient-to-b from-white to-slate-50/50 border-0 shadow-lg ring-1 ring-slate-200 rounded-2xl relative overflow-hidden">
-
+                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden relative">
+                          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+                            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                              <Zap size={14} className="text-blue-500" /> Calculation
+                            </h2>
+                          </div>
+                          
                           {/* Decorative element */}
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -mr-10 -mt-10 opacity-60"></div>
-
-                          <div className="space-y-4 relative z-10">
+                          <div className="absolute top-10 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -mr-10 -mt-10 opacity-60"></div>
+                          
+                          <div className="p-6 space-y-4 relative z-10">
                             <div className="flex justify-between items-center pb-4 border-b border-slate-200/60">
                               <span className="text-slate-500 font-medium">Subtotal</span>
                               <span className="font-semibold text-slate-800 text-lg">
@@ -815,7 +906,7 @@ const QuoteForm = () => {
                                     step="0.01"
                                     value={formData.shippingCharges}
                                     onChange={e => setFormData({ ...formData, shippingCharges: e.target.value })}
-                                    className="w-full h-[42px] pl-12 pr-3 bg-white border-0 ring-1 ring-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-medium transition-all"
+                                    className="flex h-10 w-full pl-10 rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors uppercase outline-none"
                                   />
                                 </div>
                               </div>
@@ -829,7 +920,7 @@ const QuoteForm = () => {
                                     step="0.01"
                                     value={formData.otherCharges}
                                     onChange={e => setFormData({ ...formData, otherCharges: e.target.value })}
-                                    className="w-full h-[42px] pl-12 pr-3 bg-white border-0 ring-1 ring-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-medium transition-all"
+                                    className="flex h-10 w-full pl-10 rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors uppercase outline-none"
                                   />
                                 </div>
                               </div>
@@ -837,14 +928,14 @@ const QuoteForm = () => {
 
                             <div className="flex flex-col pt-6 mt-2 border-t border-slate-200">
                               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Total Amount</span>
-                              <span className="text-4xl font-black text-slate-900 tracking-tight">
+                              <span className="text-2xl font-black text-slate-900 tracking-tight">
                                 {currencySymbol}{calculateGrandTotal().toFixed(2)}
                               </span>
                             </div>
                           </div>
-                        </Card>
+                        </div>
                       </div>
-                    </section>
+                    </div>
 
                   </fieldset>
                 </form>
@@ -1105,6 +1196,18 @@ const QuoteForm = () => {
         onSuccess={onCustomerCreated}
         initialName={customerModalInitialName}
       />
+
+      {emailModalOpen && id && (
+        <EmailSendModal
+          isOpen={emailModalOpen}
+          onClose={() => setEmailModalOpen(false)}
+          documentType="Quotation"
+          documentNumber={formData.quoteNumber}
+          recipientName={customers.find(c => c._id === formData.customerId)?.name}
+          defaultEmail={customers.find(c => c._id === formData.customerId)?.email}
+          sendEndpoint={`/api/v1/email/quote/${id}`}
+        />
+      )}
     </div>
   );
 };

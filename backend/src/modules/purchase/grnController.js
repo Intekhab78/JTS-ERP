@@ -11,6 +11,7 @@ const Consignment = require('../../core/models/Consignment');
 const uomService = require('../../utils/uomService');
 const landedCostService = require('../../services/landedCostService');
 const { verifyBranchAccess } = require('../../core/middleware/authMiddleware');
+const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
 
 const generateGRNNumber = async (tenantId, session) => {
   const currentYear = new Date().getFullYear();
@@ -28,7 +29,8 @@ const generateGRNNumber = async (tenantId, session) => {
 
 exports.getGRNs = async (req, res) => {
   try {
-    const grns = await GRN.find({ tenantId: req.user.tenantId, isActive: true })
+    const filter = getReadFilter(req);
+    const grns = await GRN.find({ ...filter, isActive: true })
       .populate('branchId', 'name')
       .populate('supplierId', 'name email phone')
       .populate('purchaseOrderId', '_id expectedDate')
@@ -41,7 +43,8 @@ exports.getGRNs = async (req, res) => {
 
 exports.getGRNById = async (req, res) => {
   try {
-    const grn = await GRN.findOne({ _id: req.params.id, tenantId: req.user.tenantId, isActive: true })
+    const filter = getReadFilter(req);
+    const grn = await GRN.findOne({ _id: req.params.id, ...filter, isActive: true })
       .populate('branchId', 'name')
       .populate('supplierId', 'name email phone')
       .populate('purchaseOrderId', '_id')
@@ -67,12 +70,16 @@ exports.createGRN = async (req, res) => {
     }
 
     // Validate PO constraints if linked to PO
+    let finalLegalCompanyId;
+
     if (body.purchaseOrderId && body.items) {
-      const po = await PurchaseOrder.findOne({ _id: body.purchaseOrderId, tenantId }).session(session);
+      const filter = getReadFilter(req);
+      const po = await PurchaseOrder.findOne({ _id: body.purchaseOrderId, ...filter }).session(session);
       if (!po) throw new Error('Purchase Order not found');
       if (po.status !== 'CONFIRMED' && po.status !== 'PARTIALLY_RECEIVED') {
         throw new Error('GRNs can only be created for CONFIRMED or PARTIALLY_RECEIVED Purchase Orders');
       }
+      finalLegalCompanyId = po.legalCompanyId;
 
       const poItems = await PurchaseOrderItem.find({ purchaseOrderId: body.purchaseOrderId, tenantId }).session(session);
       const schedules = await PurchaseOrderSchedule.find({ purchaseOrderId: body.purchaseOrderId, tenantId }).session(session);
@@ -101,18 +108,40 @@ exports.createGRN = async (req, res) => {
           throw new Error(`Cannot receive more than remaining quantity (${remaining}) for product ${item.productId}`);
         }
       }
+    } else {
+      const scopedBody = validateCreateScope(req, body);
+      finalLegalCompanyId = scopedBody.legalCompanyId;
     }
 
-    // Snapshot UOM details from Product Master
+    // Snapshot UOM details from Product Master & validate CompanyItem
     if (body.items && body.items.length > 0) {
+      const companyItemService = require('../../services/companyItemService');
       const productIds = body.items.map(i => i.productId);
       const products = await Product.find({ _id: { $in: productIds }, tenantId }).session(session);
+      
       for (const item of body.items) {
         const product = products.find(p => p._id.toString() === item.productId.toString());
         if (product) {
+          let resolvedItem;
+          try {
+            resolvedItem = await companyItemService.validateSaleable({
+              tenantId: req.user.tenantId,
+              productId: product._id,
+              branchId: body.branchId,
+              user: req.user
+            });
+          } catch (err) {
+            if (err.name === 'CompanyItemNotConfiguredError') {
+              throw new Error(`Product ${product.name} is not configured for this branch: ${err.message}`);
+            }
+            throw err;
+          }
+          
           item.uom = product.uomDetails?.purchaseUnit || product.uom || 'PCS';
           item.conversionFactor = product.uomDetails?.purchaseConversionFactor || 1;
           item.baseUom = product.uomDetails?.baseUnit || product.uom || 'PCS';
+          
+          const uomService = require('../../utils/uomService');
           item.baseQuantity = uomService.convertToBase(item.orderedQuantity, item.conversionFactor);
         }
       }
@@ -124,6 +153,7 @@ exports.createGRN = async (req, res) => {
     const grn = await GRN.create([{
       ...processedBody,
       tenantId,
+      legalCompanyId: finalLegalCompanyId,
       createdBy: req.user._id,
       status: 'DRAFT'
     }], { session });
@@ -140,7 +170,8 @@ exports.createGRN = async (req, res) => {
 
 exports.updateGRN = async (req, res) => {
   try {
-    const grn = await GRN.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const grn = await GRN.findOne({ _id: req.params.id, ...filter });
     if (!grn) return res.status(404).json({ message: 'GRN not found' });
 
     if (grn.status !== 'DRAFT') {
@@ -172,7 +203,7 @@ exports.updateGRN = async (req, res) => {
     const processedBody = await landedCostService.calculateLandedCost(req.body, req.user.tenantId);
 
     const updatedGrn = await GRN.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.user.tenantId },
+      { _id: req.params.id, ...filter },
       { ...processedBody, updatedBy: req.user._id },
       { returnDocument: 'after' }
     );
@@ -184,7 +215,8 @@ exports.updateGRN = async (req, res) => {
 
 exports.confirmGRN = async (req, res) => {
   try {
-    const grn = await GRN.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const grn = await GRN.findOne({ _id: req.params.id, ...filter });
     if (!grn) return res.status(404).json({ message: 'GRN not found' });
 
     if (grn.status !== 'DRAFT') {
@@ -206,7 +238,8 @@ exports.validateGRN = async (req, res) => {
   session.startTransaction();
 
   try {
-    const grn = await GRN.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const grn = await GRN.findOne({ _id: req.params.id, ...filter }).session(session);
     if (!grn) throw new Error('GRN not found');
 
     if (grn.status === 'VALIDATED') {
@@ -225,6 +258,7 @@ exports.validateGRN = async (req, res) => {
         // Update Stock
         let stock = await Stock.findOne({
           tenantId: req.user.tenantId,
+          legalCompanyId: grn.legalCompanyId,
           branchId: grn.branchId,
           productId: item.productId,
           ownerType: item.ownerType || 'COMPANY',
@@ -237,6 +271,7 @@ exports.validateGRN = async (req, res) => {
         } else {
           await Stock.create([{
             tenantId: req.user.tenantId,
+            legalCompanyId: grn.legalCompanyId,
             branchId: grn.branchId,
             productId: item.productId,
             quantity: baseAcceptedQty,
@@ -248,6 +283,7 @@ exports.validateGRN = async (req, res) => {
         // Create Stock Movement log
         await StockMovement.create([{
           tenantId: req.user.tenantId,
+          legalCompanyId: grn.legalCompanyId,
           branchId: grn.branchId,
           productId: item.productId,
           quantity: baseAcceptedQty,
@@ -360,7 +396,8 @@ exports.validateGRN = async (req, res) => {
 
 exports.cancelGRN = async (req, res) => {
   try {
-    const grn = await GRN.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const grn = await GRN.findOne({ _id: req.params.id, ...filter });
     if (!grn) return res.status(404).json({ message: 'GRN not found' });
 
     if (grn.status === 'VALIDATED') {
@@ -379,7 +416,8 @@ exports.cancelGRN = async (req, res) => {
 
 exports.deleteGRN = async (req, res) => {
   try {
-    const grn = await GRN.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const grn = await GRN.findOne({ _id: req.params.id, ...filter });
     if (!grn) return res.status(404).json({ message: 'GRN not found' });
 
     if (grn.status === 'VALIDATED') {

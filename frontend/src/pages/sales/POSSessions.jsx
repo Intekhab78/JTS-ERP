@@ -414,6 +414,7 @@ const POSSessions = () => {
             <thead>
               <tr className="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wider font-bold border-b border-slate-200">
                 <th className="py-3 px-4" scope="col">Session Ref</th>
+                <th className="py-3 px-3" scope="col">Branch</th>
                 <th className="py-3 px-3" scope="col">Terminal / POS</th>
                 <th className="py-3 px-3" scope="col">Cashier / Staff</th>
                 <th className="py-3 px-3" scope="col">Opening Details</th>
@@ -485,11 +486,13 @@ const POSSessions = () => {
                         </div>
                       </div>
                     </td>
+                    <td className="py-4 px-3 font-semibold text-slate-700">
+                      {s.branchId?.name || 'Unknown Branch'}
+                    </td>
                     <td className="py-4 px-3">
                       <div className="flex flex-col">
                         <span className="font-bold text-slate-800 text-sm mb-0.5">{terminal}</span>
                         <span className="text-[11px] text-slate-500">{terminalDesc}</span>
-                        <span className="text-[11px] text-slate-500">Counter • Zone A</span>
                       </div>
                     </td>
                     <td className="py-4 px-3">

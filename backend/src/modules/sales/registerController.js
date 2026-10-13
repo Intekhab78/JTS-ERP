@@ -1,6 +1,7 @@
 const Register = require('../../core/models/Register');
 const POSSession = require('../../core/models/POSSession');
-const { verifyBranchAccess, verifyPOSOverrideToken } = require('../../core/middleware/authMiddleware');
+const { getReadFilter, validateBranchScope } = require('../../core/utils/scopeHelper');
+const { verifyPOSOverrideToken } = require('../../core/middleware/authMiddleware');
 const auditService = require('../audit/auditService');
 const { getPOSSessionForCashier } = require('./posSessionController');
 
@@ -15,13 +16,14 @@ exports.createRegister = async (req, res) => {
       return res.status(400).json({ message: 'Branch ID, Name, and Code are required' });
     }
 
-    const isAuthorized = await verifyBranchAccess(branchId, req);
-    if (!isAuthorized) {
-      return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
+    try {
+      await validateBranchScope(req, branchId);
+    } catch (err) {
+      return res.status(err.status || 403).json({ message: err.message || 'Forbidden' });
     }
 
     const existingCode = await Register.findOne({
-      tenantId: req.user.tenantId,
+      ...getReadFilter(req),
       branchId,
       code
     });
@@ -30,7 +32,12 @@ exports.createRegister = async (req, res) => {
       return res.status(400).json({ message: 'Register code already exists for this branch' });
     }
 
+    const Branch = require('../../core/models/Branch');
+    const branchDoc = await Branch.findById(branchId);
+    if (!branchDoc) return res.status(404).json({ message: 'Branch not found' });
+
     const register = await Register.create({
+      legalCompanyId: branchDoc.legalCompanyId,
       tenantId: req.user.tenantId,
       branchId,
       name,
@@ -55,9 +62,10 @@ exports.getRegisters = async (req, res) => {
     let query = { tenantId: req.user.tenantId };
     
     if (branchId) {
-      const isAuthorized = await verifyBranchAccess(branchId, req);
-      if (!isAuthorized) {
-        return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
+      try {
+        await validateBranchScope(req, branchId);
+      } catch (err) {
+        return res.status(err.status || 403).json({ message: err.message || 'Forbidden' });
       }
       query.branchId = branchId;
     } else {
@@ -92,9 +100,10 @@ exports.getRegisterById = async (req, res) => {
       return res.status(404).json({ message: 'Register not found' });
     }
 
-    const isAuthorized = await verifyBranchAccess(register.branchId._id, req);
-    if (!isAuthorized) {
-      return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
+    try {
+      await validateBranchScope(req, register.branchId._id);
+    } catch (err) {
+      return res.status(err.status || 403).json({ message: err.message || 'Forbidden' });
     }
 
     res.status(200).json(register);
@@ -119,9 +128,10 @@ exports.updateRegister = async (req, res) => {
       return res.status(404).json({ message: 'Register not found' });
     }
 
-    const isAuthorized = await verifyBranchAccess(register.branchId, req);
-    if (!isAuthorized) {
-      return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
+    try {
+      await validateBranchScope(req, register.branchId);
+    } catch (err) {
+      return res.status(err.status || 403).json({ message: err.message || 'Forbidden' });
     }
 
     // Protect against setting INACTIVE if there is an open session
@@ -138,7 +148,7 @@ exports.updateRegister = async (req, res) => {
     // Check for unique code if changed
     if (code && code !== register.code) {
       const existingCode = await Register.findOne({
-        tenantId: req.user.tenantId,
+        ...getReadFilter(req),
         branchId: register.branchId,
         code
       });
@@ -184,9 +194,10 @@ exports.openDrawer = async (req, res) => {
       return res.status(404).json({ message: 'Register not found' });
     }
 
-    const isAuthorized = await verifyBranchAccess(register.branchId, req);
-    if (!isAuthorized) {
-      return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
+    try {
+      await validateBranchScope(req, register.branchId);
+    } catch (err) {
+      return res.status(err.status || 403).json({ message: err.message || 'Forbidden' });
     }
 
     // Policy-aware: works for SINGLE_CASHIER (opener only) and MULTIPLE_CASHIERS (any authorized cashier)

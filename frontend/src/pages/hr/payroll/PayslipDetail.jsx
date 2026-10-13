@@ -1,18 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Printer, Download, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Printer, Download, CheckCircle, XCircle, Mail } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, CardContent } from '../../../components/common/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
+import { EmailSendModal } from '../../../components/common/EmailSendModal';
 
 const PayslipDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [payslip, setPayslip] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const printRef = useRef();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -102,6 +104,13 @@ const PayslipDetail = () => {
               <Printer size={16} className="mr-2" /> Print
             </Button>
           )}
+          <Button 
+            variant="outline" 
+            onClick={() => setIsEmailModalOpen(true)}
+            className="border-emerald-300 text-emerald-600 hover:bg-emerald-50"
+          >
+            <Mail size={16} className="mr-2" /> Email Payslip
+          </Button>
           {hasPermission('PAYROLL.PAYSLIP.DOWNLOAD') && (
             <Button onClick={handleDownloadPdf}>
               <Download size={16} className="mr-2" /> Download PDF
@@ -233,6 +242,18 @@ const PayslipDetail = () => {
           </CardContent>
         </Card>
       </div>
+
+      {isEmailModalOpen && payslip && (
+        <EmailSendModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          documentType="Payslip"
+          documentNumber={payslip.payslipNumber}
+          recipientName={payslip.employeeName || `${payslip.employeeId?.firstName} ${payslip.employeeId?.lastName}`}
+          defaultEmail={payslip.employeeId?.email || payslip.employeeId?.personalEmail || payslip.email}
+          sendEndpoint={`/api/v1/email/payslip/${payslip._id}`}
+        />
+      )}
     </div>
   );
 };

@@ -310,7 +310,7 @@ const CloseSessionModal = ({ isOpen, onClose, session, onSuccess }) => {
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Subtotal Audited</p>
                   <p className="text-[10px] text-indigo-700 font-medium">Total Physical Counted</p>
                   <div className="text-2xl font-bold text-indigo-600 mt-1">
-                    AED {enteredCash.toFixed(2)}
+                    {formatCurrency(enteredCash)}
                   </div>
                 </div>
 
@@ -333,9 +333,9 @@ const CloseSessionModal = ({ isOpen, onClose, session, onSuccess }) => {
                     </h4>
                     <p className="text-sm">
                       {variance > 0 
-                        ? `Minor cash surplus detected (+AED ${Math.abs(variance).toFixed(2)}). ` 
-                        : `Cash shortage detected (-AED ${Math.abs(variance).toFixed(2)}). `}
-                      {exceedsVarianceLimit ? `This variance exceeds the company limit of AED ${posVarianceLimit.toFixed(2)} and requires manager override.` : `This variance is within the company limit of AED ${posVarianceLimit.toFixed(2)}.`}
+                        ? `Minor cash surplus detected (+${formatCurrency(Math.abs(variance))}). ` 
+                        : `Cash shortage detected (-${formatCurrency(Math.abs(variance))}). `}
+                      {exceedsVarianceLimit ? `This variance exceeds the company limit of ${formatCurrency(posVarianceLimit)} and requires manager override.` : `This variance is within the company limit of ${formatCurrency(posVarianceLimit)}.`}
                     </p>
                   </div>
                 </div>
@@ -364,7 +364,7 @@ const CloseSessionModal = ({ isOpen, onClose, session, onSuccess }) => {
                       </div>
                     </div>
                     <div className="flex items-center gap-6">
-                      <span className="font-bold text-slate-800">AED {totalDigitalSales.toFixed(2)}</span>
+                      <span className="font-bold text-slate-800">{formatCurrency(totalDigitalSales)}</span>
                       <span className="text-xs font-bold text-emerald-600">{totalDigitalSales > 0 ? 'Matched & Batched' : 'No Activity'}</span>
                     </div>
                   </div>
@@ -380,14 +380,14 @@ const CloseSessionModal = ({ isOpen, onClose, session, onSuccess }) => {
                       </div>
                     </div>
                     <div className="flex items-center gap-6">
-                      <span className="font-bold text-slate-800">AED 0.00</span>
+                      <span className="font-bold text-slate-800">{formatCurrency(0)}</span>
                       <span className="text-xs font-bold text-slate-400">No Activity</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-xs font-bold text-slate-500">Total Non-Cash Digital Sales:</span>
-                    <span className="text-lg font-bold text-slate-800">AED {totalDigitalSales.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-slate-800">{formatCurrency(totalDigitalSales)}</span>
                   </div>
                 </div>
               </div>

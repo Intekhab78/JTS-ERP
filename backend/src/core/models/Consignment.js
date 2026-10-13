@@ -14,6 +14,10 @@ const consignmentItemSchema = new mongoose.Schema({
 
 const consignmentSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   supplierId: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier', required: true },
   consignmentNumber: { type: String, required: true, unique: true },
   startDate: { type: Date, required: true },

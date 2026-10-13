@@ -6,6 +6,7 @@ const StockMovement = require('../../core/models/StockMovement');
 const Counter = require('../../core/models/Counter');
 const uomService = require('../../utils/uomService');
 const { verifyBranchAccess } = require('../../core/middleware/authMiddleware');
+const { getReadFilter } = require('../../core/utils/scopeHelper');
 
 const generateSRNumber = async (tenantId, session) => {
   const currentYear = new Date().getFullYear();
@@ -23,14 +24,7 @@ const generateSRNumber = async (tenantId, session) => {
 
 exports.getSalesReturns = async (req, res) => {
   try {
-    const tenantId = req.user.tenantId;
-    const query = { tenantId, isActive: true };
-    const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
-    if (req.user.branches && req.user.branches.length > 0) {
-      query.branchId = { $in: req.user.branches };
-    } else if (!hasWildcard) {
-      query.branchId = { $in: [] };
-    }
+    const query = { ...getReadFilter(req), isActive: true };
 
     const srList = await SalesReturn.find(query)
       .populate('customerId', 'name')
@@ -47,7 +41,8 @@ exports.getSalesReturns = async (req, res) => {
 
 exports.getSalesReturnById = async (req, res) => {
   try {
-    const sr = await SalesReturn.findOne({ _id: req.params.id, tenantId: req.user.tenantId })
+    const filter = getReadFilter(req);
+    const sr = await SalesReturn.findOne({ _id: req.params.id, ...filter })
       .populate('customerId', 'name email phone')
       .populate('deliveryNoteId', 'deliveryNoteNumber')
       .populate('salesOrderId', 'orderNumber')
@@ -56,14 +51,6 @@ exports.getSalesReturnById = async (req, res) => {
       .populate('updatedBy', 'name');
 
     if (!sr) return res.status(404).json({ message: 'Sales Return not found' });
-    const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
-    if (req.user.branches && req.user.branches.length > 0) {
-      if (!req.user.branches.includes(sr.branchId.toString())) {
-        return res.status(403).json({ message: 'Access denied to this branch' });
-      }
-    } else if (!hasWildcard) {
-      return res.status(403).json({ message: 'Access denied to this branch' });
-    }
 
     res.status(200).json(sr);
   } catch (error) {
@@ -72,13 +59,14 @@ exports.getSalesReturnById = async (req, res) => {
 };
 
 // Helper function to calculate returnable quantities
-const getReturnableQuantities = async (deliveryNoteId, tenantId, session) => {
-  const deliveryNote = await DeliveryNote.findOne({ _id: deliveryNoteId, tenantId }).session(session);
+const getReturnableQuantities = async (deliveryNoteId, req, session) => {
+  const filter = getReadFilter(req);
+  const deliveryNote = await DeliveryNote.findOne({ _id: deliveryNoteId, ...filter }).session(session);
   if (!deliveryNote) throw new Error('Delivery Note not found');
 
   const existingReturns = await SalesReturn.find({
     deliveryNoteId,
-    tenantId,
+    ...filter,
     status: { $ne: 'CANCELLED' }
   }).session(session);
 
@@ -112,7 +100,7 @@ exports.createSalesReturn = async (req, res) => {
     const tenantId = req.user.tenantId;
     const body = { ...req.body };
 
-    const { deliveryNote, returnableQuantities } = await getReturnableQuantities(body.deliveryNoteId, tenantId, session);
+    const { deliveryNote, returnableQuantities } = await getReturnableQuantities(body.deliveryNoteId, req, session);
 
     if (deliveryNote.status !== 'DELIVERED') { // Validated delivery note
       // NOTE: Wait, what is the status for a validated Delivery Note? Usually 'DELIVERED'.
@@ -142,7 +130,8 @@ exports.createSalesReturn = async (req, res) => {
     // Snapshot UOM details from Product Master
     if (body.items && body.items.length > 0) {
       const productIds = body.items.map(i => i.productId);
-      const products = await mongoose.model('Product').find({ _id: { $in: productIds }, tenantId }).session(session);
+      const filter = getReadFilter(req);
+      const products = await mongoose.model('Product').find({ _id: { $in: productIds }, ...filter }).session(session);
       for (const item of body.items) {
         const product = products.find(p => p._id.toString() === item.productId.toString());
         if (product) {
@@ -156,6 +145,7 @@ exports.createSalesReturn = async (req, res) => {
 
     body.returnNumber = await generateSRNumber(tenantId, session);
     body.tenantId = tenantId;
+    body.legalCompanyId = deliveryNote.legalCompanyId;
     body.branchId = deliveryNote.branchId;
     body.customerId = deliveryNote.customerId;
     body.salesOrderId = deliveryNote.salesOrderId;
@@ -179,10 +169,10 @@ exports.updateSalesReturn = async (req, res) => {
   session.startTransaction();
 
   try {
-    const tenantId = req.user.tenantId;
+    const filter = getReadFilter(req);
     const srId = req.params.id;
 
-    const sr = await SalesReturn.findOne({ _id: srId, tenantId }).session(session);
+    const sr = await SalesReturn.findOne({ _id: srId, ...filter }).session(session);
     if (!sr) throw new Error('Sales Return not found');
 
     if (sr.status !== 'DRAFT') {
@@ -190,10 +180,10 @@ exports.updateSalesReturn = async (req, res) => {
     }
 
     if (req.body.items) {
-      const deliveryNote = await DeliveryNote.findOne({ _id: sr.deliveryNoteId, tenantId }).session(session);
+      const deliveryNote = await DeliveryNote.findOne({ _id: sr.deliveryNoteId, ...filter }).session(session);
       const existingReturns = await SalesReturn.find({
         deliveryNoteId: sr.deliveryNoteId,
-        tenantId,
+        ...filter,
         _id: { $ne: srId },
         status: { $ne: 'CANCELLED' }
       }).session(session);
@@ -227,7 +217,7 @@ exports.updateSalesReturn = async (req, res) => {
 
       // Snapshot UOM details from Product Master on update
       const productIds = req.body.items.map(i => i.productId);
-      const products = await mongoose.model('Product').find({ _id: { $in: productIds }, tenantId: req.user.tenantId }).session(session);
+      const products = await mongoose.model('Product').find({ _id: { $in: productIds }, ...filter }).session(session);
       for (const item of req.body.items) {
         const product = products.find(p => p._id.toString() === item.productId.toString());
         if (product) {
@@ -240,7 +230,7 @@ exports.updateSalesReturn = async (req, res) => {
     }
 
     const updated = await SalesReturn.findOneAndUpdate(
-      { _id: srId, tenantId },
+      { _id: srId, ...filter },
       { ...req.body, updatedBy: req.user._id },
       { returnDocument: 'after', session }
     );
@@ -258,7 +248,8 @@ exports.updateSalesReturn = async (req, res) => {
 exports.updateStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const sr = await SalesReturn.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const sr = await SalesReturn.findOne({ _id: req.params.id, ...filter });
     if (!sr) return res.status(404).json({ message: 'Sales Return not found' });
     
     if (sr.status !== 'DRAFT') {
@@ -281,7 +272,8 @@ exports.validateSalesReturn = async (req, res) => {
 
   try {
     const tenantId = req.user.tenantId;
-    const sr = await SalesReturn.findOne({ _id: req.params.id, tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const sr = await SalesReturn.findOne({ _id: req.params.id, ...filter }).session(session);
 
     if (!sr) throw new Error('Sales Return not found');
     if (sr.status !== 'CONFIRMED' && sr.status !== 'DRAFT') {
@@ -291,7 +283,7 @@ exports.validateSalesReturn = async (req, res) => {
     for (const item of sr.items) {
       if (item.returnQuantity <= 0) continue;
 
-      const product = await mongoose.model('Product').findOne({ _id: item.productId, tenantId }).session(session);
+      const product = await mongoose.model('Product').findOne({ _id: item.productId, ...filter }).session(session);
       if (!product) throw new Error(`Product not found`);
 
       if (product.type !== 'SERVICE') {
@@ -300,6 +292,7 @@ exports.validateSalesReturn = async (req, res) => {
         const stockUpdate = await Stock.findOneAndUpdate(
           {
             tenantId,
+            legalCompanyId: sr.legalCompanyId,
             branchId: sr.branchId,
             productId: item.productId
           },
@@ -309,6 +302,7 @@ exports.validateSalesReturn = async (req, res) => {
 
         await StockMovement.create([{
           tenantId,
+          legalCompanyId: sr.legalCompanyId,
           branchId: sr.branchId,
           productId: item.productId,
           quantity: baseReturnQty, // Positive quantity
@@ -343,7 +337,7 @@ exports.validateSalesReturn = async (req, res) => {
 exports.getReturnableInfo = async (req, res) => {
   try {
     const { deliveryNoteId } = req.params;
-    const { returnableQuantities } = await getReturnableQuantities(deliveryNoteId, req.user.tenantId, null);
+    const { returnableQuantities } = await getReturnableQuantities(deliveryNoteId, req, null);
     res.status(200).json(returnableQuantities);
   } catch (error) {
     res.status(400).json({ message: error.message });

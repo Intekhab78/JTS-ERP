@@ -18,6 +18,10 @@ const deliveryNoteItemSchema = new mongoose.Schema({
 
 const deliveryNoteSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
   warehouseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Warehouse' }, // Optional for now
   deliveryNoteNumber: { type: String, required: true },

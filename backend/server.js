@@ -30,8 +30,10 @@ app.use('/api/v1/auth', require('./src/core/auth/authRoutes'));
 app.use('/api/v1/roles', require('./src/core/auth/roleRoutes'));
 app.use('/api/v1/users', require('./src/core/auth/userRoutes'));
 app.use('/api/v1/company', require('./src/modules/company/companyRoutes'));
+app.use('/api/v1/legal-company', require('./src/modules/company/legalCompanyRoutes'));
 app.use('/api/v1/branches', require('./src/modules/branch/branchRoutes'));
 app.use('/api/v1/inventory', require('./src/modules/inventory/inventoryRoutes'));
+app.use('/api/v1/company-items', require('./src/modules/inventory/companyItemRoutes'));
 app.use('/api/v1/hierarchy', require('./src/modules/inventory/hierarchyRoutes'));
 app.use('/api/v1/stock', require('./src/modules/inventory/stockRoutes'));
 app.use('/api/v1/sales/returns', require('./src/modules/sales/salesReturnRoutes'));
@@ -42,6 +44,7 @@ app.use('/api/v1/proforma', require('./src/modules/sales/proFormaRoutes'));
 app.use('/api/v1/delivery-notes', require('./src/modules/sales/deliveryNoteRoutes'));
 app.use('/api/v1/tax-invoices', require('./src/modules/sales/taxInvoiceRoutes'));
 app.use('/api/v1/taxes', require('./src/modules/settings/taxRoutes'));
+app.use('/api/v1/discounts', require('./src/modules/discount/discountRoutes'));
 app.use('/api/v1/payments', require('./src/modules/sales/paymentRoutes'));
 app.use('/api/v1/suppliers', require('./src/modules/purchase/supplierRoutes'));
 app.use('/api/v1/purchases', require('./src/modules/purchase/purchaseRoutes'));
@@ -68,6 +71,7 @@ app.use('/api/v1/ecommerce', require('./src/modules/ecommerce/ecommerceRoutes'))
 app.use('/api/v1/ecommerce-admin', require('./src/modules/ecommerce/internalEcommerceRoutes'));
 app.use('/api/v1/dashboard', require('./src/modules/dashboard/dashboardRoutes'));
 app.use('/api/v1/audit', require('./src/modules/audit/auditRoutes'));
+app.use('/api/v1/email', require('./src/modules/email/emailRoutes'));
 
 const PORT = process.env.PORT || 5000;
 

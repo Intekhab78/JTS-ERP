@@ -4,6 +4,7 @@ const Order = require('../../core/models/Order');
 const Customer = require('../../core/models/Customer');
 const Counter = require('../../core/models/Counter');
 const mongoose = require('mongoose');
+const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
 
 const generatePfNumber = async (tenantId) => {
   const year = new Date().getFullYear();
@@ -36,11 +37,12 @@ const calculateTotals = (items) => {
 
 exports.createProFormaInvoice = async (req, res) => {
   try {
-    const { customerId, items, shippingCharges = 0, otherCharges = 0, ...rest } = req.body;
+    const scopedBody = validateCreateScope(req, req.body);
+    const { customerId, items, shippingCharges = 0, otherCharges = 0, ...rest } = scopedBody;
     
-    // Fetch customer to build snapshot
-    const customer = await Customer.findOne({ _id: customerId, tenantId: req.user.tenantId });
-    if (!customer) return res.status(404).json({ message: 'Customer not found in this tenant' });
+    const filter = getReadFilter(req);
+    const customer = await Customer.findOne({ _id: customerId, ...filter });
+    if (!customer) return res.status(404).json({ message: 'Customer not found or not accessible in this scope' });
 
     const customerSnapshot = {
       name: customer.name,
@@ -58,6 +60,7 @@ exports.createProFormaInvoice = async (req, res) => {
     const proForma = await ProFormaInvoice.create({
       ...rest,
       tenantId: req.user.tenantId,
+      legalCompanyId: scopedBody.legalCompanyId,
       branchId: req.user.branchId, // Ensure branch is attached
       pfNumber,
       customerId,
@@ -81,7 +84,8 @@ exports.createProFormaInvoice = async (req, res) => {
 
 exports.generateFromQuote = async (req, res) => {
   try {
-    const quote = await Quote.findOne({ _id: req.params.quoteId, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const quote = await Quote.findOne({ _id: req.params.quoteId, ...filter });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
     
     if (!['ACCEPTED', 'CONVERTED'].includes(quote.status)) {
@@ -91,7 +95,7 @@ exports.generateFromQuote = async (req, res) => {
     const pfNumber = await generatePfNumber(req.user.tenantId);
     
     // Check existing Pro-Formas to calculate remaining balance
-    const existingPFs = await ProFormaInvoice.find({ quoteId: quote._id, tenantId: req.user.tenantId, isActive: true, status: { $ne: 'CANCELLED' } });
+    const existingPFs = await ProFormaInvoice.find({ quoteId: quote._id, ...filter, isActive: true, status: { $ne: 'CANCELLED' } });
     
     let totalRequestedPercentage = 0;
     existingPFs.forEach(pf => {
@@ -108,6 +112,7 @@ exports.generateFromQuote = async (req, res) => {
 
     const proForma = await ProFormaInvoice.create({
       tenantId: req.user.tenantId,
+      legalCompanyId: quote.legalCompanyId,
       branchId: quote.branchId || req.user.branchId,
       pfNumber,
       sourceType: 'QUOTE',
@@ -146,7 +151,8 @@ exports.generateFromQuote = async (req, res) => {
 
 exports.generateFromOrder = async (req, res) => {
   try {
-    const order = await Order.findOne({ _id: req.params.orderId, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const order = await Order.findOne({ _id: req.params.orderId, ...filter });
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
     // Ensure order is not CANCELLED
@@ -156,7 +162,7 @@ exports.generateFromOrder = async (req, res) => {
 
     // Attempt to load order items
     const OrderItem = require('../../core/models/OrderItem');
-    const orderItems = await OrderItem.find({ orderId: order._id, tenantId: req.user.tenantId });
+    const orderItems = await OrderItem.find({ orderId: order._id, ...filter });
 
     // Map orderItems to proFormaItems snapshot
     const items = orderItems.map(oi => ({
@@ -172,6 +178,7 @@ exports.generateFromOrder = async (req, res) => {
 
     const proForma = await ProFormaInvoice.create({
       tenantId: req.user.tenantId,
+      legalCompanyId: order.legalCompanyId,
       branchId: order.branchId || req.user.branchId,
       pfNumber,
       sourceType: 'ORDER',
@@ -205,7 +212,7 @@ exports.generateFromOrder = async (req, res) => {
 
 exports.getProFormaInvoices = async (req, res) => {
   try {
-    const query = { tenantId: req.user.tenantId, isActive: true };
+    const query = { ...getReadFilter(req), isActive: true };
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
     if (req.user.branches && req.user.branches.length > 0) {
       query.branchId = { $in: req.user.branches };
@@ -221,7 +228,8 @@ exports.getProFormaInvoices = async (req, res) => {
 
 exports.getProFormaInvoiceById = async (req, res) => {
   try {
-    const proForma = await ProFormaInvoice.findOne({ _id: req.params.id, tenantId: req.user.tenantId, isActive: true });
+    const filter = getReadFilter(req);
+    const proForma = await ProFormaInvoice.findOne({ _id: req.params.id, ...filter, isActive: true });
     if (!proForma) return res.status(404).json({ message: 'Pro-Forma Invoice not found' });
 
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
@@ -241,7 +249,8 @@ exports.getProFormaInvoiceById = async (req, res) => {
 
 exports.updateProFormaInvoice = async (req, res) => {
   try {
-    const existing = await ProFormaInvoice.findOne({ _id: req.params.id, tenantId: req.user.tenantId, isActive: true });
+    const filter = getReadFilter(req);
+    const existing = await ProFormaInvoice.findOne({ _id: req.params.id, ...filter, isActive: true });
     if (!existing) return res.status(404).json({ message: 'Pro-Forma Invoice not found' });
 
     if (existing.status !== 'DRAFT') {
@@ -265,7 +274,7 @@ exports.updateProFormaInvoice = async (req, res) => {
       const otherPFs = await ProFormaInvoice.find({ 
         quoteId: existing.quoteId, 
         _id: { $ne: existing._id },
-        tenantId: req.user.tenantId, 
+        ...filter, 
         isActive: true, 
         status: { $ne: 'CANCELLED' } 
       });
@@ -280,8 +289,8 @@ exports.updateProFormaInvoice = async (req, res) => {
       }
     }
 
-    const updated = await ProFormaInvoice.findByIdAndUpdate(
-      req.params.id,
+    const updated = await ProFormaInvoice.findOneAndUpdate(
+      { _id: req.params.id, ...filter },
       { ...rest, updatedBy: req.user._id },
       { returnDocument: 'after' }
     );
@@ -294,7 +303,8 @@ exports.updateProFormaInvoice = async (req, res) => {
 exports.updateStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const existing = await ProFormaInvoice.findOne({ _id: req.params.id, tenantId: req.user.tenantId, isActive: true });
+    const filter = getReadFilter(req);
+    const existing = await ProFormaInvoice.findOne({ _id: req.params.id, ...filter, isActive: true });
     
     if (!existing) return res.status(404).json({ message: 'Pro-Forma Invoice not found' });
     
@@ -310,8 +320,9 @@ exports.updateStatus = async (req, res) => {
 
 exports.deleteProFormaInvoice = async (req, res) => {
   try {
+    const filter = getReadFilter(req);
     const proForma = await ProFormaInvoice.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.user.tenantId },
+      { _id: req.params.id, ...filter },
       { isActive: false, updatedBy: req.user._id }
     );
     if (!proForma) return res.status(404).json({ message: 'Pro-Forma Invoice not found' });

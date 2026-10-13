@@ -6,74 +6,186 @@ const OrderItem = require('../../core/models/OrderItem');
 const PurchaseOrderItem = require('../../core/models/PurchaseOrderItem');
 const StockMovement = require('../../core/models/StockMovement');
 const UomConversion = require('../../core/models/UomConversion');
+const CompanyItem = require('../../core/models/CompanyItem');
+const LegalCompany = require('../../core/models/LegalCompany');
 
 // @desc    Get all products for the tenant
 // @route   GET /api/v1/inventory/products
 // @access  Private
 exports.getProducts = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId;
+    let tenantId = req.user.activeTenantId || req.user.tenantId;
 
     if (!tenantId) {
-      if (!req.query.tenantId) {
-        return res.status(400).json({ message: 'Global Superadmin must provide tenantId in query' });
-      }
-      tenantId = req.query.tenantId;
+      return res.status(400).json({ message: 'Missing tenant context' });
     }
+    
+    tenantId = new mongoose.Types.ObjectId(tenantId);
 
     const filter = { tenantId };
+    
+    // Status filter
     if (req.query.includeInactive !== 'true') {
       filter.isActive = { $ne: false };
     }
-
-    const matchConditions = [
-      { $eq: ['$productId', '$$productId'] },
-      { $eq: ['$tenantId', '$$tenantId'] },
-      { $eq: [{ $ifNull: ['$ownerType', 'COMPANY'] }, 'COMPANY'] }
-    ];
-
-    if (req.query.branchId) {
-      matchConditions.push({ $eq: ['$branchId', new mongoose.Types.ObjectId(req.query.branchId)] });
+    
+    // Category filter
+    if (req.query.categoryId) {
+      filter.categoryId = new mongoose.Types.ObjectId(req.query.categoryId);
     }
 
+    // Search filter
+    if (req.query.search) {
+      const searchRegex = new RegExp(req.query.search, 'i');
+      filter.$or = [
+        { name: searchRegex },
+        { sku: searchRegex },
+        { barcode: searchRegex },
+        { brand: searchRegex }
+      ];
+    }
+    
+    // Barcode/SKU exact match
+    if (req.query.barcode) filter.barcode = req.query.barcode;
+    if (req.query.sku) filter.sku = req.query.sku;
+
     const pipeline = [
-      { $match: filter },
-      { 
-        $lookup: {
-          from: 'stocks',
-          let: { productId: '$_id', tenantId: '$tenantId' },
-          pipeline: [
-            { $match: { $expr: { $and: matchConditions } } }
-          ],
-          as: 'stockRecords'
+      { $match: filter }
+    ];
+
+    let branchIdObj = null;
+    if (req.query.branchId) {
+      branchIdObj = new mongoose.Types.ObjectId(req.query.branchId.split(',')[0].trim());
+      
+      const Branch = require('../../core/models/Branch');
+      const branch = await Branch.findOne({ _id: branchIdObj, tenantId }).lean();
+      
+      if (!branch || !branch.legalCompanyId) {
+        return res.status(403).json({ message: 'Branch is not configured with a Legal Company.' });
+      }
+      
+      const legalCompanyId = branch.legalCompanyId;
+
+      // Ensure product is commercially configured for this Legal Company
+      pipeline.push(
+        {
+          $lookup: {
+            from: 'companyitems',
+            let: { pid: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$productId', '$$pid'] },
+                      { $eq: ['$tenantId', tenantId] },
+                      { $eq: ['$legalCompanyId', legalCompanyId] },
+                      { $eq: [{ $ifNull: ['$isActive', true] }, true] }
+                    ]
+                  }
+                }
+              },
+              { $limit: 1 }
+            ],
+            as: 'companyItemMatch'
+          }
+        },
+        {
+          $match: {
+            $expr: { $gt: [{ $size: '$companyItemMatch' }, 0] }
+          }
+        },
+        {
+          $unwind: '$companyItemMatch'
+        },
+        {
+          $addFields: {
+            sku: { $ifNull: ['$companyItemMatch.companySku', '$sku'] },
+            salesPrice: { $ifNull: ['$companyItemMatch.salesPrice', '$salesPrice'] },
+            purchasePrice: { $ifNull: ['$companyItemMatch.purchasePrice', '$purchasePrice'] },
+            taxRate: { $ifNull: ['$companyItemMatch.taxRate', '$taxRate'] },
+            categoryId: { $ifNull: ['$companyItemMatch.categoryId', '$categoryId'] },
+            department: { $ifNull: ['$companyItemMatch.department', '$department'] },
+            section: { $ifNull: ['$companyItemMatch.section', '$section'] },
+            tax1: { $ifNull: ['$companyItemMatch.tax1', '$tax1'] },
+            isActive: { $ifNull: ['$companyItemMatch.isActive', '$isActive'] },
+            allowDiscount: { $ifNull: ['$companyItemMatch.allowDiscount', '$allowDiscount'] }
+          }
+        },
+        {
+          $project: { companyItemMatch: 0 }
         }
-      },
-      { 
-        $addFields: {
-          stock: { $sum: '$stockRecords.quantity' }
-        }
-      },
-      {
-        $addFields: {
-          status: {
-            $switch: {
-              branches: [
-                { case: { $eq: ['$stock', 0] }, then: 'Out of Stock' },
-                { case: { $lte: ['$stock', 5] }, then: 'Low Stock' }
-              ],
-              default: 'In Stock'
+      );
+    } // <-- Added missing closing brace here
+
+      // User requested to remove the Assortment/Catalog restriction entirely.
+      // Visibility is now strictly based on CompanyItem and Stock.
+    
+    // Sorting & Pagination (apply before stock lookup to save DB CPU)
+    pipeline.push({ $sort: { createdAt: -1 } });
+    
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || (req.query.paginated === 'true' ? 50 : 1000); // Allow bigger default for legacy endpoints until they are updated
+    pipeline.push({ $skip: (page - 1) * limit });
+    pipeline.push({ $limit: limit });
+
+    // Note: If branchId is passed, we also need stock!
+    if (branchIdObj) {
+      pipeline.push(
+        {
+          $lookup: {
+            from: 'stocks',
+            let: { productId: '$_id' },
+            pipeline: [
+              { 
+                $match: { 
+                  $expr: { 
+                    $and: [
+                      { $eq: ['$productId', '$$productId'] },
+                      { $eq: ['$tenantId', tenantId] },
+                      { $eq: ['$branchId', branchIdObj] },
+                      { $eq: [{ $ifNull: ['$ownerType', 'COMPANY'] }, 'COMPANY'] }
+                    ] 
+                  } 
+                } 
+              }
+            ],
+            as: 'stockRecords'
+          }
+        },
+        {
+          $addFields: {
+            stock: { $sum: '$stockRecords.quantity' }
+          }
+        },
+        {
+          $addFields: {
+            status: {
+              $switch: {
+                branches: [
+                  { case: { $eq: ['$stock', 0] }, then: 'Out of Stock' },
+                  { case: { $lte: ['$stock', 5] }, then: 'Low Stock' }
+                ],
+                default: 'In Stock'
+              }
             }
           }
         }
+      );
+      
+      // Stock filtering if explicitly requested
+      if (req.query.inStockOnly === 'true') {
+        pipeline.push({ $match: { stock: { $gt: 0 } } });
       }
-    ];
-
-    if (req.query.inStockOnly === 'true') {
-      pipeline.push({ $match: { stock: { $gt: 0 } } });
+    } else {
+      pipeline.push(
+        { $addFields: { stock: 0, status: 'In Stock' } }
+      );
     }
 
+    // Attach categories and taxes
     pipeline.push(
-      { 
+      {
         $lookup: {
           from: 'categories',
           localField: 'categoryId',
@@ -113,15 +225,20 @@ exports.getProducts = async (req, res) => {
             }
           }
         }
-      },
+      }
+    );
+
+    // Cleanup projections
+    pipeline.push(
       {
         $project: {
           stockRecords: 0,
           category: 0,
-          tax1Details: 0
+          tax1Details: 0,
+          assortmentMatch: 0,
+          overrideMatch: 0
         }
-      },
-      { $sort: { createdAt: -1 } }
+      }
     );
 
     const products = await Product.aggregate(pipeline);
@@ -129,7 +246,12 @@ exports.getProducts = async (req, res) => {
     // Add id alias for frontend compatibility
     const formattedProducts = products.map(p => ({ ...p, id: p._id }));
     
-    res.status(200).json(formattedProducts);
+    if (req.query.paginated === 'true') {
+      res.status(200).json({ products: formattedProducts });
+    } else {
+      // Legacy backward compatible return type
+      res.status(200).json(formattedProducts);
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -140,12 +262,9 @@ exports.getProducts = async (req, res) => {
 // @access  Private
 exports.createProduct = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId;
+    let tenantId = req.user.activeTenantId || req.user.tenantId;
     if (!tenantId) {
-      if (!req.body.tenantId) {
-        return res.status(400).json({ message: 'Global Superadmin must provide tenantId' });
-      }
-      tenantId = req.body.tenantId;
+      return res.status(400).json({ message: 'Missing tenant context' });
     }
 
     const { 
@@ -192,6 +311,35 @@ exports.createProduct = async (req, res) => {
       company, location, tax1, supplierName, createdBy: req.user._id
     });
 
+    // PHASE 6: Centralized Product + Localized CompanyItem Creation
+    const activeCompanyId = req.headers['x-company-id'];
+    let targetCompanies = [];
+
+    if (!activeCompanyId || activeCompanyId === 'ALL' || activeCompanyId === 'null' || activeCompanyId === 'undefined') {
+      // Create CompanyItem for ALL active legal companies in the tenant
+      targetCompanies = await LegalCompany.find({ tenantId, isActive: true });
+    } else {
+      // Create CompanyItem ONLY for the currently selected legal company
+      const selectedCompany = await LegalCompany.findOne({ _id: activeCompanyId, tenantId });
+      if (selectedCompany) {
+        targetCompanies = [selectedCompany];
+      }
+    }
+
+    // Generate CompanyItems
+    for (const legalCompany of targetCompanies) {
+      await CompanyItem.create({
+        tenantId: tenantId,
+        productId: product._id,
+        legalCompanyId: legalCompany._id,
+        purchasePrice: purchasePrice || 0,
+        salesPrice: salesPrice || price || 0,
+        taxRate: taxRate || 0,
+        taxAmount: 0,
+        isActive: isActive !== undefined ? isActive : true
+      });
+    }
+
     const populatedProduct = await Product.findById(product._id).populate('categoryId', 'name');
     
     const formattedProduct = populatedProduct.toObject();
@@ -212,12 +360,9 @@ exports.createProduct = async (req, res) => {
 // @access  Private
 exports.updateProduct = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId;
+    let tenantId = req.user.activeTenantId || req.user.tenantId;
     if (!tenantId) {
-      if (!req.body.tenantId && !req.query.tenantId) {
-        return res.status(400).json({ message: 'Global Superadmin must provide tenantId' });
-      }
-      tenantId = req.body.tenantId || req.query.tenantId;
+      return res.status(400).json({ message: 'Missing tenant context' });
     }
 
     const product = await Product.findOne({ _id: req.params.id, tenantId });
@@ -292,6 +437,24 @@ exports.updateProduct = async (req, res) => {
       { returnDocument: 'after', runValidators: true }
     ).populate('categoryId', 'name');
 
+    // PHASE 6: Update CompanyItem for the currently selected Legal Company
+    const activeCompanyId = req.headers['x-company-id'];
+    if (activeCompanyId && activeCompanyId !== 'ALL' && activeCompanyId !== 'null' && activeCompanyId !== 'undefined') {
+      const CompanyItem = require('../../core/models/CompanyItem');
+      await CompanyItem.findOneAndUpdate(
+        { tenantId, productId: updatedProduct._id, legalCompanyId: activeCompanyId },
+        {
+          $set: {
+            salesPrice: updates.salesPrice !== undefined ? updates.salesPrice : (updates.price || updatedProduct.price),
+            purchasePrice: updates.purchasePrice !== undefined ? updates.purchasePrice : updatedProduct.purchasePrice,
+            taxRate: updates.taxRate !== undefined ? updates.taxRate : updatedProduct.taxRate,
+            isActive: updates.isActive !== undefined ? updates.isActive : true
+          }
+        },
+        { upsert: true }
+      );
+    }
+
     res.status(200).json(updatedProduct);
   } catch (error) {
     if (error.code === 11000) {
@@ -306,10 +469,9 @@ exports.updateProduct = async (req, res) => {
 // @access  Private
 exports.deleteProduct = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId;
+    let tenantId = req.user.activeTenantId || req.user.tenantId;
     if (!tenantId) {
-      tenantId = req.query.tenantId || req.body.tenantId;
-      if (!tenantId) return res.status(400).json({ message: 'Global Superadmin must provide tenantId' });
+      return res.status(400).json({ message: 'Missing tenant context' });
     }
 
     const product = await Product.findOne({ _id: req.params.id, tenantId });
@@ -344,7 +506,8 @@ exports.deleteProduct = async (req, res) => {
 // @access  Private
 exports.getCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ tenantId: req.user.tenantId }).sort('name');
+    const tenantContext = req.user.activeTenantId || req.user.tenantId;
+    const categories = await Category.find({ tenantId: tenantContext }).sort('name');
     res.status(200).json(categories);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -358,8 +521,9 @@ exports.createCategory = async (req, res) => {
   try {
     const { name, description, itemDepartmentId, code, isActive } = req.body;
 
+    const tenantContext = req.user.activeTenantId || req.user.tenantId;
     const category = await Category.create({
-      tenantId: req.user.tenantId,
+      tenantId: tenantContext,
       name,
       description,
       itemDepartmentId,
@@ -374,8 +538,9 @@ exports.createCategory = async (req, res) => {
 
 exports.updateCategory = async (req, res) => {
   try {
+    const tenantContext = req.user.activeTenantId || req.user.tenantId;
     const category = await Category.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.user.tenantId },
+      { _id: req.params.id, tenantId: tenantContext },
       req.body,
       { returnDocument: 'after', runValidators: true }
     );
@@ -389,7 +554,7 @@ exports.updateCategory = async (req, res) => {
 exports.deleteCategory = async (req, res) => {
   try {
     const categoryId = req.params.id;
-    const tenantId = req.user.tenantId;
+    const tenantId = req.user.activeTenantId || req.user.tenantId;
 
     const category = await Category.findOne({ _id: categoryId, tenantId });
     if (!category) return res.status(404).json({ message: 'Category not found' });
@@ -412,7 +577,7 @@ exports.deleteCategory = async (req, res) => {
 // @access  Private
 exports.uploadProductImage = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId;
+    let tenantId = req.user.activeTenantId || req.user.tenantId;
     if (!tenantId) {
       return res.status(400).json({ message: 'Tenant ID is required' });
     }
@@ -450,7 +615,7 @@ exports.deleteProductImage = async (req, res) => {
   try {
     const fs = require('fs');
     const path = require('path');
-    let tenantId = req.user.tenantId;
+    let tenantId = req.user.activeTenantId || req.user.tenantId;
 
     const product = await Product.findOne({ _id: req.params.id, tenantId });
     if (!product) {
@@ -480,6 +645,100 @@ exports.deleteProductImage = async (req, res) => {
       message: 'Image deleted successfully',
       images: product.images
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get a specific product by barcode (optimized for POS)
+// @route   GET /api/v1/inventory/products/barcode
+// @access  Private
+exports.getProductByBarcode = async (req, res) => {
+  try {
+    const tenantId = req.user.activeTenantId || req.user.tenantId;
+    const { barcode, branchId } = req.query;
+
+    if (!tenantId) return res.status(400).json({ message: 'Missing tenant context' });
+    if (!barcode) return res.status(400).json({ message: 'Barcode is required' });
+
+    // Exact lookup by barcode
+    let product = await Product.findOne({ tenantId, barcode, isActive: { $ne: false } }).lean();
+    
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found with this barcode' });
+    }
+
+    if (branchId) {
+      const companyItemService = require('../../services/companyItemService');
+      let resolvedItem;
+      try {
+        resolvedItem = await companyItemService.validateSaleable({
+          tenantId,
+          productId: product._id,
+          branchId,
+          user: req.user
+        });
+      } catch (err) {
+        if (err.name === 'CompanyItemNotConfiguredError') {
+          return res.status(403).json({ 
+            success: false, 
+            code: err.code, 
+            message: err.message 
+          });
+        }
+        throw err;
+      }
+
+      // Overwrite global commercial fields with local resolved commercial fields
+      product.sku = resolvedItem.companySku;
+      product.salesPrice = resolvedItem.salesPrice;
+      product.purchasePrice = resolvedItem.purchasePrice;
+      product.taxRate = resolvedItem.taxRate;
+      product.categoryId = resolvedItem.categoryId;
+      product.department = resolvedItem.department;
+      product.section = resolvedItem.section;
+      product.tax1 = resolvedItem.tax1;
+      product.isActive = resolvedItem.isActive;
+      product.allowDiscount = resolvedItem.allowDiscount;
+      product.isConfigured = true;
+
+      // Stock lookup
+      const Stock = require('../../core/models/Stock');
+      const branchIdObj = new mongoose.Types.ObjectId(branchId);
+      const stockRecords = await Stock.find({ tenantId, branchId: branchIdObj, productId: product._id, ownerType: 'COMPANY' }).lean();
+      const totalStock = stockRecords.reduce((sum, s) => sum + s.quantity, 0);
+      
+      product.stock = totalStock;
+      
+      if (totalStock === 0) product.status = 'Out of Stock';
+      else if (totalStock <= 5) product.status = 'Low Stock';
+      else product.status = 'In Stock';
+      
+    } else {
+      // If no branch context is provided (e.g. global lookup), it is NOT commercially configured.
+      product.isConfigured = false;
+      product.stock = 0;
+      product.status = 'In Stock';
+      // Do not return pricing
+      product.salesPrice = null;
+      product.purchasePrice = null;
+    }
+
+    // Attach category and tax details minimally if they were resolved
+    if (product.categoryId && typeof product.categoryId !== 'object') {
+      const Category = require('../../core/models/Category');
+      const category = await Category.findById(product.categoryId).lean();
+      if (category) product.categoryId = { _id: category._id, name: category.name };
+    }
+    
+    if (product.tax1 && typeof product.tax1 !== 'object') {
+      const Tax = require('../../core/models/Tax');
+      const tax = await Tax.findById(product.tax1).lean();
+      if (tax) product.tax1 = tax;
+    }
+
+    product.id = product._id;
+    res.status(200).json(product);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

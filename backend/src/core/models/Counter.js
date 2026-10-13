@@ -6,6 +6,10 @@ const counterSchema = new mongoose.Schema({
     ref: 'Company',
     required: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   sequenceName: {
     type: String,
     required: true

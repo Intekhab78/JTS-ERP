@@ -4,6 +4,7 @@ const Size = require('../../core/models/Size');
 const Color = require('../../core/models/Color');
 const ItemDepartment = require('../../core/models/ItemDepartment');
 const Product = require('../../core/models/Product');
+const ItemType = require('../../core/models/ItemType');
 
 // --- ITEM DEPARTMENT CONTROLLERS ---
 
@@ -301,5 +302,56 @@ exports.deleteColor = async (req, res) => {
     res.status(200).json({ message: 'Color deleted successfully' });
   } catch (error) {
     res.status(400).json({ message: 'Error deleting color', error: error.message });
+  }
+};
+
+// --- ITEM TYPE CONTROLLERS ---
+
+exports.getItemTypes = async (req, res) => {
+  try {
+    const itemTypes = await ItemType.find({ tenantId: req.user.tenantId }).sort({ createdAt: -1 });
+    res.status(200).json(itemTypes);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching item types', error: error.message });
+  }
+};
+
+exports.createItemType = async (req, res) => {
+  try {
+    const { name, code, isActive } = req.body;
+    const itemType = await ItemType.create({
+      tenantId: req.user.tenantId,
+      name,
+      code,
+      isActive,
+      createdBy: req.user._id
+    });
+    res.status(201).json(itemType);
+  } catch (error) {
+    res.status(400).json({ message: 'Error creating item type', error: error.message });
+  }
+};
+
+exports.updateItemType = async (req, res) => {
+  try {
+    const itemType = await ItemType.findOneAndUpdate(
+      { _id: req.params.id, tenantId: req.user.tenantId },
+      { ...req.body, updatedBy: req.user._id },
+      { returnDocument: 'after', runValidators: true }
+    );
+    if (!itemType) return res.status(404).json({ message: 'Item Type not found' });
+    res.status(200).json(itemType);
+  } catch (error) {
+    res.status(400).json({ message: 'Error updating item type', error: error.message });
+  }
+};
+
+exports.deleteItemType = async (req, res) => {
+  try {
+    const itemType = await ItemType.findOneAndDelete({ _id: req.params.id, tenantId: req.user.tenantId });
+    if (!itemType) return res.status(404).json({ message: 'Item Type not found' });
+    res.status(200).json({ message: 'Item Type deleted successfully' });
+  } catch (error) {
+    res.status(400).json({ message: 'Error deleting item type', error: error.message });
   }
 };

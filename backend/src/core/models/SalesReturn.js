@@ -16,6 +16,10 @@ const salesReturnItemSchema = new mongoose.Schema({
 
 const salesReturnSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
   returnNumber: { type: String, required: true },
   deliveryNoteId: { type: mongoose.Schema.Types.ObjectId, ref: 'DeliveryNote', required: true },

@@ -6,6 +6,10 @@ const registerSchema = new mongoose.Schema({
     ref: 'Company',
     required: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   branchId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch',

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import axios from 'axios';
-import { Truck, Plus, Filter, Edit, Trash2, Printer, Eye, CheckCircle2, Box, Download, Upload } from 'lucide-react';
+import { Truck, Plus, Filter, Edit, Trash2, Printer, Eye, CheckCircle2, Box, Download, Upload, Mail } from 'lucide-react';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -10,6 +10,7 @@ import { DataTable } from '../../components/common/DataTable';
 import { SearchInput } from '../../components/ui/SearchInput';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { EmailSendModal } from '../../components/common/EmailSendModal';
 
 const DeliveryNotes = () => {
   const [deliveryNotes, setDeliveryNotes] = useState([]);
@@ -17,6 +18,7 @@ const DeliveryNotes = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [emailModal, setEmailModal] = useState({ isOpen: false, note: null });
   const navigate = useNavigate();
 
   const authUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -148,6 +150,14 @@ const DeliveryNotes = () => {
               <Printer className="h-4 w-4" />
             </button>
           )}
+
+          <button 
+            onClick={() => setEmailModal({ isOpen: true, note: row })}
+            className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-md hover:bg-emerald-50 transition-colors"
+            title="Send Delivery Note by Email"
+          >
+            <Mail className="h-4 w-4" />
+          </button>
 
           {row.status === 'DRAFT' && hasPermission('EDIT_DELIVERY_NOTE') && (
             <button 
@@ -302,6 +312,18 @@ const DeliveryNotes = () => {
           emptyDescription="There are no delivery notes matching your search criteria."
         />
       </Card>
+
+      {emailModal.isOpen && emailModal.note && (
+        <EmailSendModal
+          isOpen={emailModal.isOpen}
+          onClose={() => setEmailModal({ isOpen: false, note: null })}
+          documentType="Delivery Note"
+          documentNumber={emailModal.note.deliveryNoteNumber}
+          recipientName={emailModal.note.customerSnapshot?.name || emailModal.note.customerId?.name}
+          defaultEmail={emailModal.note.customerSnapshot?.email || emailModal.note.customerId?.email}
+          sendEndpoint={`/api/v1/email/delivery-note/${emailModal.note._id}`}
+        />
+      )}
     </div>
   );
 };

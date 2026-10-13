@@ -7,6 +7,10 @@ const leaveRequestSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   employeeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Employee',

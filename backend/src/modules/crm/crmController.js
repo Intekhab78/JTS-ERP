@@ -100,3 +100,20 @@ exports.getCustomerById = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
+// @desc    Delete a customer
+// @route   DELETE /api/v1/crm/customers/:id
+// @access  Private
+exports.deleteCustomer = async (req, res) => {
+  try {
+    const customer = await Customer.findOneAndDelete({
+      _id: req.params.id,
+      tenantId: req.user.tenantId
+    });
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    res.status(200).json({ success: true, message: 'Customer deleted successfully' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+

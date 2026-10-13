@@ -67,11 +67,35 @@ const CompanySettings = () => {
   }
 
   return (
-    <div className="animate-in fade-in zoom-in-95 duration-300 space-y-6 max-w-5xl">
-      <PageHeader 
-        title="Company Settings"
-        description="Manage your enterprise's core profile, tax details, and headquarters address."
-      />
+    <div className="animate-in fade-in zoom-in-95 duration-500 space-y-6 max-w-[1720px] mx-auto pb-10 bg-[#f8fafc] min-h-screen">
+      
+      {/* Aggressive Tech Header */}
+      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl mt-4 sm:mx-4 lg:mx-8 mb-6">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
+                <Building2 size={18} className="text-white" />
+              </div>
+              <h1 className="text-3xl font-black tracking-tight text-white uppercase">Company Settings</h1>
+            </div>
+            <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl">
+              ENTERPRISE CONFIGURATION • PROFILE & HEADQUARTERS
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex items-center gap-3 bg-[#111827] border border-slate-800 p-2 rounded-lg shadow-inner">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">System Online</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="px-4 sm:px-6 lg:px-8 space-y-6">
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
@@ -278,6 +302,7 @@ const CompanySettings = () => {
           <BranchManagement />
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };

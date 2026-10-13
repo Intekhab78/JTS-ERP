@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getFileUrl } from '../../config/api';
-import { Truck, Plus, Search, MapPin, Edit, Download, Mail, Phone, Grid, List, Trash2 } from 'lucide-react';
+import { Truck, Plus, Search, MapPin, Edit, Download, Mail, Phone, Grid, List, Trash2, ChevronLeft, ChevronRight, Server } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
 import { Badge } from '../../components/ui/Badge';
@@ -15,7 +15,7 @@ const Suppliers = () => {
   const [search, setSearch] = useState('');
   const [location, setLocation] = useState('');
   const [status, setStatus] = useState('ALL'); // 'ALL', 'ACTIVE', 'PREFERRED', 'PENDING'
-  const [viewMode, setViewMode] = useState('GRID'); // 'GRID' or 'LIST'
+  const [viewMode, setViewMode] = useState('LIST'); // Default to LIST for Command Center layout
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [stats, setStats] = useState({ totalSuppliers: 0, activePOs: 0, totalSpend: 0, complianceScore: 98.4 });
@@ -37,7 +37,7 @@ const Suppliers = () => {
 
   const fetchPurchaseStats = async () => {
     try {
-      const res = await axios.get('/api/v1/purchase-orders', {
+      const res = await axios.get('/api/v1/purchases', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         params: { limit: 1000 }
       });
@@ -129,43 +129,44 @@ const Suppliers = () => {
   };
 
   return (
-    <main className="flex-1 p-8 overflow-y-auto space-y-6 bg-[#f8fafc] font-sans antialiased text-slate-800 selection:bg-indigo-500 selection:text-white" data-purpose="suppliers-view">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Breadcrumb & Top Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <main className="animate-in fade-in zoom-in-95 duration-500 space-y-6 max-w-[1400px] mx-auto pb-10 bg-[#f8fafc] min-h-screen">
+      
+      {/* Aggressive Tech Header */}
+      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
           <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-1">
-              <span>Purchase</span>
-              <svg className="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
-              </svg>
-              <span className="text-slate-900 font-semibold">Suppliers Directory</span>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
+                <Truck size={18} className="text-white" />
+              </div>
+              <h1 className="text-3xl font-black tracking-tight text-white uppercase">Suppliers Directory</h1>
             </div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 font-display">Suppliers</h2>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-                <span className="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
-                {suppliers.length} Active Vendors
-              </span>
-            </div>
-            <p className="text-xs md:text-sm text-slate-500 mt-1">Manage vendor relationships, procurement contracts, and contact information.</p>
+            <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl">
+              VENDOR NETWORK • PROCUREMENT CONTACTS & RELATIONSHIPS
+            </p>
           </div>
           
-          {/* Header Action Area */}
-          <div className="flex items-center gap-2.5">
-            <button className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl shadow-sm transition-all" type="button">
-              <Download size={16} />
-              <span>Export CSV</span>
-            </button>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex items-center gap-3 bg-[#111827] border border-slate-800 p-2 rounded-lg shadow-inner">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">System Online</span>
+            </div>
             {hasPermission('CREATE_SUPPLIERS') && (
-              <button onClick={() => navigate('/suppliers/new')} className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-xs font-semibold rounded-xl shadow-sm shadow-indigo-600/25 hover:shadow-md hover:shadow-indigo-600/35 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2" type="button">
-                <Plus size={16} strokeWidth={2.5} />
-                <span>New Supplier</span>
+              <button 
+                onClick={() => navigate('/suppliers/new')}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-bold text-sm tracking-wider uppercase transition-colors shadow-lg border border-blue-400 flex items-center gap-2"
+              >
+                <Plus size={16} strokeWidth={3} /> New Supplier
               </button>
             )}
           </div>
         </div>
-
+      </div>
+      
+      <div className="space-y-6">
         {/* Metric Stat Cards Banner */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white border border-slate-200/80 rounded-2xl p-4.5 shadow-sm hover:border-slate-300 transition-colors p-4">
@@ -290,18 +291,21 @@ const Suppliers = () => {
 
         {/* Suppliers Content Area */}
         {loading ? (
-          <div className="text-center py-20 text-slate-500">Loading suppliers...</div>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col items-center justify-center py-24 space-y-4">
+            <div className="animate-spin rounded-none h-10 w-10 border-4 border-slate-200 border-t-blue-600"></div>
+            <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">Fetching Database...</p>
+          </div>
         ) : suppliers.length === 0 ? (
-          <EmptyState 
-            icon={<Truck size={48} />}
-            title="No suppliers found"
-            description={search || location || status !== 'ALL' ? "Try adjusting your filters" : "Get started by adding a new supplier"}
-            action={hasPermission('CREATE_SUPPLIERS') && (
-              <Button onClick={() => navigate('/suppliers/new')} leftIcon={<Plus size={20} />}>
-                Add Supplier
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col items-center justify-center py-24 space-y-3">
+            <Server size={48} className="text-slate-200 mb-2" />
+            <p className="text-sm font-bold text-slate-600 uppercase tracking-wider">0 Records Found</p>
+            <p className="text-xs text-slate-400 font-mono">No suppliers match current parameters.</p>
+            {hasPermission('CREATE_SUPPLIERS') && (
+              <Button onClick={() => navigate('/suppliers/new')} leftIcon={<Plus size={16} />} className="mt-4">
+                New Supplier
               </Button>
             )}
-          />
+          </div>
         ) : viewMode === 'GRID' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {suppliers.map(supplier => {
@@ -479,10 +483,16 @@ const Suppliers = () => {
             })}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-slate-50 border-b border-slate-200 px-5 py-3 flex justify-between items-center">
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Truck size={16} className="text-blue-500" /> Suppliers Matrix
+              </h2>
+              <span className="text-xs font-bold text-slate-500 font-mono px-2 py-1 bg-slate-200 rounded">RECORDS: {suppliers.length}</span>
+            </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50/50 text-slate-500 font-medium border-b border-slate-200/80 text-xs uppercase tracking-wider">
+              <table className="w-full text-sm text-left whitespace-nowrap">
+                <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white border-b-2 border-slate-100">
                   <tr>
                     <th className="px-6 py-4">Company Name</th>
                     <th className="px-6 py-4">Contact Person</th>
@@ -491,40 +501,50 @@ const Suppliers = () => {
                     <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-50">
+                <tbody className="divide-y divide-slate-100">
                   {suppliers.map(supplier => (
-                    <tr key={supplier._id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={supplier._id} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-lg bg-gradient-to-tr flex items-center justify-center text-white font-bold text-xs ${getAvatarColor(supplier.name)}`}>
+                          <div className={`w-8 h-8 rounded bg-gradient-to-tr flex items-center justify-center text-white font-bold text-xs ${getAvatarColor(supplier.name)}`}>
                             {getInitials(supplier.name)}
                           </div>
                           <div>
-                            <p className="font-semibold text-slate-900">{supplier.name}</p>
-                            <p className="text-xs text-slate-500">{supplier.vendorCode || 'No Code'}</p>
+                            <p className="font-bold text-slate-900 text-sm tracking-tight">{supplier.name}</p>
+                            <p className="text-[11px] font-bold text-slate-400 mt-0.5 font-mono bg-slate-100 inline-block px-1.5 py-0.5 rounded">ID: {supplier.vendorCode || 'N/A'}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-slate-600">
-                        {supplier.contactDetails?.firstName 
-                          ? `${supplier.contactDetails.firstName} ${supplier.contactDetails.lastName || ''}` 
-                          : supplier.contactName || '-'}
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          {supplier.contactDetails?.firstName 
+                            ? `${supplier.contactDetails.firstName} ${supplier.contactDetails.lastName || ''}` 
+                            : supplier.contactName || 'UNKNOWN'}
+                        </span>
                       </td>
-                      <td className="px-6 py-4 text-slate-600">
-                        {supplier.addressDetails?.city || '-'}
+                      <td className="px-6 py-4">
+                        <span className="text-xs text-slate-600 font-medium">
+                          {supplier.addressDetails?.city || 'N/A'}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold flex items-center justify-center gap-1 w-max mx-auto ${
-                          supplier.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-rose-50 text-rose-700 border border-rose-200/60'
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-[10px] font-black text-white uppercase tracking-widest shadow-sm mx-auto ${
+                          supplier.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'
                         }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${supplier.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
                           {supplier.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button onClick={() => navigate(`/suppliers/${supplier._id}`)} className="px-3 py-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/70 rounded-lg transition-colors">
-                          View
-                        </button>
+                        <div className="flex justify-end gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                          {hasPermission('EDIT_SUPPLIERS') && (
+                            <button onClick={() => navigate(`/suppliers/edit/${supplier._id}`)} className="h-8 w-8 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 flex items-center justify-center" title="Edit Supplier">
+                              <Edit size={14} />
+                            </button>
+                          )}
+                          <button onClick={() => navigate(`/suppliers/${supplier._id}`)} className="px-3 py-1 bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 rounded text-[10px] font-black uppercase tracking-widest transition-colors flex items-center">
+                            View
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -535,25 +555,30 @@ const Suppliers = () => {
         )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-8">
-            <button 
-              disabled={page === 1}
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              className="px-4 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-colors"
-            >
-              Previous
-            </button>
-            <span className="text-sm font-medium text-slate-600 px-4">
-              Page {page} of {totalPages}
-            </span>
-            <button 
-              disabled={page === totalPages}
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              className="px-4 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-colors"
-            >
-              Next
-            </button>
+        {!loading && totalPages > 1 && (
+          <div className="border-t border-slate-200 bg-slate-50 px-5 py-3 flex items-center justify-between rounded-xl">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+              Showing Page <span className="text-slate-800">{page}</span> of <span className="text-slate-800">{totalPages}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-1 rounded bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <div className="text-xs font-bold text-slate-700 font-mono px-2">
+                PAGE {page} / {totalPages}
+              </div>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-1 rounded bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         )}
       </div>

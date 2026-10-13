@@ -6,6 +6,10 @@ const branchSchema = new mongoose.Schema({
     ref: 'Company',
     required: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   name: {
     type: String,
     required: [true, 'Please add a branch name']

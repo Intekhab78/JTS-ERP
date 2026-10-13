@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, FileText, Package, Truck, Calendar, MapPin, Building, CreditCard, Banknote, Trash2, Edit, Search, ChevronLeft, ChevronRight, X, Clock, Printer, Mail, Phone, AlertCircle, Box, Home, XCircle } from 'lucide-react';
+import { ArrowLeft, FileText, Package, Truck, Calendar, MapPin, Building, CreditCard, Banknote, Trash2, Edit, Search, ChevronLeft, ChevronRight, X, Clock, Printer, Mail, Phone, AlertCircle, Box, Home, XCircle, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Card } from '../../components/common/Card';
@@ -9,13 +9,14 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Select } from '../../components/ui/Select';
 import { Input } from '../../components/ui/Input';
-import { useCurrency } from '../../contexts/CurrencyContext';
 import { useReactToPrint } from 'react-to-print';
+import { EmailSendModal } from '../../components/common/EmailSendModal';
 
 const PurchaseOrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [po, setPo] = useState(null);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   // Main Schedules Table State
   const [scheduleSearch, setScheduleSearch] = useState('');
   const [debouncedScheduleSearch, setDebouncedScheduleSearch] = useState('');
@@ -212,8 +213,13 @@ const PurchaseOrderDetail = () => {
     }
   };
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
-  if (!po) return <div className="p-8 text-center text-error">Purchase Order not found</div>;
+  if (loading) return (
+    <div className="animate-in fade-in zoom-in-95 duration-500 max-w-[1720px] mx-auto min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center py-40">
+      <div className="animate-spin rounded-none h-12 w-12 border-4 border-slate-200 border-t-blue-600 mb-4"></div>
+      <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">Fetching Core Assets...</p>
+    </div>
+  );
+  if (!po) return <div className="p-8 text-center text-red-500 font-bold uppercase tracking-widest">Purchase Order not found</div>;
 
   const getStatusBadge = (status) => {
     const baseClass = "text-xs px-3 py-1.5 rounded-full font-bold tracking-wider shadow-sm border";
@@ -558,89 +564,96 @@ const PurchaseOrderDetail = () => {
   const poSymbol = po.currency === 'AED' ? 'AED' : currencySymbol;
 
   return (
-    <div ref={componentRef} className="animate-in fade-in zoom-in-95 duration-300 max-w-6xl mx-auto space-y-6 pb-10">
-      <div className="flex flex-col mb-4">
-        <div className="flex items-center gap-2 text-sm text-slate-500 mb-2 no-print">
-          <Button variant="outline" size="sm" onClick={() => navigate('/purchases')} className="h-8 w-8 p-0 mr-2 border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 shrink-0 rounded-md transition-colors bg-white shadow-sm">
-            <ChevronLeft size={16} />
-          </Button>
-          <span className="hover:text-blue-600 cursor-pointer">Purchases</span>
-          <span>/</span>
-          <span className="hover:text-blue-600 cursor-pointer">Orders</span>
-          <span>/</span>
-          <span className="font-semibold text-blue-600">{po.purchaseOrderNumber || `PO-${po._id.slice(-6).toUpperCase()}`}</span>
-        </div>
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{po.purchaseOrderNumber || `PO-${po._id.slice(-6).toUpperCase()}`}</h1>
-              {po.status === 'CONFIRMED' ? (
-                <Badge className="text-xs px-3 py-1.5 rounded-full font-bold tracking-wider shadow-sm border bg-green-50 text-green-700 border-green-200 flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div> CONFIRMED
-                </Badge>
-              ) : (
-                getStatusBadge(po.status)
-              )}
+    <div ref={componentRef} className="animate-in fade-in zoom-in-95 duration-500 max-w-[1400px] mx-auto space-y-6 pb-10 bg-[#f8fafc] min-h-screen">
+      
+      {/* Aggressive Tech Header */}
+      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl no-print">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-start gap-4">
+            <button onClick={() => navigate('/purchases')} className="p-2.5 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 mt-1">
+              <ArrowLeft size={20} className="text-slate-300" />
+            </button>
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
+                  <FileText size={18} className="text-white" />
+                </div>
+                <h1 className="text-3xl font-black tracking-tight text-white uppercase">{po.purchaseOrderNumber || `PO-${po._id.slice(-6).toUpperCase()}`}</h1>
+              </div>
+              <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl uppercase tracking-widest">
+                Purchase Order Details • {po.supplierId?.name || 'VENDOR COMMERCE'}
+              </p>
             </div>
-            <p className="text-slate-500 text-sm mt-1 no-print">Purchase Order Details</p>
           </div>
-          <div className="flex items-center gap-3 no-print">
-            <Button variant="outline" onClick={() => handlePrint()} className="text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm hidden md:flex">
-              <Printer size={16} className="mr-2 text-slate-400" /> Print / Export
-            </Button>
+          
+          <div className="flex flex-wrap items-center gap-3 bg-[#111827] border border-slate-800 p-2.5 rounded-lg shadow-inner">
+            <span className={`inline-flex items-center px-3 py-1.5 rounded text-xs font-black uppercase tracking-widest shadow-sm border-none text-white ${po.status === 'CONFIRMED' ? 'bg-emerald-500' : po.status === 'RECEIVED' ? 'bg-green-600' : po.status === 'CANCELLED' ? 'bg-rose-500' : po.status === 'PARTIALLY_RECEIVED' ? 'bg-blue-600' : 'bg-slate-600'}`}>
+              STATUS: {po.status}
+            </span>
+            
+            <button onClick={handlePrint} className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
+              <Printer size={14} /> Print
+            </button>
+
+            <button onClick={() => setIsEmailModalOpen(true)} className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
+              <Mail size={14} /> Send Email
+            </button>
+
             {po.status === 'DRAFT' && (
-              <Button onClick={handleConfirm} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
-                Confirm Order
-              </Button>
+              <button onClick={handleConfirm} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
+                <CheckCircle size={14} /> Confirm Order
+              </button>
             )}
+
             {(po.status === 'CONFIRMED' || po.status === 'PARTIALLY_RECEIVED') && (
-               <Button onClick={() => navigate(`/purchases/grn/new?poId=${po._id}`)} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
-                 <Package size={16} className="mr-2" /> Create Receipt (GRN)
-               </Button>
+               <button onClick={() => navigate(`/purchases/grn/new?poId=${po._id}`)} className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
+                 <Package size={14} /> Create Receipt (GRN)
+               </button>
             )}
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 md:col-span-2 flex flex-col gap-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-950">
-          <div className="flex justify-between items-start">
-             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-3">
-                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400"><Building size={16} /></div> SUPPLIER INFORMATION
-             </h3>
-             <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 border-0">Dubai</Badge>
+        <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden md:col-span-2 flex flex-col print:border-none print:shadow-none">
+          <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2 print:bg-transparent">
+            <Building size={18} className="text-blue-500" />
+            <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Supplier Profile</h3>
           </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-white mb-2">{po.supplierId?.name}</div>
-            <div className="flex flex-col md:flex-row gap-4 text-sm text-slate-500 dark:text-slate-400">
-              {po.supplierId?.email && <div className="flex items-center gap-2"><Mail size={14} className="text-slate-400" /> {po.supplierId.email}</div>}
-              {po.supplierId?.phone && <div className="flex items-center gap-2"><Phone size={14} className="text-slate-400" /> {po.supplierId.phone}</div>}
+          <div className="p-6">
+            <div className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-4">{po.supplierId?.name}</div>
+            <div className="space-y-2">
+              {po.supplierId?.email && <div className="text-slate-500 font-medium text-sm"><span className="text-slate-400 w-20 inline-block uppercase text-xs font-bold">Email:</span> {po.supplierId.email}</div>}
+              {po.supplierId?.phone && <div className="text-slate-500 font-medium text-sm"><span className="text-slate-400 w-20 inline-block uppercase text-xs font-bold">Phone:</span> {po.supplierId.phone}</div>}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-slate-100 dark:border-slate-800">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 p-6 border-t border-slate-100 bg-slate-50/50 print:bg-transparent">
             <div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <MapPin size={14} className="text-blue-400" /> DELIVER TO
-              </div>
-              <div className="font-semibold text-slate-800 dark:text-slate-200">{po.branchId?.name}</div>
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                <MapPin size={12} className="text-blue-400" /> Deliver To
+              </h3>
+              <div className="font-bold text-slate-800 uppercase tracking-wide text-sm">{po.branchId?.name}</div>
             </div>
             <div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <Calendar size={14} className="text-green-400" /> ORDER DATE
-              </div>
-              <div className="font-semibold text-slate-800 dark:text-slate-200">{format(new Date(po.createdAt), 'MMMM d, yyyy')}</div>
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                <Calendar size={12} className="text-green-400" /> Order Date
+              </h3>
+              <div className="font-bold text-slate-800 font-mono text-sm">{format(new Date(po.createdAt), 'dd MMM yyyy')}</div>
             </div>
             <div>
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <Truck size={14} className="text-orange-400" /> EXPECTED DELIVERY
-              </div>
-              <div className="font-semibold text-slate-800 dark:text-slate-200">
-                {po.expectedDate ? format(new Date(po.expectedDate), 'MMMM d, yyyy') : 'Not specified'}
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                <Truck size={12} className="text-orange-400" /> Expected Delivery
+              </h3>
+              <div className="font-bold text-slate-800 font-mono text-sm">
+                {po.expectedDate ? format(new Date(po.expectedDate), 'dd MMM yyyy') : 'NOT SPECIFIED'}
               </div>
             </div>
           </div>
-        </Card>
+        </div>
 
         <Card className="p-6 md:col-span-1 bg-slate-900 text-white rounded-xl shadow-lg border-0 flex flex-col justify-between" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
            <div>
@@ -686,14 +699,14 @@ const PurchaseOrderDetail = () => {
         </Card>
       </div>
 
-      <Card className="overflow-hidden rounded-xl shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg"><Package size={16} className="text-blue-600 dark:text-blue-400" /></div> 
-            <h3 className="font-bold text-slate-800 dark:text-slate-200">Order Lines</h3>
-            <Badge variant="secondary" className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border-0 hover:bg-blue-100 font-medium">
-               {schedulePagination?.totalItems || po.items?.length || 0} item{ (schedulePagination?.totalItems || po.items?.length || 0) !== 1 ? 's' : '' } included
-            </Badge>
+      <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden print:border-none print:shadow-none print:mx-0">
+        <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print:bg-transparent">
+          <div className="flex items-center gap-2">
+            <Package size={18} className="text-blue-500" />
+            <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Order Lines</h3>
+            <span className="text-[10px] font-bold text-slate-500 font-mono px-2 py-1 bg-slate-200 rounded ml-2">
+               {schedulePagination?.totalItems || po.items?.length || 0} ITEMS INCLUDED
+            </span>
           </div>
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -711,19 +724,19 @@ const PurchaseOrderDetail = () => {
             )}
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-bold uppercase text-xs tracking-wider border-b border-slate-200 dark:border-slate-800">
-                <th className="p-4">Product</th>
-                <th className="p-4 text-center">UOM</th>
-                <th className="p-4 text-center">Unit Price</th>
-                <th className="p-4 text-center">Ordered</th>
-                <th className="p-4 text-center">Scheduled</th>
-                <th className="p-4 text-center">Received</th>
-                <th className="p-4 text-center">Rem. to Schedule</th>
-                <th className="p-4 text-center">Rem. to Receive</th>
-                <th className="p-4 text-right">Subtotal</th>
+        <div className="w-full">
+          <table className="w-full text-left whitespace-nowrap">
+            <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white border-b-2 border-slate-100 print:bg-transparent print:border-slate-300">
+              <tr>
+                <th className="px-4 py-4">Product</th>
+                <th className="px-4 py-4 text-center">UOM</th>
+                <th className="px-4 py-4 text-center">Unit Price</th>
+                <th className="px-4 py-4 text-center">Ordered</th>
+                <th className="px-4 py-4 text-center">Scheduled</th>
+                <th className="px-4 py-4 text-center">Received</th>
+                <th className="px-4 py-4 text-center">Rem. to Schedule</th>
+                <th className="px-4 py-4 text-center">Rem. to Receive</th>
+                <th className="px-4 py-4 text-right">Subtotal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
@@ -784,7 +797,7 @@ const PurchaseOrderDetail = () => {
           </table>
         </div>
         {renderPagination(schedulePagination, setSchedulePage)}
-      </Card>
+      </div>
 
       <div className="flex flex-col gap-6">
           {po.grns && po.grns.length > 0 && (
@@ -1487,6 +1500,17 @@ const PurchaseOrderDetail = () => {
               )}
             </div>
         </div>
+      )}
+      {isEmailModalOpen && po && (
+        <EmailSendModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          documentType="Purchase Order"
+          documentNumber={po.purchaseOrderNumber || `PO-${po._id?.slice(-6).toUpperCase()}`}
+          recipientName={po.supplierId?.name}
+          defaultEmail={po.supplierId?.email}
+          sendEndpoint={`/api/v1/email/purchase-order/${po._id}`}
+        />
       )}
     </div>
   </div>

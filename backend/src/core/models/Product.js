@@ -79,6 +79,10 @@ const productSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  allowDiscount: {
+    type: Boolean,
+    default: true
+  },
   // Classification
   department: { type: String },
   family: { type: String },

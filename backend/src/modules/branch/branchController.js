@@ -5,7 +5,38 @@ const Branch = require('../../core/models/Branch');
 // @access  Private
 exports.getBranches = async (req, res) => {
   try {
-    const branches = await Branch.find({ tenantId: req.user.tenantId }).populate('managerId', 'firstName lastName email');
+    const headerTenantId = req.headers['x-tenant-id'];
+    let tenantId = req.user.activeTenantId || req.user.tenantId;
+
+    const query = {};
+    if (tenantId) {
+      query.tenantId = tenantId;
+    }
+
+    if (req.query.legalCompanyId) {
+      query.legalCompanyId = req.query.legalCompanyId;
+    } else {
+      const activeCompanyId = req.headers['x-company-id'];
+      if (activeCompanyId && activeCompanyId !== 'ALL' && activeCompanyId !== 'null' && activeCompanyId !== 'undefined') {
+        query.legalCompanyId = activeCompanyId;
+      }
+    }
+
+    if (!req.user.isGlobalAdmin && !req.user.isTenantAdmin && req.user.accessibleBranchIds) {
+      query._id = { $in: req.user.accessibleBranchIds };
+    }
+
+    const branches = await Branch.find(query).populate('managerId', 'firstName lastName email');
+    const fs = require('fs');
+    fs.appendFileSync('branch-debug.log', JSON.stringify({
+      userRole: req.user.roleName || req.user.roleId,
+      isGlobalAdmin: req.user.isGlobalAdmin,
+      isTenantAdmin: req.user.isTenantAdmin,
+      userAccessibleBranchIds: req.user.accessibleBranchIds,
+      query,
+      returnedCount: branches.length,
+      returnedBranches: branches.map(b => b._id)
+    }) + '\n');
     res.status(200).json(branches);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -18,7 +49,7 @@ exports.getBranches = async (req, res) => {
 exports.createBranch = async (req, res) => {
   try {
     const branch = await Branch.create({
-      tenantId: req.user.tenantId,
+      tenantId: (req.user.activeTenantId || req.user.tenantId),
       ...req.body
     });
     const populatedBranch = await Branch.findById(branch._id).populate('managerId', 'firstName lastName email');
@@ -34,7 +65,7 @@ exports.createBranch = async (req, res) => {
 exports.updateBranch = async (req, res) => {
   try {
     const branch = await Branch.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.user.tenantId },
+      { _id: req.params.id, tenantId: (req.user.activeTenantId || req.user.tenantId) },
       req.body,
       { returnDocument: 'after', runValidators: true }
     ).populate('managerId', 'firstName lastName email');

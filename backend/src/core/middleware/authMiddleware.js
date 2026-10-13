@@ -21,6 +21,13 @@ const protect = async (req, res, next) => {
         return res.status(401).json({ message: 'Not authorized, user disabled or not found' });
       }
 
+      // Resolve dynamic scope server-side
+      const activeTenantId = req.headers['x-tenant-id'];
+      const scope = await req.user.resolveScope(activeTenantId);
+      req.user.activeTenantId = scope.tenantId;
+      req.user.accessibleCompanyIds = scope.accessibleCompanyIds;
+      req.user.accessibleBranchIds = scope.accessibleBranchIds;
+
       next();
     } catch (error) {
       // Don't spam stack traces for normal JWT expiration/malformed errors
@@ -40,9 +47,19 @@ const authorize = (...permissions) => {
       return res.status(401).json({ message: 'Not authorized' });
     }
     
-    // Strict RBAC: No generic superadmin bypass here.
+    // Global Admin Check
+    const isGlobalAdmin = !req.user.tenantId;
+
+    if (isGlobalAdmin) {
+      if (!req.user.activeTenantId) {
+        return res.status(403).json({ message: 'Forbidden: Global Admin must select a valid workspace (x-tenant-id) to access operational routes.' });
+      }
+      return next(); // Grant superuser bypass for the target tenant
+    }
+
+    // Normal User Check: must have a tenantId
     if (!req.user.tenantId) {
-      return res.status(403).json({ message: 'Forbidden: Superadmin cannot use standard tenant routes. Use dedicated support endpoints.' });
+      return res.status(403).json({ message: 'Forbidden: Missing tenant context.' });
     }
 
     // Role check
@@ -70,13 +87,14 @@ const superAdminOnly = (req, res, next) => {
 
 const verifyBranchAccess = async (branchId, req) => {
   if (!branchId) return true;
-  if (!req.user || !req.user.tenantId) return false;
+  const tenantContext = req.user?.activeTenantId || req.user?.tenantId;
+  if (!req.user || !tenantContext) return false;
 
   if (req.user.branchId && req.user.branchId.toString() !== branchId.toString()) {
     return false;
   }
 
-  const branchExists = await Branch.exists({ _id: branchId, tenantId: req.user.tenantId });
+  const branchExists = await Branch.exists({ _id: branchId, tenantId: tenantContext });
   if (!branchExists) return false;
 
   return true;
@@ -84,9 +102,10 @@ const verifyBranchAccess = async (branchId, req) => {
 
 const verifyProductAccess = async (productId, req, requireActive = false) => {
   if (!productId) return true;
-  if (!req.user || !req.user.tenantId) return false;
+  const tenantContext = req.user?.activeTenantId || req.user?.tenantId;
+  if (!req.user || !tenantContext) return false;
 
-  const query = { _id: productId, tenantId: req.user.tenantId };
+  const query = { _id: productId, tenantId: tenantContext };
   if (requireActive) {
     query.isActive = { $ne: false };
   }
@@ -98,11 +117,12 @@ const verifyProductAccess = async (productId, req, requireActive = false) => {
 };
 
 const verifyCustomerAccess = async (customerId, req) => {
-  if (!customerId) return true; // Depending on requirements, null might be allowed (e.g. walk-in). Validation logic should check if required.
-  if (!req.user || !req.user.tenantId) return false;
+  if (!customerId) return true; 
+  const tenantContext = req.user?.activeTenantId || req.user?.tenantId;
+  if (!req.user || !tenantContext) return false;
 
   const Customer = require('../models/Customer');
-  const customerExists = await Customer.exists({ _id: customerId, tenantId: req.user.tenantId });
+  const customerExists = await Customer.exists({ _id: customerId, tenantId: tenantContext });
   if (!customerExists) return false;
 
   return true;
@@ -123,7 +143,8 @@ const verifyPOSOverrideToken = (token, requiredAction, req) => {
     throw new Error(`Token action mismatch. Expected: ${requiredAction}`);
   }
   
-  if (!req.user || decoded.tenantId.toString() !== req.user.tenantId.toString()) {
+  const tenantContext = req.user?.activeTenantId || req.user?.tenantId;
+  if (!req.user || decoded.tenantId.toString() !== tenantContext.toString()) {
     throw new Error('Tenant mismatch in override token');
   }
   
@@ -136,4 +157,21 @@ const verifyPOSOverrideToken = (token, requiredAction, req) => {
   return decoded;
 };
 
-module.exports = { protect, authorize, superAdminOnly, verifyBranchAccess, verifyProductAccess, verifyCustomerAccess, verifyPOSOverrideToken };
+const verifyCompanyAccess = (req, res, next) => {
+  const tenantContext = req.user?.activeTenantId || req.user?.tenantId;
+  if (!req.user || !tenantContext) {
+    return res.status(403).json({ message: 'Forbidden: Missing tenant context' });
+  }
+
+  const targetCompanyId = req.body.legalCompanyId || req.query.legalCompanyId || req.params.legalCompanyId;
+  
+  if (targetCompanyId) {
+    if (!req.user.accessibleCompanyIds || !req.user.accessibleCompanyIds.includes(targetCompanyId.toString())) {
+      return res.status(403).json({ message: 'Forbidden: You do not have access to this Legal Company.' });
+    }
+  }
+  
+  next();
+};
+
+module.exports = { protect, authorize, superAdminOnly, verifyBranchAccess, verifyProductAccess, verifyCustomerAccess, verifyPOSOverrideToken, verifyCompanyAccess };

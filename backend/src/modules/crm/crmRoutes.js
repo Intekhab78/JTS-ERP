@@ -7,7 +7,8 @@ const {
   getCustomers, 
   createCustomer,
   updateCustomer,
-  getCustomerById
+  getCustomerById,
+  deleteCustomer
 } = require('./crmController');
 const { protect } = require('../../core/middleware/authMiddleware');
 
@@ -24,6 +25,8 @@ router.route('/customers')
 
 router.route('/customers/:id')
   .get(protect, getCustomerById)
-  .put(protect, updateCustomer);
+  .put(protect, updateCustomer)
+  .delete(protect, deleteCustomer);
 
 module.exports = router;
+

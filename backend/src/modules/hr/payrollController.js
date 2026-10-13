@@ -1,3 +1,4 @@
+const { getReadFilter } = require('../../core/utils/scopeHelper');
 const Payslip = require('../../core/models/Payslip');
 const Employee = require('../../core/models/Employee');
 
@@ -6,7 +7,7 @@ const Employee = require('../../core/models/Employee');
 // @access  Private
 exports.getPayslips = async (req, res) => {
   try {
-    const payslips = await Payslip.find({ tenantId: req.user.tenantId })
+    const payslips = await Payslip.find({ ...getReadFilter(req) })
       .populate('employeeId', 'firstName lastName jobTitle')
       .sort({ createdAt: -1 });
     res.status(200).json(payslips);
@@ -25,7 +26,7 @@ exports.createPayslip = async (req, res) => {
     const netPay = Number(basicPay) + Number(allowances || 0) - Number(deductions || 0);
 
     const payslip = await Payslip.create({
-      tenantId: req.user.tenantId,
+      ...getReadFilter(req),
       employeeId,
       payPeriod,
       basicPay,
@@ -48,7 +49,7 @@ exports.createPayslip = async (req, res) => {
 exports.payPayslip = async (req, res) => {
   try {
     const payslip = await Payslip.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.user.tenantId },
+      { _id: req.params.id, ...getReadFilter(req) },
       { status: 'PAID', paymentDate: new Date() },
       { returnDocument: 'after', runValidators: true }
     ).populate('employeeId', 'firstName lastName jobTitle');

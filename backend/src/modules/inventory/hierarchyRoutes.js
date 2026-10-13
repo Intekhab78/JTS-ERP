@@ -6,7 +6,8 @@ const {
   getFamilies, createFamily, updateFamily, deleteFamily,
   getSubFamilies, createSubFamily, updateSubFamily, deleteSubFamily,
   getSizes, createSize, updateSize, deleteSize,
-  getColors, createColor, updateColor, deleteColor
+  getColors, createColor, updateColor, deleteColor,
+  getItemTypes, createItemType, updateItemType, deleteItemType
 } = require('./hierarchyController');
 
 // All routes require authentication
@@ -56,5 +57,14 @@ router.route('/colors')
 router.route('/colors/:id')
   .put(updateColor)
   .delete(deleteColor);
+
+// Item Type Routes
+router.route('/itemtypes')
+  .get(getItemTypes)
+  .post(createItemType);
+
+router.route('/itemtypes/:id')
+  .put(updateItemType)
+  .delete(deleteItemType);
 
 module.exports = router;

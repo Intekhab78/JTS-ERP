@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Save, X, ArrowLeft, Building2, User, Camera, Tag, Users } from 'lucide-react';
+import { Save, X, ArrowLeft, Building2, User, Camera, Tag, Users, Trash2 } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { FormField } from '../../components/common/FormField';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 
 const CustomerForm = () => {
   const { id } = useParams();
@@ -16,6 +17,8 @@ const CustomerForm = () => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('notes');
   const [tagsInput, setTagsInput] = useState('');
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [formData, setFormData] = useState({
     customerType: 'Person',
@@ -109,6 +112,21 @@ const CustomerForm = () => {
     }
   };
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await axios.delete(`/api/v1/crm/customers/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      navigate('/customers');
+    } catch (error) {
+      console.error('Delete customer error:', error);
+      alert(error.response?.data?.message || 'Failed to delete customer');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto pb-12 animate-in fade-in zoom-in-95 duration-300">
       {/* Header */}
@@ -124,6 +142,17 @@ const CustomerForm = () => {
           </div>
         </div>
         <div className="flex gap-3">
+          {isEditing && (
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setDeleteConfirmOpen(true)} 
+              className="text-rose-600 hover:text-white hover:bg-rose-600 border-rose-200"
+              leftIcon={<Trash2 className="w-4 h-4" />}
+            >
+              Delete Customer
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={() => navigate('/customers')} leftIcon={<X className="w-4 h-4" />}>
             Discard
           </Button>
@@ -396,6 +425,17 @@ const CustomerForm = () => {
           </div>
         </Card>
       </form>
+
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDelete}
+        title={`Delete "${formData.name || 'Customer'}"?`}
+        description="Are you sure you want to delete this customer? This action cannot be undone."
+        confirmText="Delete Customer"
+        isLoading={isDeleting}
+        isDanger={true}
+      />
     </div>
   );
 };

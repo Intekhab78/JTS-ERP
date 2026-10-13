@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import axios from 'axios';
 import { useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
-import { Save, X, ArrowLeft, Printer, Truck, Search } from 'lucide-react';
+import { Save, X, ArrowLeft, Printer, Truck, Search, Mail } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { EmailSendModal } from '../../components/common/EmailSendModal';
 
 const DeliveryNoteForm = () => {
   const { id } = useParams();
@@ -18,6 +19,7 @@ const DeliveryNoteForm = () => {
   const hasPermission = (perm) => userPermissions.includes('*') || userPermissions.includes(perm);
 
   const [loading, setLoading] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const { currencySymbol } = useCurrency();
   const [orders, setOrders] = useState([]);
   
@@ -231,6 +233,11 @@ const DeliveryNoteForm = () => {
           </div>
         </div>
         <div className="flex gap-3">
+          {isEditing && (
+            <Button type="button" variant="outline" onClick={() => setIsEmailModalOpen(true)} leftIcon={<Mail className="w-4 h-4" />}>
+              Email
+            </Button>
+          )}
           {isEditing && hasPermission('PRINT_DELIVERY_NOTE') && (
             <Button type="button" variant="outline" onClick={() => navigate(`/sales/delivery-notes/print/${id}`)} leftIcon={<Printer className="w-4 h-4" />}>
               Print
@@ -455,6 +462,18 @@ const DeliveryNoteForm = () => {
         </div>
         </fieldset>
       </form>
+
+      {isEmailModalOpen && (
+        <EmailSendModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          documentType="Delivery Note"
+          documentNumber={formData.deliveryNoteNumber}
+          recipientName={customerInfo?.name}
+          defaultEmail={customerInfo?.email}
+          sendEndpoint={`/api/v1/email/delivery-note/${id}`}
+        />
+      )}
     </div>
   );
 };

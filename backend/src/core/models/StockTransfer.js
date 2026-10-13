@@ -6,6 +6,10 @@ const stockTransferSchema = new mongoose.Schema({
     ref: 'Company',
     required: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   sourceBranchId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Branch',

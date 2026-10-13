@@ -1,6 +1,7 @@
 const POSSession = require('../../core/models/POSSession');
 const POSPayment = require('../../core/models/POSPayment');
-const { verifyBranchAccess, verifyPOSOverrideToken } = require('../../core/middleware/authMiddleware');
+const { getReadFilter, validateBranchScope } = require('../../core/utils/scopeHelper');
+const { verifyPOSOverrideToken } = require('../../core/middleware/authMiddleware');
 const auditService = require('../audit/auditService');
 const Company = require('../../core/models/Company');
 
@@ -17,13 +18,13 @@ const Company = require('../../core/models/Company');
  * authorised to use the session found (SINGLE_CASHIER mode, wrong cashier).
  */
 exports.getPOSSessionForCashier = async (req, { branchId, registerId } = {}) => {
-  const company = await Company.findById(req.user.tenantId).select('settings');
+  const company = await Company.findById(req.user.activeTenantId || req.user.tenantId).select('settings');
   const policy = company?.settings?.posCashierPolicy || 'SINGLE_CASHIER';
 
   if (policy === 'MULTIPLE_CASHIERS') {
     // Find the OPEN session on this register (or branch if no registerId given)
     const query = {
-      tenantId: req.user.tenantId,
+      tenantId: req.user.activeTenantId || req.user.tenantId,
       status: 'OPEN'
     };
     if (registerId) {
@@ -50,7 +51,7 @@ exports.getPOSSessionForCashier = async (req, { branchId, registerId } = {}) => 
 
   // SINGLE_CASHIER — original behaviour
   const query = {
-    tenantId: req.user.tenantId,
+    tenantId: req.user.activeTenantId || req.user.tenantId,
     openedBy: req.user._id,
     status: 'OPEN'
   };
@@ -77,16 +78,17 @@ exports.openSession = async (req, res) => {
       return res.status(400).json({ message: 'Opening cash cannot be negative' });
     }
 
-    const isAuthorized = await verifyBranchAccess(branchId, req);
-    if (!isAuthorized) {
-      return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
+    try {
+      await validateBranchScope(req, branchId);
+    } catch (err) {
+      return res.status(err.status || 403).json({ message: err.message || 'Forbidden' });
     }
 
     // Verify register belongs to tenant and branch and is ACTIVE
     const Register = require('../../core/models/Register');
     const register = await Register.findOne({
       _id: registerId,
-      tenantId: req.user.tenantId,
+      tenantId: req.user.activeTenantId || req.user.tenantId,
       branchId: branchId
     });
 
@@ -99,7 +101,7 @@ exports.openSession = async (req, res) => {
     }
 
     // Read the company cashier policy
-    const company = await Company.findById(req.user.tenantId).select('settings');
+    const company = await Company.findById(req.user.activeTenantId || req.user.tenantId).select('settings');
     const policy = company?.settings?.posCashierPolicy || 'SINGLE_CASHIER';
 
     // Check for an existing OPEN session on this register
@@ -149,15 +151,26 @@ exports.openSession = async (req, res) => {
       return res.status(400).json({ message: 'Another active session is already using this register.' });
     }
 
-    // In SINGLE_CASHIER: also prevent the same cashier from opening 2 sessions
+    // In SINGLE_CASHIER: also prevent the same cashier from opening 2 sessions in the same branch
     if (policy === 'SINGLE_CASHIER') {
-      const existingUserSession = await POSSession.findOne({
-        tenantId: req.user.tenantId,
+      const openUserSessions = await POSSession.find({
+        tenantId: req.user.activeTenantId || req.user.tenantId,
         openedBy: req.user._id,
         status: 'OPEN'
       });
-      if (existingUserSession) {
-        return res.status(400).json({ message: 'You already have an active POS session. Please close it first.' });
+
+      const sameBranchSession = openUserSessions.find(s => s.branchId?.toString() === branchId.toString());
+      if (sameBranchSession) {
+        return res.status(400).json({ message: 'You already have an active POS session for this branch. Please close it first.' });
+      }
+
+      // Auto-close any lingering/stale sessions from other branches
+      for (const oldSession of openUserSessions) {
+        oldSession.status = 'CLOSED';
+        oldSession.closedAt = new Date();
+        oldSession.closedBy = req.user._id;
+        oldSession.notes = (oldSession.notes ? oldSession.notes + ' | ' : '') + 'Auto-closed upon opening new session in another branch';
+        await oldSession.save();
       }
     }
 
@@ -166,6 +179,7 @@ exports.openSession = async (req, res) => {
 
     const session = await POSSession.create({
       tenantId: req.user.tenantId,
+      legalCompanyId: register.legalCompanyId,
       branchId,
       registerId,
       locationId: locationId || undefined,
@@ -198,24 +212,31 @@ exports.openSession = async (req, res) => {
 exports.getActiveSession = async (req, res) => {
   try {
     const userId = req.user._id;
+    const { branchId } = req.query;
 
     // Find session where user is opener OR is in authorizedCashiers
     // This works for both SINGLE_CASHIER (opener only) and MULTIPLE_CASHIERS (any authorized cashier)
-    const session = await POSSession.findOne({
-      tenantId: req.user.tenantId,
+    const query = {
+      tenantId: req.user.activeTenantId || req.user.tenantId,
       status: 'OPEN',
       $or: [
         { openedBy: userId },
         { authorizedCashiers: userId }
       ]
-    })
+    };
+
+    if (branchId) {
+      query.branchId = branchId;
+    }
+
+    const session = await POSSession.findOne(query)
       .populate('branchId', 'name')
       .populate('registerId', 'name code')
       .populate('openedBy', 'firstName lastName')
       .populate('authorizedCashiers', 'firstName lastName');
 
     if (!session) {
-      return res.status(404).json({ message: 'No active session found' });
+      return res.status(200).json({ active: false, message: 'No active session found' });
     }
 
     const payments = await POSPayment.aggregate([
@@ -256,11 +277,17 @@ exports.closeSession = async (req, res) => {
 
     const session = await POSSession.findOne({
       _id: req.params.id,
-      tenantId: req.user.tenantId
+      tenantId: req.user.activeTenantId || req.user.tenantId
     });
 
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
+    }
+
+    try {
+      await validateBranchScope(req, session.branchId);
+    } catch (err) {
+      return res.status(err.status || 403).json({ message: err.message || 'Forbidden' });
     }
 
     if (session.status === 'CLOSED') {
@@ -307,7 +334,7 @@ exports.closeSession = async (req, res) => {
     const cashDifference = closingCash - expectedCash;
 
     // Fetch company settings for variance limit
-    const company = await Company.findById(req.user.tenantId);
+    const company = await Company.findById(req.user.activeTenantId || req.user.tenantId);
     const posVarianceLimit = company?.settings?.posVarianceLimit || 0;
 
     let overriddenByRole = null;
@@ -387,11 +414,17 @@ exports.submitForAudit = async (req, res) => {
 
     const session = await POSSession.findOne({
       _id: req.params.id,
-      tenantId: req.user.tenantId
+      tenantId: req.user.activeTenantId || req.user.tenantId
     });
 
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
+    }
+
+    try {
+      await validateBranchScope(req, session.branchId);
+    } catch (err) {
+      return res.status(err.status || 403).json({ message: err.message || 'Forbidden' });
     }
 
     if (session.status === 'CLOSED') {
@@ -422,7 +455,7 @@ exports.submitForAudit = async (req, res) => {
     const expectedCash = session.openingCash + cashSalesAmount;
     const cashDifference = closingCash - expectedCash;
 
-    const company = await Company.findById(req.user.tenantId);
+    const company = await Company.findById(req.user.activeTenantId || req.user.tenantId);
     const posVarianceLimit = company?.settings?.posVarianceLimit || 0;
 
     if (Math.abs(cashDifference) <= posVarianceLimit) {
@@ -479,11 +512,17 @@ exports.resolveAudit = async (req, res) => {
 
     const session = await POSSession.findOne({
       _id: req.params.id,
-      tenantId: req.user.tenantId
+      tenantId: req.user.activeTenantId || req.user.tenantId
     });
 
     if (!session) {
       return res.status(404).json({ message: 'Session not found' });
+    }
+
+    try {
+      await validateBranchScope(req, session.branchId);
+    } catch (err) {
+      return res.status(err.status || 403).json({ message: err.message || 'Forbidden' });
     }
 
     if (session.status === 'OPEN') {
@@ -542,7 +581,7 @@ exports.getAllSessions = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 50;
     const skip = (page - 1) * limit;
 
-    const query = { tenantId: req.user.tenantId };
+    const query = getReadFilter(req);
 
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
 
@@ -592,7 +631,7 @@ exports.getReconciliationReport = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 50;
     const skip = (page - 1) * limit;
 
-    const query = { tenantId: req.user.tenantId };
+    const query = getReadFilter(req);
 
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
     if (req.user.branches && req.user.branches.length > 0) {

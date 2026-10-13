@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Receipt, Eye, Search, Filter } from 'lucide-react';
+import { Receipt, Eye, Search, Filter, Mail } from 'lucide-react';
 import axios from 'axios';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { Card, CardContent, CardHeader } from '../../../components/common/Card';
@@ -9,12 +9,14 @@ import { Select } from '../../../components/ui/Select';
 import { Badge } from '../../../components/ui/Badge';
 import { EmptyState } from '../../../components/common/EmptyState';
 import { CardSkeleton } from '../../../components/common/CardSkeleton';
+import { EmailSendModal } from '../../../components/common/EmailSendModal';
 
 const Payslips = () => {
   const [payslips, setPayslips] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState({ status: '', period: '' });
   const [periods, setPeriods] = useState([]);
+  const [emailModal, setEmailModal] = useState({ isOpen: false, payslip: null });
   const navigate = useNavigate();
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -151,12 +153,22 @@ const Payslips = () => {
                     <td className="px-4 py-3 text-right font-bold text-green-600">{ps.netSalary.toLocaleString()} {ps.currency}</td>
                     <td className="px-4 py-3">{getStatusBadge(ps.status)}</td>
                     <td className="px-4 py-3 text-right">
-                      <button 
-                        onClick={() => navigate(`/payslips/${ps._id}`)}
-                        className="p-1.5 text-muted-foreground hover:text-primary bg-muted/50 hover:bg-primary/10 rounded-md transition-colors"
-                      >
-                        <Eye size={14} />
-                      </button>
+                      <div className="flex justify-end gap-1">
+                        <button 
+                          onClick={() => navigate(`/payslips/${ps._id}`)}
+                          className="p-1.5 text-muted-foreground hover:text-primary bg-muted/50 hover:bg-primary/10 rounded-md transition-colors"
+                          title="View Details"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        <button 
+                          onClick={() => setEmailModal({ isOpen: true, payslip: ps })}
+                          className="p-1.5 text-muted-foreground hover:text-emerald-600 bg-muted/50 hover:bg-emerald-50 rounded-md transition-colors"
+                          title="Send Payslip by Email"
+                        >
+                          <Mail size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -165,6 +177,18 @@ const Payslips = () => {
           </CardContent>
         )}
       </Card>
+
+      {emailModal.isOpen && emailModal.payslip && (
+        <EmailSendModal
+          isOpen={emailModal.isOpen}
+          onClose={() => setEmailModal({ isOpen: false, payslip: null })}
+          documentType="Payslip"
+          documentNumber={emailModal.payslip.payslipNumber}
+          recipientName={`${emailModal.payslip.employeeId?.firstName} ${emailModal.payslip.employeeId?.lastName}`}
+          defaultEmail={emailModal.payslip.employeeId?.email || emailModal.payslip.employeeId?.personalEmail}
+          sendEndpoint={`/api/v1/email/payslip/${emailModal.payslip._id}`}
+        />
+      )}
     </div>
   );
 };

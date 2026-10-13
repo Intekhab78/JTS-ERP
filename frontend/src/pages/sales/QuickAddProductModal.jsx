@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { X, Loader2 } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { FormField } from '../../components/common/FormField';
-import { Select } from '../../components/ui/Select';
+import { Loader2, Package, CheckCircle2, XCircle } from 'lucide-react';
 
 export const QuickAddProductModal = ({ isOpen, onClose, onSuccess, initialName }) => {
   const [loading, setLoading] = useState(false);
@@ -95,16 +91,22 @@ export const QuickAddProductModal = ({ isOpen, onClose, onSuccess, initialName }
 
   if (!isOpen) return null;
 
+  const inputClasses = "flex h-12 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors outline-none placeholder:text-slate-400 uppercase";
+
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="text-xl font-bold text-slate-800">Add New Product</h3>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
+        
+        <div className="bg-[#0a0f1c] p-5 border-l-4 border-blue-500 flex justify-between items-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+          <h2 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2 relative z-10">
+            <Package size={16} className="text-blue-500" /> NEW PRODUCT
+          </h2>
           <button 
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 bg-white hover:bg-slate-100 rounded-full transition-colors shadow-sm"
+            className="text-slate-400 hover:text-white transition-colors relative z-10"
           >
-            <X className="w-5 h-5" />
+            <XCircle size={20} />
           </button>
         </div>
         
@@ -112,146 +114,164 @@ export const QuickAddProductModal = ({ isOpen, onClose, onSuccess, initialName }
           <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar flex-1">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="md:col-span-2">
-                <FormField label="Product Name *">
-                  <Input 
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Product Name <span className="text-rose-500">*</span></label>
+                  <input 
                     required
                     autoFocus
                     value={formData.name}
                     onChange={e => setFormData({...formData, name: e.target.value})}
-                    placeholder="e.g. Steel Pipe"
-                    className="h-[42px] rounded-xl bg-slate-50 focus:bg-white"
+                    placeholder="e.g. STEEL PIPE"
+                    className={inputClasses}
                   />
-                </FormField>
+                </div>
               </div>
               
-              <FormField label="SKU (Stock Keeping Unit) *">
-                <Input 
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">SKU (Stock Keeping Unit) <span className="text-rose-500">*</span></label>
+                <input 
                   required
                   value={formData.sku}
                   onChange={e => setFormData({...formData, sku: e.target.value})}
                   placeholder="e.g. SP-001"
-                  className="h-[42px] rounded-xl bg-slate-50 focus:bg-white"
+                  className={inputClasses + " font-mono"}
                 />
-              </FormField>
+              </div>
 
-              <FormField label="Barcode">
-                <Input 
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Barcode</label>
+                <input 
                   value={formData.barcode}
                   onChange={e => setFormData({...formData, barcode: e.target.value})}
                   placeholder="e.g. 123456789012"
-                  className="h-[42px] rounded-xl bg-slate-50 focus:bg-white"
+                  className={inputClasses + " font-mono"}
                 />
-              </FormField>
+              </div>
 
-              <FormField label="Item Type">
-                <Select 
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Item Type</label>
+                <select 
                   value={formData.type}
                   onChange={e => setFormData({...formData, type: e.target.value})}
-                  className="h-[42px] rounded-xl bg-slate-50 focus:bg-white"
+                  className={inputClasses + " cursor-pointer"}
                 >
-                  <option value="STANDARD">Product</option>
-                  <option value="SERVICE">Service</option>
-                  <option value="RAW_MATERIAL">Raw Material</option>
-                </Select>
-              </FormField>
+                  <option value="STANDARD">PRODUCT</option>
+                  <option value="SERVICE">SERVICE</option>
+                  <option value="RAW_MATERIAL">RAW MATERIAL</option>
+                </select>
+              </div>
 
-              <FormField label="Brand">
-                <Input 
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Brand</label>
+                <input 
                   value={formData.brand}
                   onChange={e => setFormData({...formData, brand: e.target.value})}
-                  placeholder="e.g. Samsung"
-                  className="h-[42px] rounded-xl bg-slate-50 focus:bg-white"
+                  placeholder="e.g. SAMSUNG"
+                  className={inputClasses}
                 />
-              </FormField>
+              </div>
 
-              <FormField label="Purchase Price ($)">
-                <Input 
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Purchase Price ($)</label>
+                <input 
                   type="number"
                   min="0"
                   step="0.01"
                   value={formData.purchasePrice}
                   onChange={e => setFormData({...formData, purchasePrice: e.target.value})}
-                  className="h-[42px] rounded-xl bg-slate-50 focus:bg-white"
+                  className={inputClasses + " font-mono"}
                 />
-              </FormField>
+              </div>
 
-              <FormField label="Sales Price ($) *">
-                <Input 
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Sales Price ($) <span className="text-rose-500">*</span></label>
+                <input 
                   type="number"
                   min="0"
                   step="0.01"
                   required
                   value={formData.price}
                   onChange={e => setFormData({...formData, price: e.target.value})}
-                  className="h-[42px] rounded-xl bg-slate-50 focus:bg-white"
+                  className={inputClasses + " font-mono"}
                 />
-              </FormField>
+              </div>
 
-              <FormField label="Tax Rate (%)">
-                <Select 
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Tax Rate (%)</label>
+                <select 
                   value={formData.taxRate}
                   onChange={e => setFormData({...formData, taxRate: e.target.value})}
-                  className="h-[42px] rounded-xl bg-slate-50 focus:bg-white"
+                  className={inputClasses + " cursor-pointer"}
                 >
-                  <option value="">0% (No Tax)</option>
+                  <option value="">0% (NO TAX)</option>
                   {taxes.map(tax => (
                     <option key={tax._id} value={tax.rate}>
                       {tax.name} ({tax.rate}%)
                     </option>
                   ))}
-                </Select>
-              </FormField>
+                </select>
+              </div>
 
-              <FormField label="UOM (Unit)">
-                <Input 
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">UOM (Unit)</label>
+                <input 
                   value={formData.uom}
                   onChange={e => setFormData({...formData, uom: e.target.value})}
                   placeholder="e.g. PCS, KG, LTR"
-                  className="h-[42px] rounded-xl bg-slate-50 focus:bg-white"
+                  className={inputClasses}
                 />
-              </FormField>
+              </div>
 
-              <FormField label="Category *">
-                <Select 
+              <div className="md:col-span-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Category <span className="text-rose-500">*</span></label>
+                <select 
                   required
                   value={formData.categoryId}
                   onChange={e => setFormData({...formData, categoryId: e.target.value})}
-                  className="h-[42px] rounded-xl bg-slate-50 focus:bg-white"
+                  className={inputClasses + " cursor-pointer"}
                 >
-                  <option value="">Select Category...</option>
+                  <option value="">-- SELECT CATEGORY --</option>
                   {categories.map(c => (
                     <option key={c._id} value={c._id}>{c.name}</option>
                   ))}
-                </Select>
-              </FormField>
+                </select>
+              </div>
 
-              <div className="md:col-span-2 pt-2">
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <div className="relative flex items-center justify-center">
+              <div className="md:col-span-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-3 pt-2">
+                  <div className="relative flex items-center cursor-pointer">
                     <input 
                       type="checkbox" 
+                      id="isActiveProduct" 
                       checked={formData.isActive}
                       onChange={e => setFormData({...formData, isActive: e.target.checked})}
-                      className="peer sr-only"
+                      className="sr-only peer"
                     />
-                    <div className="w-5 h-5 border-2 border-slate-300 rounded transition-colors peer-checked:border-indigo-600 peer-checked:bg-indigo-600 group-hover:border-indigo-500"></div>
-                    <svg className="absolute w-3.5 h-3.5 text-white scale-0 transition-transform peer-checked:scale-100 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                   </div>
-                  <span className="text-sm font-medium text-slate-700 select-none group-hover:text-slate-900 transition-colors">Active Product</span>
-                </label>
+                  <label htmlFor="isActiveProduct" className="text-[10px] font-bold text-slate-700 uppercase tracking-widest cursor-pointer">
+                    {formData.isActive ? 'Status: Active' : 'Status: Inactive'}
+                  </label>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50 justify-end shrink-0">
-            <Button type="button" variant="outline" onClick={onClose} className="border-slate-200 hover:bg-slate-50 rounded-xl">
+          <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-white justify-end shrink-0">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="px-4 py-2 bg-slate-100 text-slate-600 rounded text-xs font-bold uppercase tracking-widest hover:bg-slate-200 transition-colors"
+            >
               Cancel
-            </Button>
-            <Button type="submit" disabled={loading} className="min-w-[120px] rounded-xl bg-indigo-600 hover:bg-indigo-700 shadow-sm">
-              {loading ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : 'Add Product'}
-            </Button>
+            </button>
+            <button 
+              type="submit" 
+              disabled={loading} 
+              className="px-5 py-2 bg-blue-600 text-white rounded text-xs font-bold uppercase tracking-widest shadow-md hover:bg-blue-500 transition-colors flex items-center justify-center gap-2"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle2 size={14} strokeWidth={3} /> SAVE PRODUCT</>}
+            </button>
           </div>
         </form>
       </div>

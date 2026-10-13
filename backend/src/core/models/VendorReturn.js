@@ -26,6 +26,10 @@ const vendorReturnSchema = new mongoose.Schema({
     default: 'SINGLE_GRN'
   },
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   // Header branchId and grnId are optional to support new multi-GRN/multi-branch returns
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
   purchaseOrderId: { type: mongoose.Schema.Types.ObjectId, ref: 'PurchaseOrder' },

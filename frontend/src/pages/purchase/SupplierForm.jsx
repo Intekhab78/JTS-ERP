@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { getFileUrl } from '../../config/api';
@@ -282,30 +282,46 @@ export default function SupplierForm() {
   if (loading) return <div className="p-10 text-center">Loading...</div>;
 
   return (
-    <form onSubmit={handleSubmit} className="animate-in fade-in zoom-in-95 duration-300 space-y-6 max-w-6xl mx-auto pb-12">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button type="button" variant="ghost" onClick={() => navigate('/suppliers')} className="p-2">
-            <ArrowLeft size={20} />
-          </Button>
-          <PageHeader 
-            title={isEdit ? 'Edit Supplier' : 'New Supplier'} 
-            description={isEdit ? `Update supplier ${formData.vendorCode || ''}` : 'Create a new vendor profile in the system'} 
-          />
+    <form onSubmit={handleSubmit} className="animate-in fade-in zoom-in-95 duration-500 space-y-6 max-w-[1400px] mx-auto pb-10 bg-[#f8fafc] min-h-screen">
+      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-start gap-4">
+            <button type="button" onClick={() => navigate('/suppliers')} className="p-2.5 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 mt-1">
+              <ArrowLeft size={20} className="text-slate-300" />
+            </button>
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-3xl font-black tracking-tight text-white uppercase">{isEdit ? 'Edit Supplier' : 'New Supplier'}</h1>
+              </div>
+              <p className="text-slate-400 text-sm font-medium tracking-wide uppercase tracking-widest">
+                {isEdit ? `Update supplier ${formData.vendorCode || ''}` : 'Create a new vendor profile in the system'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 bg-[#111827] border border-slate-800 p-2.5 rounded-lg shadow-inner">
+            <button 
+              type="submit" 
+              disabled={submitting} 
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm font-bold uppercase tracking-widest transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(37,99,235,0.4)]"
+            >
+              <Save size={16} /> {submitting ? 'Saving...' : 'Save Supplier'}
+            </button>
+          </div>
         </div>
-        <Button type="submit" disabled={submitting} leftIcon={<Save size={16} />}>
-          {submitting ? 'Saving...' : 'Save Supplier'}
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Owner Photo */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Owner / Supplier Photo</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="md:col-span-2 rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">Owner / Supplier Photo</h3>
+          </div>
+          <div className="p-5">
             <div className="flex items-center gap-6">
               <div className="w-24 h-24 rounded-full border-2 border-dashed border-slate-300 flex items-center justify-center bg-slate-50 overflow-hidden relative group shrink-0">
                 {photoPreviewUrl ? (
@@ -322,197 +338,197 @@ export default function SupplierForm() {
                 )}
               </div>
               <div className="flex-1">
-                <input 
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" 
                   type="file" 
                   accept="image/jpeg, image/png, image/webp" 
                   onChange={handlePhotoChange} 
-                  className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                  
                 />
                 <p className="text-xs text-slate-500 mt-2">Maximum file size: 5MB. Allowed formats: JPEG, PNG, WebP.</p>
                 {photoFile && <p className="text-xs font-semibold text-emerald-600 mt-1">Ready to upload: {photoFile.name} ({(photoFile.size / 1024 / 1024).toFixed(2)} MB)</p>}
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Company Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Company Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">Company Details</h3>
+          </div>
+          <div className="p-5 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Company Name <span className="text-red-500">*</span></label>
-                <Input name="name" value={formData.name} onChange={handleChange} required placeholder="Acme Corp" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Company Name <span className="text-red-500">*</span></label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="name" value={formData.name} onChange={handleChange} required placeholder="Acme Corp" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Vendor Type</label>
-                <Select name="vendorType" value={formData.vendorType} onChange={handleChange}>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Vendor Type</label>
+                <select className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 text-sm font-bold shadow-sm" name="vendorType" value={formData.vendorType} onChange={handleChange}>
                   <option value="Transport">Transport</option>
                   <option value="Packaging">Packaging</option>
                   <option value="Food">Food</option>
                   <option value="Other">Other</option>
-                </Select>
+                </select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Vendor Code</label>
-                <Input name="vendorCode" value={formData.vendorCode} onChange={handleChange} placeholder="Auto-generated if empty" disabled={isEdit && formData.vendorCode} />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Vendor Code</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="vendorCode" value={formData.vendorCode} onChange={handleChange} placeholder="Auto-generated if empty" disabled={isEdit && formData.vendorCode} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Website</label>
-                <Input name="website" value={formData.website} onChange={handleChange} placeholder="https://example.com" type="url" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Website</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="website" value={formData.website} onChange={handleChange} placeholder="https://example.com" type="url" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Company Email</label>
-                <Input name="email" value={formData.email} onChange={handleChange} type="email" placeholder="contact@example.com" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Company Email</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="email" value={formData.email} onChange={handleChange} type="email" placeholder="contact@example.com" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Company Mobile</label>
-                <Input name="phone" value={formData.phone} onChange={handleChange} placeholder="+1234567890" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Company Mobile</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="phone" value={formData.phone} onChange={handleChange} placeholder="+1234567890" />
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Contact Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Contact Person</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">Contact Person</h3>
+          </div>
+          <div className="p-5 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">First Name</label>
-                <Input name="firstName" value={formData.contactDetails.firstName} onChange={(e) => handleChange(e, 'contactDetails')} placeholder="John" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">First Name</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="firstName" value={formData.contactDetails.firstName} onChange={(e) => handleChange(e, 'contactDetails')} placeholder="John" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Last Name</label>
-                <Input name="lastName" value={formData.contactDetails.lastName} onChange={(e) => handleChange(e, 'contactDetails')} placeholder="Doe" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Last Name</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="lastName" value={formData.contactDetails.lastName} onChange={(e) => handleChange(e, 'contactDetails')} placeholder="Doe" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <Input name="email" type="email" value={formData.contactDetails.email} onChange={(e) => handleChange(e, 'contactDetails')} placeholder="john@example.com" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Email</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="email" type="email" value={formData.contactDetails.email} onChange={(e) => handleChange(e, 'contactDetails')} placeholder="john@example.com" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Mobile</label>
-                <Input name="mobile" value={formData.contactDetails.mobile} onChange={(e) => handleChange(e, 'contactDetails')} placeholder="+1234567890" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Mobile</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="mobile" value={formData.contactDetails.mobile} onChange={(e) => handleChange(e, 'contactDetails')} placeholder="+1234567890" />
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Address Details */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Address Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="md:col-span-2 rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">Address Details</h3>
+          </div>
+          <div className="p-5 space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Street Address</label>
-              <Input name="address" value={formData.addressDetails.address} onChange={(e) => handleChange(e, 'addressDetails')} placeholder="123 Main St" />
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Street Address</label>
+              <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="address" value={formData.addressDetails.address} onChange={(e) => handleChange(e, 'addressDetails')} placeholder="123 Main St" />
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">City</label>
-                <Input name="city" value={formData.addressDetails.city} onChange={(e) => handleChange(e, 'addressDetails')} placeholder="City" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">City</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="city" value={formData.addressDetails.city} onChange={(e) => handleChange(e, 'addressDetails')} placeholder="City" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">State / Province</label>
-                <Input name="state" value={formData.addressDetails.state} onChange={(e) => handleChange(e, 'addressDetails')} placeholder="State" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">State / Province</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="state" value={formData.addressDetails.state} onChange={(e) => handleChange(e, 'addressDetails')} placeholder="State" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">ZIP / Postal Code</label>
-                <Input name="zip" value={formData.addressDetails.zip} onChange={(e) => handleChange(e, 'addressDetails')} placeholder="ZIP Code" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">ZIP / Postal Code</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="zip" value={formData.addressDetails.zip} onChange={(e) => handleChange(e, 'addressDetails')} placeholder="ZIP Code" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Country</label>
-                <Input name="country" value={formData.addressDetails.country} onChange={(e) => handleChange(e, 'addressDetails')} placeholder="Country" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Country</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="country" value={formData.addressDetails.country} onChange={(e) => handleChange(e, 'addressDetails')} placeholder="Country" />
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Bank Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Bank Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">Bank Details</h3>
+          </div>
+          <div className="p-5 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Bank Name</label>
-                <Input name="bankName" value={formData.bankDetails.bankName} onChange={(e) => handleChange(e, 'bankDetails')} placeholder="Chase Bank" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Bank Name</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="bankName" value={formData.bankDetails.bankName} onChange={(e) => handleChange(e, 'bankDetails')} placeholder="Chase Bank" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Account Holder</label>
-                <Input name="accountHolderName" value={formData.bankDetails.accountHolderName} onChange={(e) => handleChange(e, 'bankDetails')} placeholder="Acme Corp LLC" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Account Holder</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="accountHolderName" value={formData.bankDetails.accountHolderName} onChange={(e) => handleChange(e, 'bankDetails')} placeholder="Acme Corp LLC" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Account No.</label>
-                <Input name="accountNo" value={formData.bankDetails.accountNo} onChange={(e) => handleChange(e, 'bankDetails')} placeholder="123456789" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Account No.</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="accountNo" value={formData.bankDetails.accountNo} onChange={(e) => handleChange(e, 'bankDetails')} placeholder="123456789" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">IFSC / Routing / Swift</label>
-                <Input name="ifsc" value={formData.bankDetails.ifsc} onChange={(e) => handleChange(e, 'bankDetails')} placeholder="Code" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">IFSC / Routing / Swift</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="ifsc" value={formData.bankDetails.ifsc} onChange={(e) => handleChange(e, 'bankDetails')} placeholder="Code" />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Branch Name</label>
-              <Input name="branchName" value={formData.bankDetails.branchName} onChange={(e) => handleChange(e, 'bankDetails')} placeholder="Downtown Branch" />
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Branch Name</label>
+              <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="branchName" value={formData.bankDetails.branchName} onChange={(e) => handleChange(e, 'bankDetails')} placeholder="Downtown Branch" />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Tax & Legal */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Tax & Legal</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">Tax & Legal</h3>
+          </div>
+          <div className="p-5 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Tax Registration Number</label>
-                <Input name="taxRegistrationNumber" value={formData.legalDetails.taxRegistrationNumber} onChange={(e) => handleChange(e, 'legalDetails')} placeholder="TRN12345" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Tax Registration Number</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="taxRegistrationNumber" value={formData.legalDetails.taxRegistrationNumber} onChange={(e) => handleChange(e, 'legalDetails')} placeholder="TRN12345" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Company Reg Number</label>
-                <Input name="companyRegistrationNumber" value={formData.legalDetails.companyRegistrationNumber} onChange={(e) => handleChange(e, 'legalDetails')} placeholder="CRN12345" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Company Reg Number</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="companyRegistrationNumber" value={formData.legalDetails.companyRegistrationNumber} onChange={(e) => handleChange(e, 'legalDetails')} placeholder="CRN12345" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Trade License No.</label>
-                <Input name="tradeLicense" value={formData.legalDetails.tradeLicense} onChange={(e) => handleChange(e, 'legalDetails')} placeholder="TL12345" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Trade License No.</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="tradeLicense" value={formData.legalDetails.tradeLicense} onChange={(e) => handleChange(e, 'legalDetails')} placeholder="TL12345" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Trade License Expiry Date</label>
-                <Input type="date" name="tradeLicenseExpiryDate" value={formData.legalDetails.tradeLicenseExpiryDate} onChange={(e) => handleChange(e, 'legalDetails')} />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Trade License Expiry Date</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" type="date" name="tradeLicenseExpiryDate" value={formData.legalDetails.tradeLicenseExpiryDate} onChange={(e) => handleChange(e, 'legalDetails')} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Import License No.</label>
-                <Input name="importLicenseNo" value={formData.legalDetails.importLicenseNo} onChange={(e) => handleChange(e, 'legalDetails')} placeholder="IL12345" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Import License No.</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="importLicenseNo" value={formData.legalDetails.importLicenseNo} onChange={(e) => handleChange(e, 'legalDetails')} placeholder="IL12345" />
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Supplier Documents */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Supplier Documents</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        <div className="md:col-span-2 rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">Supplier Documents</h3>
+          </div>
+          <div className="p-5 space-y-6">
             {['TRADE_LICENSE', 'TAX_CERTIFICATE', 'IMPORT_LICENSE', 'OTHER_DOCUMENT'].map(type => {
               const existingDoc = formData.documents.find(d => d.documentType === type && d.fileUrl);
               const pendingDoc = complianceDocs[type];
@@ -544,7 +560,7 @@ export default function SupplierForm() {
                           <p className="text-sm font-medium">{existingDoc.fileName || existingDoc.documentName}</p>
                           <p className="text-xs text-slate-500">
                             Uploaded: {new Date(existingDoc.uploadedAt).toLocaleDateString()}
-                            {existingDoc.expiryDate && ` • Expires: ${new Date(existingDoc.expiryDate).toLocaleDateString()}`}
+                            {existingDoc.expiryDate && ` Ã¢â‚¬Â¢ Expires: ${new Date(existingDoc.expiryDate).toLocaleDateString()}`}
                           </p>
                         </div>
                       </div>
@@ -562,16 +578,16 @@ export default function SupplierForm() {
                       {type === 'OTHER_DOCUMENT' && (
                         <div>
                           <label className="block text-xs font-medium text-slate-600 mb-1">Document Name</label>
-                          <Input value={pendingDoc.documentName} onChange={e => handleComplianceDocChange(type, 'documentName', e.target.value)} placeholder="e.g. ISO Certificate" />
+                          <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" value={pendingDoc.documentName} onChange={e => handleComplianceDocChange(type, 'documentName', e.target.value)} placeholder="e.g. ISO Certificate" />
                         </div>
                       )}
                       <div>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Expiry Date (Optional)</label>
-                        <Input type="date" value={pendingDoc.expiryDate} onChange={e => handleComplianceDocChange(type, 'expiryDate', e.target.value)} />
+                        <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" type="date" value={pendingDoc.expiryDate} onChange={e => handleComplianceDocChange(type, 'expiryDate', e.target.value)} />
                       </div>
                       <div className={type === 'OTHER_DOCUMENT' ? '' : 'md:col-span-2'}>
                         <label className="block text-xs font-medium text-slate-600 mb-1">Upload File (PDF/Image)</label>
-                        <input type="file" accept=".pdf,image/jpeg,image/png,image/webp" onChange={e => handleComplianceFileChange(type, e)} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer" />
+                        <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" type="file" accept=".pdf,image/jpeg,image/png,image/webp" onChange={e => handleComplianceFileChange(type, e)}  />
                         {pendingDoc.file && (
                           <p className="text-xs text-emerald-600 font-medium mt-1">Ready: {pendingDoc.file.name}</p>
                         )}
@@ -581,31 +597,31 @@ export default function SupplierForm() {
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Legacy Vendor Documents (Text References) */}
-        <Card className="md:col-span-2">
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>Legacy Document References</CardTitle>
+        <div className="md:col-span-2 rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+          <div className="flex flex-row justify-between items-center p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">Legacy Document References</h3>
             <Button type="button" variant="outline" size="sm" onClick={addDocument} leftIcon={<Plus size={16} />}>
               Add Legacy Reference
             </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          </div>
+          <div className="p-5 space-y-4">
             {formData.documents.filter(d => !d.fileUrl).map((doc, idx) => (
               <div key={idx} className="flex flex-wrap items-end gap-4 p-4 border border-border rounded-md relative bg-muted/10">
                 <div className="flex-1 min-w-[200px]">
                   <label className="block text-xs font-medium mb-1">Document Name</label>
-                  <Input value={doc.documentName} onChange={(e) => handleDocumentChange(idx, 'documentName', e.target.value)} placeholder="e.g. Contract" />
+                  <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" value={doc.documentName} onChange={(e) => handleDocumentChange(idx, 'documentName', e.target.value)} placeholder="e.g. Contract" />
                 </div>
                 <div className="flex-1 min-w-[200px]">
                   <label className="block text-xs font-medium mb-1">Document No.</label>
-                  <Input value={doc.documentNumber} onChange={(e) => handleDocumentChange(idx, 'documentNumber', e.target.value)} placeholder="No." />
+                  <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" value={doc.documentNumber} onChange={(e) => handleDocumentChange(idx, 'documentNumber', e.target.value)} placeholder="No." />
                 </div>
                 <div className="flex-1 min-w-[200px]">
                   <label className="block text-xs font-medium mb-1">File URL / Reference</label>
-                  <Input value={doc.documentUrl} onChange={(e) => handleDocumentChange(idx, 'documentUrl', e.target.value)} placeholder="https://..." />
+                  <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" value={doc.documentUrl} onChange={(e) => handleDocumentChange(idx, 'documentUrl', e.target.value)} placeholder="https://..." />
                 </div>
                 <Button type="button" variant="ghost" className="text-red-500 px-2" onClick={() => removeDocument(idx)}>
                   <Trash2 size={18} />
@@ -615,33 +631,34 @@ export default function SupplierForm() {
             {formData.documents.filter(d => !d.fileUrl).length === 0 && (
               <p className="text-sm text-muted-foreground text-center py-4">No legacy references added.</p>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Status and Remarks */}
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>Additional Information</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="md:col-span-2 rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+          <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">Additional Information</h3>
+          </div>
+          <div className="p-5 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Status</label>
-                <Select name="status" value={formData.status} onChange={handleChange}>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Status</label>
+                <select className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 text-sm font-bold shadow-sm" name="status" value={formData.status} onChange={handleChange}>
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="INACTIVE">INACTIVE</option>
-                </Select>
+                </select>
                 <p className="text-xs text-muted-foreground mt-1">Inactive suppliers cannot be used for new POs.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Remarks</label>
-                <Input name="remarks" value={formData.remarks} onChange={handleChange} placeholder="Any additional notes..." />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Remarks</label>
+                <input className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold shadow-sm" name="remarks" value={formData.remarks} onChange={handleChange} placeholder="Any additional notes..." />
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
       </div>
     </form>
   );
 }
+

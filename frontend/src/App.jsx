@@ -8,6 +8,7 @@ import RoleManagement from './pages/users/RoleManagement';
 import UserManagement from './pages/users/UserManagement';
 
 import AuthLayout from './pages/auth/AuthLayout';
+import ResetPassword from './pages/auth/ResetPassword';
 
 import Inventory from './pages/inventory/Inventory';
 import StockOverview from './pages/inventory/StockOverview';
@@ -17,6 +18,7 @@ import StockTransferForm from './pages/inventory/StockTransferForm';
 import StockAdjustments from './pages/inventory/StockAdjustments';
 import StockAdjustmentForm from './pages/inventory/StockAdjustmentForm';
 import CompanySettings from './pages/company/CompanySettings';
+import LegalCompanyManagement from './pages/company/LegalCompanyManagement';
 import BranchManagement from './pages/company/BranchManagement';
 import Suppliers from './pages/purchase/Suppliers';
 import SupplierForm from './pages/purchase/SupplierForm';
@@ -41,6 +43,7 @@ import ConsignmentReceiptDetail from './pages/purchase/ConsignmentReceiptDetail'
 import ConsignmentStock from './pages/purchase/ConsignmentStock';
 import ConsignmentSettlements from './pages/purchase/ConsignmentSettlements';
 import ConsignmentSettlementForm from './pages/purchase/ConsignmentSettlementForm';
+import ConsignmentSettlementDetail from './pages/purchase/ConsignmentSettlementDetail';
 import Accounts from './pages/accounts/Accounts';
 import AccountMapping from './pages/accounts/AccountMapping';
 import Journal from './pages/accounts/Journal';
@@ -92,6 +95,11 @@ import POSRegisters from './pages/sales/POSRegisters';
 import SalesHistory from './pages/sales/SalesHistory';
 import OrderView from './pages/sales/OrderView';
 import Quotes from './pages/sales/Quotes';
+
+import Discounts from './pages/sales/Discounts';
+import DiscountForm from './pages/sales/DiscountForm';
+import DiscountDetail from './pages/sales/DiscountDetail';
+
 import QuoteForm from './pages/sales/QuoteForm';
 import ProForma from './pages/sales/ProForma';
 import ProFormaForm from './pages/sales/ProFormaForm';
@@ -142,6 +150,7 @@ function App() {
         {/* Public Routes */}
         <Route path="/login" element={<AuthLayout />} />
         <Route path="/register" element={<AuthLayout />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
         
         {/* Protected Application Routes with AppShell */}
         <Route 
@@ -242,6 +251,9 @@ function App() {
           <Route path="/sales" element={<SalesHistory />} />
           <Route path="/sales/orders/:id" element={<OrderView />} />
           <Route path="/sales/quotes" element={<Quotes />} />
+
+          <Route path="/sales/discounts/*" element={<Discounts />} />
+
           <Route path="/sales/quotes/new" element={<QuoteForm />} />
           <Route path="/sales/quotes/edit/:id" element={<QuoteForm />} />
           <Route path="/sales/proforma" element={<ProForma />} />
@@ -284,10 +296,12 @@ function App() {
           <Route path="/purchases/consignments/stock" element={<ConsignmentStock />} />
           <Route path="/purchases/consignments/settlements" element={<ConsignmentSettlements />} />
           <Route path="/purchases/consignments/settlements/new" element={<ConsignmentSettlementForm />} />
+          <Route path="/purchases/consignments/settlements/:id" element={<ConsignmentSettlementDetail />} />
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/general" element={<Navigate to="/settings/company" replace />} />
           <Route path="/settings/company" element={<CompanySettings />} />
+          <Route path="/settings/legal-entities" element={<LegalCompanyManagement />} />
           <Route path="/settings/branches" element={<BranchManagement />} />
           <Route path="/settings/users" element={<UserManagement />} />
           <Route path="/settings/roles" element={<RoleManagement />} />
