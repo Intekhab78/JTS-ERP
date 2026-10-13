@@ -42,6 +42,10 @@ const employeeSchema = new mongoose.Schema({
     ref: 'Company',
     required: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   
   // System Link
   userId: {

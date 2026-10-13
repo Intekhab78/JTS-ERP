@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 // Backend endpoints configuration
-export const ONLINE_API_URL = import.meta.env.VITE_ONLINE_API_URL || 'https://erpapi.jtsonline.shop/api/v1';
-export const ONLINE_BACKEND_URL = import.meta.env.VITE_ONLINE_BACKEND_URL || 'https://erpapi.jtsonline.shop';
+export const ONLINE_API_URL = import.meta.env.VITE_ONLINE_API_URL || 'https://erpapi.jtsmiddleeast.com/api/v1';
+export const ONLINE_BACKEND_URL = import.meta.env.VITE_ONLINE_BACKEND_URL || 'https://erpapi.jtsmiddleeast.com';
 
 export const LOCAL_API_URL = import.meta.env.VITE_LOCAL_API_URL || '/api/v1';
 export const LOCAL_BACKEND_URL = import.meta.env.VITE_LOCAL_BACKEND_URL || 'http://localhost:5000';
@@ -22,19 +22,7 @@ export const isLocalEnvironment = () => {
  * Get current configured API mode: 'auto' | 'local' | 'online'
  */
 export const getApiMode = () => {
-  if (typeof window === 'undefined') return 'online';
-  
-  // Production hosts always use online backend
-  if (!isLocalEnvironment()) {
-    return 'online';
-  }
-
-  const savedMode = localStorage.getItem(STORAGE_KEY);
-  if (savedMode && ['auto', 'local', 'online'].includes(savedMode)) {
-    return savedMode;
-  }
-
-  return import.meta.env.VITE_API_MODE || 'auto';
+  return localStorage.getItem(STORAGE_KEY) || 'auto';
 };
 
 /**
@@ -64,8 +52,8 @@ export const getActiveConfig = () => {
   }
 
   // 'auto' mode:
-  // When running locally in auto mode, default to Online unless local backend flag is set
-  const autoTarget = localStorage.getItem('jts_auto_resolved_target') || 'online';
+  // When running locally in auto mode, default to Local
+  const autoTarget = localStorage.getItem('jts_auto_resolved_target') || 'local';
   const isLocalTarget = autoTarget === 'local';
 
   return {
@@ -173,10 +161,10 @@ export const setupAxios = () => {
           config.url = config.url.replace('/api/v1', current.apiUrl);
         } else if (config.url.startsWith('http://localhost:5000')) {
           config.url = config.url.replace('http://localhost:5000', current.backendUrl);
-        } else if (config.url.startsWith('https://erpapi.jtsonline.shop/api/v1') && current.isLocal) {
-          config.url = config.url.replace('https://erpapi.jtsonline.shop/api/v1', current.apiUrl);
-        } else if (config.url.startsWith('https://erpapi.jtsonline.shop') && current.isLocal) {
-          config.url = config.url.replace('https://erpapi.jtsonline.shop', current.backendUrl);
+        } else if (config.url.startsWith('https://erpapi.jtsmiddleeast.com/api/v1') && current.isLocal) {
+          config.url = config.url.replace('https://erpapi.jtsmiddleeast.com/api/v1', current.apiUrl);
+        } else if (config.url.startsWith('https://erpapi.jtsmiddleeast.com') && current.isLocal) {
+          config.url = config.url.replace('https://erpapi.jtsmiddleeast.com', current.backendUrl);
         } else if (config.url.startsWith('/api/v1')) {
           // Absolute path starting with /api/v1
           config.url = `${current.backendUrl}${config.url}`;
@@ -189,6 +177,18 @@ export const setupAxios = () => {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+      }
+
+      // Auto-attach x-tenant-id for Global Admin workspace context
+      const activeWorkspace = localStorage.getItem('active_workspace_id');
+      if (activeWorkspace) {
+        config.headers['x-tenant-id'] = activeWorkspace;
+      }
+
+      // Auto-attach x-company-id for Legal Company context
+      const activeCompany = localStorage.getItem('active_company_id');
+      if (activeCompany) {
+        config.headers['x-company-id'] = activeCompany;
       }
 
       return config;
@@ -217,3 +217,21 @@ export const setupAxios = () => {
 
 // Initialize Axios immediately upon module load
 setupAxios();
+
+// Initialize auto mode target detection on app start
+export const initializeApiMode = async () => {
+  if (getApiMode() === 'auto') {
+    const isAlive = await pingLocalBackend();
+    const target = isAlive ? 'local' : 'online';
+    const currentTarget = localStorage.getItem('jts_auto_resolved_target');
+    
+    if (target !== currentTarget) {
+      setAutoResolvedTarget(target);
+      // Reload the page silently to apply the correct URL across all modules
+      window.location.reload();
+    }
+  }
+};
+
+// Trigger immediately (won't block UI but will reload if a mismatch is found)
+initializeApiMode();

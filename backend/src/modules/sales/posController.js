@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const POSOrder = require('../../core/models/POSOrder');
+const Discount = require('../../core/models/Discount');
+const discountService = require('../../services/discountService');
 const POSPayment = require('../../core/models/POSPayment');
 const POSSession = require('../../core/models/POSSession');
 const POSReturn = require('../../core/models/POSReturn');
@@ -10,9 +12,88 @@ const Product = require('../../core/models/Product');
 const TaxInvoice = require('../../core/models/TaxInvoice');
 const Customer = require('../../core/models/Customer');
 const Company = require('../../core/models/Company');
+const { getReadFilter } = require('../../core/utils/scopeHelper');
 const { verifyBranchAccess, verifyProductAccess, verifyPOSOverrideToken } = require('../../core/middleware/authMiddleware');
 const auditService = require('../audit/auditService');
 const { getPOSSessionForCashier } = require('./posSessionController');
+
+// @desc    Evaluate promotions for a cart
+// @route   POST /api/v1/pos/promotions/evaluate
+// @access  Private
+exports.evaluateCartPromotions = async (req, res) => {
+  try {
+    const { branchId, customerId, items, discountCode } = req.body;
+    const tenantId = req.user.activeTenantId || req.user.tenantId;
+
+    if (!tenantId) {
+      return res.status(400).json({ message: 'Tenant context is missing' });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(200).json({
+        totalDiscountAmount: 0,
+        appliedPromotions: [],
+        rejectedPromotions: [],
+        finalDistributedLines: {}
+      });
+    }
+
+    let customerGroup = null;
+    if (customerId) {
+      const cust = await Customer.findOne({ _id: customerId, tenantId });
+      if (cust) customerGroup = cust.customerGroup;
+    }
+
+    const productIds = items.map(i => i.productId).filter(Boolean);
+    const dbProducts = await Product.find({ _id: { $in: productIds }, tenantId }).lean();
+    const productMap = new Map(dbProducts.map(p => [p._id.toString(), p]));
+
+    const evaluatedItems = items.map(item => {
+      const unitPrice = item.overriddenPrice !== undefined && item.overriddenPrice !== null ? Number(item.overriddenPrice) : Number(item.unitPrice);
+      const subtotal = Number(item.quantity) * unitPrice;
+      const discount = Number(item.discount) || 0;
+      const prod = item.productId ? productMap.get(item.productId.toString()) : null;
+
+      return {
+        ...item,
+        unitPrice,
+        subtotal,
+        discount,
+        categoryId: prod?.category,
+        subcategoryId: prod?.subCategory,
+        departmentId: prod?.department,
+        familyId: prod?.family,
+        subFamilyId: prod?.subFamily
+      };
+    });
+
+    const orderSubtotal = evaluatedItems.reduce((sum, item) => sum + (item.subtotal - item.discount), 0);
+
+    // Fetch automatic promotions + requested coupon
+    const query = { tenantId, isActive: true, $or: [{ isAutomatic: true }] };
+    if (discountCode) {
+      query.$or.push({ code: discountCode.toUpperCase().trim() });
+    }
+
+    const availablePromotions = await Discount.find(query);
+
+    const context = {
+      tenantId,
+      branchId,
+      customerId,
+      customerGroup,
+      orderSubtotal,
+      discountCode,
+      now: new Date()
+    };
+
+    const evaluation = discountService.evaluatePromotions(availablePromotions, evaluatedItems, context);
+
+    res.status(200).json(evaluation);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
 
 const generateReceiptNumber = async (tenantId, session) => {
   const currentYear = new Date().getFullYear();
@@ -49,7 +130,9 @@ exports.createOrder = async (req, res) => {
       currency,
       idempotencyKey,
       discountOverrideToken,
-      priceOverrideToken
+      priceOverrideToken,
+      discountCode,
+      targetProductId
     } = req.body;
     
     if (!branchId) {
@@ -87,12 +170,28 @@ exports.createOrder = async (req, res) => {
     }
 
     // 2. Validate Items and Calculate Server-Side Totals
+    
     let serverTotalAmount = 0;
     let serverTaxAmount = 0;
     let totalSubtotalWithoutDiscount = 0;
     let totalItemDiscount = 0;
     const validatedItems = [];
+    const preCalcItemsForDiscount = [];
     const auditEvents = [];
+
+    // Fetch active automatic promotions and the coupon if provided
+    const promoQuery = { tenantId: req.user.tenantId, isActive: true, $or: [{ isAutomatic: true }] };
+    if (discountCode) {
+      promoQuery.$or.push({ code: discountCode.toUpperCase().trim() });
+    }
+    const availablePromotions = await Discount.find(promoQuery).session(session);
+
+    // Fetch Customer to get group
+    let customerGroup = null;
+    if (customerId) {
+        const cust = await Customer.findOne({ _id: customerId, tenantId: req.user.tenantId }).session(session);
+        if (cust) customerGroup = cust.customerGroup;
+    }
 
     const company = await Company.findOne({ _id: req.user.tenantId }).session(session);
     const posMaxDiscountLimit = company?.settings?.posMaxDiscountLimit ?? 10;
@@ -106,6 +205,7 @@ exports.createOrder = async (req, res) => {
     let discountOverrideValidated = false;
     let discountManagerId = null;
 
+    // Phase 1: Line evaluation
     for (const item of items) {
       const isProductAuthorized = await verifyProductAccess(item.productId, req, true);
       if (!isProductAuthorized) {
@@ -116,30 +216,38 @@ exports.createOrder = async (req, res) => {
         throw new Error(`Invalid quantity for product ${item.productId}`);
       }
 
-      // Fetch authoritative product and tax configuration
       const product = await Product.findOne({ 
         _id: item.productId, 
         tenantId: req.user.tenantId 
-      }).populate('tax1');
+      });
 
-      if (!product) {
-        throw new Error(`Product ${item.productId} not found`);
+      if (!product) throw new Error(`Product ${item.productId} not found`);
+
+      const companyItemService = require('../../services/companyItemService');
+      let resolvedItem;
+      try {
+        resolvedItem = await companyItemService.validateSaleable({
+          tenantId: req.user.tenantId,
+          productId: product._id,
+          branchId,
+          user: req.user
+        });
+      } catch (err) {
+        if (err.name === 'CompanyItemNotConfiguredError') {
+          throw new Error(`Product ${product.name} is not configured for this branch: ${err.message}`);
+        }
+        throw err;
       }
 
-      let authPrice = product.price || product.salesPrice || 0;
+      let authPrice = resolvedItem.salesPrice || 0;
       let finalUnitPrice = authPrice;
       
-      // Price Override Logic
       if (item.overriddenPrice !== undefined && item.overriddenPrice !== null && Number(item.overriddenPrice) !== authPrice) {
         const reqPrice = Number(item.overriddenPrice);
-        if (isNaN(reqPrice) || !isFinite(reqPrice) || reqPrice < 0) {
-          throw new Error(`Invalid overridden price for product ${product.name}`);
-        }
+        if (isNaN(reqPrice) || !isFinite(reqPrice) || reqPrice < 0) throw new Error(`Invalid overridden price for product ${product.name}`);
         
         if (!hasPriceOverridePerm) {
-          if (!priceOverrideToken) {
-            throw new Error(`Price override requires manager authorization for product ${product.name}`);
-          }
+          if (!priceOverrideToken) throw new Error(`Price override requires manager authorization for product ${product.name}`);
           if (!priceOverrideValidated) {
             const decoded = verifyPOSOverrideToken(priceOverrideToken, 'OVERRIDE_POS_PRICE', req);
             priceManagerId = decoded.managerId;
@@ -164,72 +272,118 @@ exports.createOrder = async (req, res) => {
       const subtotal = item.quantity * finalUnitPrice;
       const lineDiscount = Number(item.discount) || 0;
       
-      if (typeof lineDiscount !== 'number' || isNaN(lineDiscount) || !isFinite(lineDiscount)) {
-        throw new Error(`Invalid discount for product ${item.productId}`);
-      }
-      if (lineDiscount < 0) {
-        throw new Error(`Discount cannot be negative for product ${item.productId}`);
-      }
-      if (lineDiscount > subtotal) {
-        throw new Error(`Discount cannot exceed subtotal for product ${item.productId}`);
+      if (typeof lineDiscount !== 'number' || isNaN(lineDiscount) || !isFinite(lineDiscount)) throw new Error(`Invalid discount for product ${item.productId}`);
+      if (lineDiscount < 0) throw new Error(`Discount cannot be negative for product ${item.productId}`);
+      if (lineDiscount > subtotal) throw new Error(`Discount cannot exceed subtotal for product ${item.productId}`);
+
+      if (lineDiscount > 0 && resolvedItem.allowDiscount === false) {
+        throw new Error(`Product ${product.name} is not eligible for manual line discounts`);
       }
 
-      const taxableAmount = subtotal - lineDiscount;
+      const lineNet = subtotal - lineDiscount;
+
+      preCalcItemsForDiscount.push({
+        productId: product._id,
+        productName: product.name,
+        sku: resolvedItem.companySku,
+        quantity: item.quantity,
+        unitPrice: finalUnitPrice,
+        discount: lineDiscount,
+        allowDiscount: resolvedItem.allowDiscount !== false,
+        categoryId: resolvedItem.categoryId,
+        departmentId: resolvedItem.department,
+        familyId: product.family,
+        subFamilyId: product.subFamily,
+        subtotal: subtotal,
+        lineNet: lineNet,
+        tax1: resolvedItem.tax1,
+        taxRate: resolvedItem.taxRate
+      });
+
+      totalSubtotalWithoutDiscount += subtotal;
+      totalItemDiscount += lineDiscount;
+    }
+
+    // Apply Discount Service
+    const orderContext = {
+      tenantId: req.user.tenantId,
+      branchId: branchId,
+      customerId: customerId,
+      customerGroup: customerGroup,
+      orderSubtotal: totalSubtotalWithoutDiscount,
+      discountCode: discountCode,
+      now: new Date()
+    };
+
+    const promoEvaluation = discountService.evaluatePromotions(availablePromotions, preCalcItemsForDiscount, orderContext);
+    
+    // Check if the explicitly requested coupon was rejected
+    if (discountCode) {
+       const requestedCode = discountCode.toUpperCase().trim();
+       const wasApplied = promoEvaluation.appliedPromotions.some(p => p.promotionCode === requestedCode);
+       if (!wasApplied) {
+           const rejection = promoEvaluation.rejectedPromotions.find(p => p.code === requestedCode);
+           if (rejection) throw new Error(`Coupon ${requestedCode} cannot be applied: ${rejection.reason}`);
+           throw new Error(`Coupon ${requestedCode} was rejected by evaluation logic.`);
+       }
+    }
+
+    const overallDiscountAmount = promoEvaluation.totalDiscountAmount;
+    const distributedLines = promoEvaluation.finalDistributedLines;
+    const eligibleDiscountSubtotal = totalSubtotalWithoutDiscount; // simplified for backward compat in POSOrder fields
+
+    // Phase 2: Tax Calculation
+    for (const item of preCalcItemsForDiscount) {
+      const itemOverallDiscount = distributedLines[item.productId.toString()] || 0;
+      const netAmount = item.lineNet - itemOverallDiscount;
+      const taxableAmount = Math.max(0, netAmount);
       
       let lineTax = 0;
       let appliedTaxRate = 0;
 
-      if (product.tax1) {
-        if (product.tax1.tenantId.toString() !== req.user.tenantId.toString()) {
-           throw new Error(`Forbidden: Tax configuration belongs to another tenant`);
-        }
-        if (!product.tax1.isActive) {
-           throw new Error(`Product tax configuration is inactive. Please update the tax configuration before checkout.`);
-        }
-        appliedTaxRate = product.tax1.rate;
-        if (product.tax1.type === 'Fixed') {
-          lineTax = product.tax1.rate * item.quantity;
+      if (item.tax1) {
+        if (item.tax1.tenantId.toString() !== req.user.tenantId.toString()) throw new Error(`Forbidden: Tax configuration belongs to another tenant`);
+        if (!item.tax1.isActive) throw new Error(`Product tax configuration is inactive.`);
+        
+        appliedTaxRate = item.tax1.rate;
+        if (item.tax1.type === 'Fixed') {
+          lineTax = item.tax1.rate * item.quantity;
         } else {
-          lineTax = taxableAmount * (product.tax1.rate / 100);
+          lineTax = taxableAmount * (item.tax1.rate / 100);
         }
       } else {
-        appliedTaxRate = product.taxRate || 0;
+        appliedTaxRate = item.taxRate || 0;
         lineTax = taxableAmount * (appliedTaxRate / 100);
       }
 
       const total = taxableAmount + lineTax;
 
-      if (!isFinite(subtotal) || !isFinite(lineDiscount) || !isFinite(taxableAmount) || !isFinite(lineTax) || !isFinite(total)) {
-         throw new Error(`Invalid monetary calculation for product ${item.productId}`);
-      }
-
       validatedItems.push({
         productId: item.productId,
-        productName: product.name,
-        sku: product.sku,
+        productName: item.productName,
+        sku: item.sku,
         quantity: item.quantity,
-        unitPrice: finalUnitPrice,
-        discount: lineDiscount,
+        unitPrice: item.unitPrice,
+        discount: item.discount, // Manual line discount
+        allowDiscount: item.allowDiscount,
+        overallDiscountAmount: itemOverallDiscount,
+        netAmount: netAmount,
         tax: lineTax,
         taxRate: appliedTaxRate,
-        subtotal,
-        total
+        subtotal: item.subtotal,
+        total: total
       });
 
-      totalSubtotalWithoutDiscount += subtotal;
-      totalItemDiscount += lineDiscount;
       serverTotalAmount += total;
       serverTaxAmount += lineTax;
     }
     
-    serverTotalAmount = serverTotalAmount - (discountAmount || 0);
-    
-    if (!isFinite(serverTotalAmount) || serverTotalAmount < 0) {
-       throw new Error(`Invalid server total amount calculated`);
-    }
+    // serverTotalAmount is already net of all discounts. 
+    // We don't subtract discountAmount anymore because it is handled by the distribution.
 
+    
     // Discount Override Logic
-    const totalOrderDiscount = totalItemDiscount + (discountAmount || 0);
+    const totalOrderDiscount = totalItemDiscount + overallDiscountAmount;
     if (totalSubtotalWithoutDiscount > 0) {
       const discountPercentage = (totalOrderDiscount / totalSubtotalWithoutDiscount) * 100;
       if (discountPercentage > posMaxDiscountLimit) {
@@ -299,10 +453,12 @@ exports.createOrder = async (req, res) => {
 
     // 4. Generate Receipt Number
     const receiptNumber = await generateReceiptNumber(req.user.tenantId, session);
+    const finalCurrency = currency || company?.currency || 'AED';
 
     // 5. Create POSOrder
     const [order] = await POSOrder.create([{
       tenantId: req.user.tenantId,
+      legalCompanyId: posSession.legalCompanyId,
       branchId,
       locationId: locationId || undefined,
       sessionId: posSession._id,
@@ -311,20 +467,38 @@ exports.createOrder = async (req, res) => {
       customerId: customerId || undefined,
       customerName: customerName || 'Walk-in Customer',
       items: validatedItems,
-      discountAmount: discountAmount || 0,
+      discountAmount: overallDiscountAmount + (discountAmount || 0),
+      discountId: undefined, // Replaced by appliedPromotions
+      discountCode: discountCode || undefined,
+      discountName: undefined,
+      discountType: undefined,
+      discountValue: undefined,
+      appliedPromotions: promoEvaluation.appliedPromotions,
+      eligibleDiscountSubtotal: eligibleDiscountSubtotal || 0,
       taxAmount: serverTaxAmount,
       totalAmount: serverTotalAmount,
-      currency,
+      currency: finalCurrency,
       idempotencyKey: idempotencyKey ? idempotencyKey.trim() : undefined,
       status: 'PAID',
       createdBy: req.user._id
     }], { session });
 
+    // 5b. Increment Usage Counts Atomically
+    if (promoEvaluation.appliedPromotions.length > 0) {
+      const appliedPromoIds = promoEvaluation.appliedPromotions.map(p => p.promotionId);
+      await Discount.updateMany(
+        { _id: { $in: appliedPromoIds } },
+        { $inc: { usageCount: 1 } },
+        { session }
+      );
+    }
+
     // 6. Create POSPayments
     const paymentDocs = payments.map(p => {
       const doc = {
         tenantId: req.user.tenantId,
-        branchId,
+      legalCompanyId: posSession.legalCompanyId,
+      branchId,
         posOrderId: order._id,
         sessionId: posSession._id,
         method: p.method,
@@ -348,7 +522,8 @@ exports.createOrder = async (req, res) => {
     for (const item of validatedItems) {
       const stock = await Stock.findOne({
         tenantId: req.user.tenantId,
-        branchId,
+      legalCompanyId: posSession.legalCompanyId,
+      branchId,
         productId: item.productId
       }).session(session);
 
@@ -361,7 +536,8 @@ exports.createOrder = async (req, res) => {
 
       await StockMovement.create([{
         tenantId: req.user.tenantId,
-        branchId,
+      legalCompanyId: posSession.legalCompanyId,
+      branchId,
         productId: item.productId,
         type: 'DELIVERY',
         quantity: item.quantity,
@@ -396,10 +572,13 @@ exports.createOrder = async (req, res) => {
        };
     } else {
        // Safely handle Walk-in Customer per tenant
-       let walkInCustomer = await Customer.findOne({ tenantId: req.user.tenantId, name: 'Walk-in Customer' }).session(session);
+       let walkInCustomer = await Customer.findOne({ tenantId: req.user.tenantId,
+           legalCompanyId: posSession.legalCompanyId,
+           name: 'Walk-in Customer' }).session(session);
        if (!walkInCustomer) {
          const newWalkIn = new Customer({
            tenantId: req.user.tenantId,
+           legalCompanyId: posSession.legalCompanyId,
            name: 'Walk-in Customer',
            customerType: 'Person',
            customerGroup: 'RETAIL'
@@ -432,11 +611,12 @@ exports.createOrder = async (req, res) => {
       discount: item.discount,
       taxRate: item.taxRate,
       taxAmount: item.tax,
-      lineTotal: (item.quantity * item.unitPrice) - item.discount + item.tax
+      lineTotal: item.netAmount + item.tax
     }));
     
     const taxInvoice = new TaxInvoice({
       tenantId: req.user.tenantId,
+      legalCompanyId: posSession.legalCompanyId,
       branchId,
       invoiceNumber,
       orderId: order._id,
@@ -448,12 +628,12 @@ exports.createOrder = async (req, res) => {
       status: 'PAID_FULL',
       items: invoiceItems,
       subtotal: validatedItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0),
-      discountTotal: discountAmount || 0,
+      discountTotal: totalOrderDiscount,
       taxTotal: serverTaxAmount,
       grandTotal: serverTotalAmount,
       amountPaid: serverTotalAmount,
       balanceDue: 0,
-      currency,
+      currency: finalCurrency,
       createdBy: req.user._id
     });
     
@@ -528,7 +708,7 @@ exports.createOrder = async (req, res) => {
 // @access  Private
 exports.getOrders = async (req, res) => {
   try {
-    const filter = { tenantId: req.user.tenantId };
+    const filter = getReadFilter(req);
     
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
 
@@ -566,7 +746,8 @@ exports.getOrders = async (req, res) => {
 // @access  Private
 exports.getOrderById = async (req, res) => {
   try {
-    const order = await POSOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId })
+    const filter = getReadFilter(req);
+    const order = await POSOrder.findOne({ _id: req.params.id, ...filter })
       .populate('branchId', 'name')
       .populate('createdBy', 'firstName lastName')
       .populate('customerId', 'name email phone address')
@@ -585,8 +766,8 @@ exports.getOrderById = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: You do not have access to any branch' });
     }
 
-    const payments = await POSPayment.find({ posOrderId: order._id, tenantId: req.user.tenantId });
-    const returns = await POSReturn.find({ originalOrderId: order._id, tenantId: req.user.tenantId })
+    const payments = await POSPayment.find({ posOrderId: order._id, ...filter });
+    const returns = await POSReturn.find({ originalOrderId: order._id, ...filter })
       .populate('createdBy', 'firstName lastName')
       .populate('returnItems.productId', 'name sku')
       .sort({ createdAt: -1 });
@@ -602,7 +783,7 @@ exports.getOrderById = async (req, res) => {
 // @access  Private
 exports.getReturns = async (req, res) => {
   try {
-    const filter = { tenantId: req.user.tenantId };
+    const filter = getReadFilter(req);
     
     // Check branch access permissions
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
@@ -675,7 +856,8 @@ exports.createReturn = async (req, res) => {
       }
     }
 
-    const originalOrder = await POSOrder.findOne({ _id: originalOrderId, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const originalOrder = await POSOrder.findOne({ _id: originalOrderId, ...filter }).session(session);
     if (!originalOrder) {
       throw new Error('Original order not found');
     }
@@ -699,7 +881,7 @@ exports.createReturn = async (req, res) => {
     const validatedReturnItems = [];
 
     // Find previous returns for this order to validate return quantities
-    const previousReturns = await POSReturn.find({ originalOrderId: originalOrder._id, tenantId: req.user.tenantId }).session(session);
+    const previousReturns = await POSReturn.find({ originalOrderId: originalOrder._id, ...filter }).session(session);
     const returnedQtys = {};
     for (const pr of previousReturns) {
       for (const item of pr.returnItems) {
@@ -765,7 +947,7 @@ exports.createReturn = async (req, res) => {
 
     // Validate allocations against original payments
     const paymentLedger = await POSPayment.aggregate([
-      { $match: { posOrderId: originalOrder._id, tenantId: req.user.tenantId } },
+      { $match: { posOrderId: originalOrder._id, ...filter } },
       { $group: { _id: "$method", netPaid: { $sum: "$amount" } } }
     ]).session(session);
 
@@ -784,6 +966,7 @@ exports.createReturn = async (req, res) => {
     // 1. Create POSReturn
     const [posReturn] = await POSReturn.create([{
       tenantId: req.user.tenantId,
+      legalCompanyId: originalOrder.legalCompanyId,
       branchId: originalOrder.branchId,
       originalOrderId: originalOrder._id,
       returnItems: validatedReturnItems,
@@ -798,6 +981,7 @@ exports.createReturn = async (req, res) => {
     // 2. Create negative POSPayments for each allocation
     const negativePayments = finalAllocations.map(alloc => ({
       tenantId: req.user.tenantId,
+      legalCompanyId: originalOrder.legalCompanyId,
       branchId: originalOrder.branchId,
       posOrderId: originalOrder._id,
       sessionId: posSession._id,
@@ -816,7 +1000,8 @@ exports.createReturn = async (req, res) => {
     for (const item of validatedReturnItems) {
       const stock = await Stock.findOne({
         tenantId: req.user.tenantId,
-        branchId: originalOrder.branchId,
+      legalCompanyId: originalOrder.legalCompanyId,
+      branchId: originalOrder.branchId,
         productId: item.productId
       }).session(session);
 
@@ -827,7 +1012,8 @@ exports.createReturn = async (req, res) => {
         // If somehow stock doesn't exist, create it
         await Stock.create([{
           tenantId: req.user.tenantId,
-          branchId: originalOrder.branchId,
+      legalCompanyId: originalOrder.legalCompanyId,
+      branchId: originalOrder.branchId,
           productId: item.productId,
           quantity: item.quantity
         }], { session });
@@ -835,7 +1021,8 @@ exports.createReturn = async (req, res) => {
 
       await StockMovement.create([{
         tenantId: req.user.tenantId,
-        branchId: originalOrder.branchId,
+      legalCompanyId: originalOrder.legalCompanyId,
+      branchId: originalOrder.branchId,
         productId: item.productId,
         type: 'SALES_RETURN',
         quantity: item.quantity,
@@ -1057,7 +1244,7 @@ exports.voidOrder = async (req, res) => {
     }
 
     // Payment Reversal
-    const originalPayments = await POSPayment.find({ posOrderId: order._id, tenantId: req.user.tenantId }).session(session);
+    const originalPayments = await POSPayment.find({ posOrderId: order._id, ...filter }).session(session);
     
     for (const payment of originalPayments) {
       await POSPayment.create([{

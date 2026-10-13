@@ -74,8 +74,7 @@ export const ERP_MODULES = [
           { id: 'POS_REGISTERS', name: 'POS Registers', path: '/pos/registers', icon: <Settings size={14} /> }
         ]
       },
-      { id: 'QUOTATIONS', name: 'Quotations', path: '/sales/quotes', icon: <FileText size={16} /> },
-      { id: 'SALES_ORDERS', name: 'Sales Orders', path: '/sales', icon: <ClipboardList size={16} /> },
+      { id: 'QUOTATION', name: 'Quotations', path: '/sales/quotes', icon: <FileText size={16} /> },      { id: 'SALES_ORDER', name: 'Sales Orders', path: '/sales', icon: <ClipboardList size={16} /> },
       { id: 'PROFORMA', name: 'Pro-Forma Invoice', path: '/sales/proforma', icon: <FileCheck size={16} /> },
       { id: 'DELIVERY_NOTE', name: 'Delivery Note', path: '/sales/delivery-notes', icon: <Truck size={16} /> },
       { id: 'SALES_RETURNS', name: 'Sales Returns', path: '/sales/returns', icon: <Package size={16} /> },
@@ -197,6 +196,18 @@ export const ERP_MODULES = [
       { id: 'API_KEYS', name: 'API Keys', path: '/api-keys', icon: <Key size={16} /> }
     ]
   },
+
+  {
+    id: 'MASTERS',
+    name: 'Masters',
+    icon: <Settings size={18} />,
+    isParent: true,
+    subModules: [
+      { id: 'DISCOUNT_MASTER', name: 'Discount Master', path: '/sales/discounts', icon: <Tag size={16} /> },
+      { id: 'TAXES', name: 'Tax Master', path: '/settings/taxes', icon: <Receipt size={16} /> },
+      { id: 'ROLES', name: 'Roles & Permissions', path: '/settings/roles', icon: <Shield size={16} /> }
+    ]
+  },
   {
     id: 'SETTINGS',
     name: 'Settings',
@@ -205,11 +216,10 @@ export const ERP_MODULES = [
     isParent: true,
     subModules: [
       { id: 'GENERAL_SETTINGS', name: 'General Settings', path: '/settings/general', icon: <Settings size={16} /> },
-      { id: 'COMPANY', name: 'Company Setup', path: '/settings/company', icon: <Building2 size={16} /> },
+      { id: 'COMPANY', name: 'Group Setup', path: '/settings/company', icon: <Building2 size={16} /> },
+      { id: 'LEGAL_ENTITIES', name: 'Companies', path: '/settings/legal-entities', icon: <Building size={16} /> },
       { id: 'BRANCHES', name: 'Branches', path: '/settings/branches', icon: <MapPin size={16} /> },
       { id: 'USERS', name: 'Users', path: '/settings/users', icon: <Users size={16} /> },
-      { id: 'ROLES', name: 'Roles & Permissions', path: '/settings/roles', icon: <Shield size={16} /> },
-      { id: 'TAXES', name: 'Tax Master', path: '/settings/taxes', icon: <Receipt size={16} /> },
       { id: 'AUDIT_LOGS', name: 'Audit Logs', path: '/settings/audit-logs', icon: <Shield size={16} /> }
     ]
   }

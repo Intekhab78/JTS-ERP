@@ -6,6 +6,10 @@ const journalEntryLineSchema = new mongoose.Schema({
     ref: 'Company',
     required: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   journalEntryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'JournalEntry',

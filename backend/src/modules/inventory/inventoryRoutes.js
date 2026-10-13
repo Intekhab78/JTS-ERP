@@ -10,7 +10,8 @@ const {
   updateCategory,
   deleteCategory,
   uploadProductImage,
-  deleteProductImage
+  deleteProductImage,
+  getProductByBarcode
 } = require('./inventoryController');
 const { protect } = require('../../core/middleware/authMiddleware');
 const { uploadProductImages } = require('../../core/utils/upload');
@@ -29,6 +30,9 @@ const {
 router.route('/products')
   .get(protect, getProducts)
   .post(protect, createProduct);
+
+router.route('/products/barcode')
+  .get(protect, getProductByBarcode);
 
 router.route('/products/:id')
   .put(protect, updateProduct)

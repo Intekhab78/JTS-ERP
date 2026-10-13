@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, UserPlus, Trash2, Lock } from 'lucide-react';
+import { Users, UserPlus, Trash2, Lock, KeyRound } from 'lucide-react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { DataTable } from '../../components/common/DataTable';
 import { Modal } from '../../components/common/Modal';
@@ -15,6 +15,7 @@ import ReactSelect from 'react-select';
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [legalCompanies, setLegalCompanies] = useState([]);
   const [branches, setBranches] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [isInviting, setIsInviting] = useState(false);
@@ -25,8 +26,10 @@ const UserManagement = () => {
     email: '', 
     password: '', 
     roleId: '', 
+    legalCompanyIds: [],
     branches: [], 
     employeeId: '',
+    employeeObj: null,
     portalAccess: 'NO ACCESS',
     isActive: true
   });
@@ -39,6 +42,11 @@ const UserManagement = () => {
   const [posPinModalOpen, setPosPinModalOpen] = useState(false);
   const [posPinValue, setPosPinValue] = useState('');
   const [selectedUserIdForPin, setSelectedUserIdForPin] = useState(null);
+
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [newPasswordValue, setNewPasswordValue] = useState('');
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState(null);
+  const [passwordResetLoading, setPasswordResetLoading] = useState(false);
 
   const authUser = JSON.parse(localStorage.getItem('user') || '{}');
   const userPermissions = authUser.permissions || [];
@@ -80,14 +88,23 @@ const UserManagement = () => {
     }
   };
 
+  const fetchLegalCompanies = async () => {
+    try {
+      const { data } = await axios.get('/api/v1/legal-company/my-companies', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setLegalCompanies(data);
+    } catch (error) {
+      console.error('Failed to fetch legal companies', error);
+    }
+  };
+
   const fetchEmployees = async () => {
     try {
       const { data } = await axios.get('/api/v1/hr/employees', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      // Filter out employees already linked to a user (if possible on frontend)
-      const unlinked = data.filter(e => !e.userId);
-      setEmployees(unlinked);
+      setEmployees(data);
     } catch (error) {
       console.error('Failed to fetch employees', error);
     }
@@ -96,6 +113,7 @@ const UserManagement = () => {
   useEffect(() => {
     fetchUsers();
     fetchRoles();
+    fetchLegalCompanies();
     fetchBranches();
     fetchEmployees();
   }, []);
@@ -117,7 +135,7 @@ const UserManagement = () => {
       setEditUserId(null);
       setFormData({ 
         firstName: '', lastName: '', email: '', password: '', 
-        roleId: '', branches: [], employeeId: '', portalAccess: 'NO ACCESS', isActive: true
+        roleId: '', legalCompanyIds: [], branches: [], employeeId: '', portalAccess: 'NO ACCESS', isActive: true
       });
       fetchUsers();
     } catch (error) {
@@ -133,8 +151,10 @@ const UserManagement = () => {
       email: user.email || '',
       password: '', // blank password when editing
       roleId: user.roleId?._id || '',
-      branches: user.branches?.map(b => b._id) || [],
-      employeeId: user.employeeId?._id || '',
+      legalCompanyIds: user.legalCompanyIds?.map(c => c._id || c) || [],
+      branches: user.branches?.map(b => b._id || b) || [],
+      employeeId: user.employeeId?._id || user.employeeId || '',
+      employeeObj: user.employeeId && typeof user.employeeId === 'object' ? user.employeeId : null,
       portalAccess: user.portalAccess || 'NO ACCESS',
       isActive: user.isActive !== false
     });
@@ -145,7 +165,7 @@ const UserManagement = () => {
     setEditUserId(null);
     setFormData({ 
       firstName: '', lastName: '', email: '', password: '', 
-      roleId: '', branches: [], employeeId: '', portalAccess: 'NO ACCESS', isActive: true
+      roleId: '', legalCompanyIds: [], branches: [], employeeId: '', employeeObj: null, portalAccess: 'NO ACCESS', isActive: true
     });
     setIsInviting(true);
   };
@@ -189,6 +209,29 @@ const UserManagement = () => {
       alert('POS PIN updated successfully');
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to update POS PIN');
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPasswordValue || newPasswordValue.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return;
+    }
+    setPasswordResetLoading(true);
+    try {
+      await axios.put(`/api/v1/users/${selectedUserForPassword._id}/reset-password`, {
+        password: newPasswordValue
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setPasswordModalOpen(false);
+      setNewPasswordValue('');
+      setSelectedUserForPassword(null);
+      alert('Password reset successfully');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setPasswordResetLoading(false);
     }
   };
 
@@ -284,6 +327,21 @@ const UserManagement = () => {
                 size="sm" 
                 onClick={(e) => {
                   e.stopPropagation();
+                  setSelectedUserForPassword(row);
+                  setNewPasswordValue('');
+                  setPasswordModalOpen(true);
+                }}
+                className="text-blue-600 hover:bg-blue-50 font-bold text-xs"
+                title="Reset Password"
+              >
+                <KeyRound size={14} className="mr-1.5" />
+                Reset Password
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={(e) => {
+                  e.stopPropagation();
                   openEditDrawer(row);
                 }}
                 className="text-primary hover:bg-primary/10"
@@ -352,18 +410,21 @@ const UserManagement = () => {
               <ReactSelect 
                 options={[
                   { value: '', label: 'No Employee Link', emp: null },
-                  ...employees.map(emp => ({ 
-                    value: emp._id, 
-                    label: `${emp.employeeCode || ''} - ${emp.firstName} ${emp.lastName}`,
-                    emp
-                  }))
+                  ...employees
+                    .filter(emp => !emp.userId || emp._id === formData.employeeId)
+                    .map(emp => ({ 
+                      value: emp._id, 
+                      label: `${emp.employeeCode || ''} - ${emp.firstName} ${emp.lastName}`,
+                      emp
+                    }))
                 ]}
                 value={
                   formData.employeeId 
                     ? (() => {
-                        const emp = employees.find(e => e._id === formData.employeeId);
+                        const empInList = employees.find(e => e._id === formData.employeeId);
+                        const emp = empInList || formData.employeeObj;
                         return emp
-                          ? { value: emp._id, label: `${emp.employeeCode || ''} - ${emp.firstName} ${emp.lastName}`, emp }
+                          ? { value: emp._id || emp, label: `${emp.employeeCode || ''} - ${emp.firstName} ${emp.lastName}`, emp }
                           : { value: formData.employeeId, label: 'Unknown Employee', emp: null };
                       })()
                     : null
@@ -442,10 +503,43 @@ const UserManagement = () => {
               </Select>
             </FormField>
             
-            <FormField label="Assign Branch (Optional)">
+            <FormField label="Assign Company Access (Optional)">
               <div className="space-y-1">
                 <div className="border border-slate-200 rounded-md p-2 bg-white max-h-36 overflow-y-auto space-y-1">
-                  {branches.map(branch => (
+                  {legalCompanies.map(company => (
+                    <label key={company._id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
+                      <input 
+                        type="checkbox"
+                        className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary"
+                        checked={formData.legalCompanyIds.includes(company._id)}
+                        onChange={(e) => {
+                          const newIds = e.target.checked 
+                            ? [...formData.legalCompanyIds, company._id]
+                            : formData.legalCompanyIds.filter(id => id !== company._id);
+                          setFormData({ ...formData, legalCompanyIds: newIds });
+                        }}
+                      />
+                      <span className="text-sm font-medium text-slate-700">{company.name}</span>
+                    </label>
+                  ))}
+                  {legalCompanies.length === 0 && (
+                    <div className="text-sm text-slate-500 italic p-2">No companies available</div>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">Select specific companies this user can access. Leave empty for all if superadmin.</p>
+              </div>
+            </FormField>
+
+            <FormField label="Assign Branch Access (Optional)">
+              <div className="space-y-1">
+                <div className="border border-slate-200 rounded-md p-2 bg-white max-h-36 overflow-y-auto space-y-1">
+                  {branches
+                    .filter(branch => {
+                      if (formData.legalCompanyIds.length === 0) return true;
+                      const branchCompanyId = branch.legalCompanyId?._id || branch.legalCompanyId;
+                      return !branchCompanyId || formData.legalCompanyIds.includes(branchCompanyId);
+                    })
+                    .map(branch => (
                     <label key={branch._id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer">
                       <input 
                         type="checkbox"
@@ -515,6 +609,40 @@ const UserManagement = () => {
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => { setPosPinModalOpen(false); setPosPinValue(''); }}>Cancel</Button>
               <Button onClick={handleSetPosPin}>Save PIN</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {passwordModalOpen && selectedUserForPassword && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold mb-1">Reset Password</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Enter a new password for <strong>{selectedUserForPassword.firstName} {selectedUserForPassword.lastName}</strong> ({selectedUserForPassword.email}).
+            </p>
+            <Input 
+              type="password" 
+              placeholder="Enter new password (min. 6 chars)" 
+              value={newPasswordValue}
+              onChange={(e) => setNewPasswordValue(e.target.value)}
+              className="mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => { setPasswordModalOpen(false); setNewPasswordValue(''); setSelectedUserForPassword(null); }}
+                disabled={passwordResetLoading}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleResetPassword}
+                disabled={passwordResetLoading}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {passwordResetLoading ? 'Resetting...' : 'Save Password'}
+              </Button>
             </div>
           </div>
         </div>

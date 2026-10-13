@@ -8,6 +8,7 @@ const Counter = require('../../core/models/Counter');
 const Branch = require('../../core/models/Branch');
 const mongoose = require('mongoose');
 const { verifyBranchAccess, verifyProductAccess } = require('../../core/middleware/authMiddleware');
+const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
 const { validateSupplierTradeLicense } = require('./purchaseHelper');
 
 const generatePONumber = async (tenantId, session) => {
@@ -29,7 +30,7 @@ const generatePONumber = async (tenantId, session) => {
 // @access  Private
 exports.getPurchaseOrders = async (req, res) => {
   try {
-    const filter = { tenantId: req.user.tenantId };
+    const filter = getReadFilter(req);
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
     if (req.user.branches && req.user.branches.length > 0) {
       filter.branchId = { $in: req.user.branches };
@@ -52,7 +53,8 @@ exports.getPurchaseOrders = async (req, res) => {
 // @access  Private
 exports.getPurchaseOrderById = async (req, res) => {
   try {
-    const po = await PurchaseOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId })
+    const filter = getReadFilter(req);
+    const po = await PurchaseOrder.findOne({ _id: req.params.id, ...filter })
       .populate('supplierId', 'name email phone address')
       .populate('branchId', 'name');
 
@@ -90,7 +92,17 @@ exports.createPurchaseOrder = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { branchId, supplierId, items, expectedDate, notes, currency, paymentTerms } = req.body;
+    // Inject legalCompanyId from branch if not provided and header is ALL
+    if (!req.body.legalCompanyId && req.body.branchId) {
+      const Branch = mongoose.model('Branch');
+      const branch = await Branch.findById(req.body.branchId);
+      if (branch && branch.legalCompanyId) {
+        req.body.legalCompanyId = branch.legalCompanyId.toString();
+      }
+    }
+
+    const scopedBody = validateCreateScope(req, req.body);
+    const { branchId, supplierId, items, expectedDate, notes, currency, paymentTerms, legalCompanyId } = scopedBody;
 
     const isAuthorized = await verifyBranchAccess(branchId, req);
     if (!isAuthorized) {
@@ -110,12 +122,33 @@ exports.createPurchaseOrder = async (req, res) => {
       throw new Error('No items in the purchase order');
     }
 
+    const companyItemService = require('../../services/companyItemService');
+    
     let totalAmount = 0;
     for (const item of items) {
       const isProductAuthorized = await verifyProductAccess(item.productId, req, true);
       if (!isProductAuthorized) {
         throw new Error(`Forbidden: Product ${item.productId} does not belong to this tenant or is inactive`);
       }
+
+      let resolvedItem;
+      try {
+        resolvedItem = await companyItemService.validateSaleable({
+          tenantId: req.user.tenantId,
+          productId: item.productId,
+          branchId,
+          user: req.user
+        });
+      } catch (err) {
+        if (err.name === 'CompanyItemNotConfiguredError') {
+          throw new Error(`Product is not configured for this branch: ${err.message}`);
+        }
+        throw err;
+      }
+
+      const unitCost = Number(item.unitCost) >= 0 ? Number(item.unitCost) : (resolvedItem.purchasePrice || 0);
+      item.unitCost = unitCost;
+
       totalAmount += (item.quantity * item.unitCost);
     }
 
@@ -130,6 +163,7 @@ exports.createPurchaseOrder = async (req, res) => {
 
     const po = await PurchaseOrder.create([{
       tenantId: req.user.tenantId,
+      legalCompanyId,
       purchaseOrderNumber,
       branchId,
       supplierId,
@@ -174,7 +208,8 @@ exports.updatePurchaseOrder = async (req, res) => {
 
   try {
     const { branchId, supplierId, items, expectedDate, notes, currency, paymentTerms } = req.body;
-    const po = await PurchaseOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const po = await PurchaseOrder.findOne({ _id: req.params.id, ...filter }).session(session);
 
     if (!po) throw new Error('Purchase Order not found');
     if (po.status !== 'DRAFT') throw new Error('Only DRAFT POs can be edited');
@@ -183,10 +218,32 @@ exports.updatePurchaseOrder = async (req, res) => {
     if (!isAuthorized) return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
 
     let totalAmount = 0;
+    const companyItemService = require('../../services/companyItemService');
+    const targetBranchId = branchId || po.branchId;
+    
     if (items && items.length > 0) {
       for (const item of items) {
         const isProductAuthorized = await verifyProductAccess(item.productId, req, true);
         if (!isProductAuthorized) throw new Error(`Forbidden: Product ${item.productId} does not belong to this tenant`);
+        
+        let resolvedItem;
+        try {
+          resolvedItem = await companyItemService.validateSaleable({
+            tenantId: req.user.tenantId,
+            productId: item.productId,
+            branchId: targetBranchId,
+            user: req.user
+          });
+        } catch (err) {
+          if (err.name === 'CompanyItemNotConfiguredError') {
+            throw new Error(`Product is not configured for this branch: ${err.message}`);
+          }
+          throw err;
+        }
+
+        const unitCost = Number(item.unitCost) >= 0 ? Number(item.unitCost) : (resolvedItem.purchasePrice || 0);
+        item.unitCost = unitCost;
+
         totalAmount += (item.quantity * item.unitCost);
       }
 
@@ -229,7 +286,8 @@ exports.updatePurchaseOrder = async (req, res) => {
 // @access  Private
 exports.confirmPurchaseOrder = async (req, res) => {
   try {
-    const po = await PurchaseOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const po = await PurchaseOrder.findOne({ _id: req.params.id, ...filter });
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
 
     if (po.status !== 'DRAFT') {
@@ -259,7 +317,8 @@ exports.confirmPurchaseOrder = async (req, res) => {
 // @access  Private
 exports.cancelPurchaseOrder = async (req, res) => {
   try {
-    const po = await PurchaseOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const po = await PurchaseOrder.findOne({ _id: req.params.id, ...filter });
     if (!po) return res.status(404).json({ message: 'Purchase Order not found' });
 
     if (po.status !== 'DRAFT' && po.status !== 'CONFIRMED') {
@@ -289,7 +348,8 @@ exports.deletePurchaseOrder = async (req, res) => {
   session.startTransaction();
 
   try {
-    const po = await PurchaseOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const po = await PurchaseOrder.findOne({ _id: req.params.id, ...filter }).session(session);
     if (!po) throw new Error('Purchase Order not found');
 
     if (po.status !== 'DRAFT' && po.status !== 'CANCELLED') {
@@ -355,7 +415,7 @@ exports.getPurchaseOrderSchedules = async (req, res) => {
     
     const schedules = await PurchaseOrderSchedule.find({
       purchaseOrderId: req.params.id,
-      tenantId: req.user.tenantId,
+      ...getReadFilter(req),
       purchaseOrderItemId: { $in: itemIds }
     }).populate('branchId', 'name').populate('productId', 'name sku barcode').lean();
 
@@ -388,7 +448,8 @@ exports.createPurchaseOrderSchedule = async (req, res) => {
   try {
     const { purchaseOrderItemId, productId, scheduledQuantity, expectedDate, destinationType, branchId, notes } = req.body;
 
-    const po = await PurchaseOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const po = await PurchaseOrder.findOne({ _id: req.params.id, ...filter }).session(session);
     if (!po) throw new Error('Purchase Order not found');
     if (po.status !== 'DRAFT' && po.status !== 'CONFIRMED') {
       throw new Error('Schedules can only be created for DRAFT or CONFIRMED POs');
@@ -426,6 +487,7 @@ exports.createPurchaseOrderSchedule = async (req, res) => {
 
     const schedule = await PurchaseOrderSchedule.create([{
       tenantId: req.user.tenantId,
+      legalCompanyId: po.legalCompanyId,
       purchaseOrderId: po._id,
       purchaseOrderItemId: poItem._id,
       productId: productId || poItem.productId,
@@ -463,7 +525,8 @@ exports.createBulkPurchaseOrderSchedules = async (req, res) => {
       throw new Error('Schedules array is required and must not be empty');
     }
 
-    const po = await PurchaseOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const po = await PurchaseOrder.findOne({ _id: req.params.id, ...filter }).session(session);
     if (!po) throw new Error('Purchase Order not found');
     if (po.status !== 'DRAFT' && po.status !== 'CONFIRMED') {
       throw new Error('Schedules can only be created for DRAFT or CONFIRMED POs');
@@ -521,6 +584,7 @@ exports.createBulkPurchaseOrderSchedules = async (req, res) => {
 
       newSchedules.push({
         tenantId: req.user.tenantId,
+        legalCompanyId: po.legalCompanyId,
         purchaseOrderId: po._id,
         purchaseOrderItemId: poItem._id,
         productId: schedule.productId || poItem.productId,
@@ -560,7 +624,8 @@ exports.updatePurchaseOrderSchedule = async (req, res) => {
   try {
     const { scheduledQuantity, expectedDate, destinationType, branchId, notes } = req.body;
 
-    const po = await PurchaseOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const po = await PurchaseOrder.findOne({ _id: req.params.id, ...filter }).session(session);
     if (!po) throw new Error('Purchase Order not found');
     if (po.status !== 'DRAFT' && po.status !== 'CONFIRMED') {
       throw new Error('Schedules can only be edited for DRAFT or CONFIRMED POs');
@@ -635,7 +700,8 @@ exports.deletePurchaseOrderSchedule = async (req, res) => {
   session.startTransaction();
 
   try {
-    const po = await PurchaseOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const po = await PurchaseOrder.findOne({ _id: req.params.id, ...filter }).session(session);
     if (!po) throw new Error('Purchase Order not found');
     if (po.status !== 'DRAFT' && po.status !== 'CONFIRMED') {
       throw new Error('Schedules can only be deleted for DRAFT or CONFIRMED POs');
@@ -680,10 +746,11 @@ exports.cancelPurchaseOrderSchedule = async (req, res) => {
   session.startTransaction();
 
   try {
-    const { cancelReason } = req.body;
+    const cancelReason = req.body.cancelReason;
     if (!cancelReason) throw new Error('Cancellation reason is required');
 
-    const po = await PurchaseOrder.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const po = await PurchaseOrder.findOne({ _id: req.params.id, ...filter }).session(session);
     if (!po) throw new Error('Purchase Order not found');
 
     const schedule = await PurchaseOrderSchedule.findOne({

@@ -41,6 +41,10 @@ const grnAdditionalCostSchema = new mongoose.Schema({
 
 const grnSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
   grnNumber: { type: String, required: true },
   purchaseOrderId: { type: mongoose.Schema.Types.ObjectId, ref: 'PurchaseOrder' },

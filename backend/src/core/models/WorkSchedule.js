@@ -7,6 +7,10 @@ const workScheduleSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   name: {
     type: String,
     required: true,

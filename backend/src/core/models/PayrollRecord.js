@@ -16,6 +16,10 @@ const payrollRecordSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   payrollPeriodId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PayrollPeriod',

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { HelpCircle, LogOut, X, ChevronDown, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { HelpCircle, LogOut, X, ChevronDown, ChevronRight, SlidersHorizontal, ChevronLeft } from 'lucide-react';
 import { ERP_MODULES, getAllPermissionModules } from '../../config/modules.jsx';
 
 const Sidebar = ({ isOpen, setIsOpen }) => {
@@ -173,7 +173,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   };
 
   return (
-    <aside aria-label="Sidebar Navigation" className={`print:hidden fixed lg:static inset-y-0 left-0 z-30 w-64 bg-[#262b3a] flex flex-col transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+    <aside aria-label="Sidebar Navigation" className={`print:hidden fixed lg:static inset-y-0 left-0 z-30 w-64 bg-[#262b3a] flex flex-col transition-all duration-300 ease-in-out shadow-2xl lg:shadow-none ${isOpen ? 'translate-x-0 lg:ml-0' : '-translate-x-full lg:translate-x-0 lg:-ml-64'}`}>
       <div className="h-20 flex items-center justify-between px-5 shrink-0 pt-2">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-600/30">
@@ -188,10 +188,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
         </div>
         <button 
           aria-label="Close Sidebar"
-          className="lg:hidden text-slate-400 hover:text-white p-1 rounded-md transition-colors absolute right-4 top-6" 
+          className="text-slate-400 hover:text-white p-1 rounded-md transition-colors absolute right-4 top-6" 
           onClick={() => setIsOpen(false)}
         >
-          <X size={20} />
+          <span className="lg:hidden"><X size={20} /></span>
+          <span className="hidden lg:block"><ChevronLeft size={20} /></span>
         </button>
       </div>
 

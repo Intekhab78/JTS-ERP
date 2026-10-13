@@ -30,20 +30,17 @@ export const ApiStatusBadge = () => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all shadow-sm ${
-          activeConfig.isOnline
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all shadow-sm ${activeConfig.isOnline
             ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
             : 'bg-indigo-50 text-indigo-800 border-indigo-300 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800'
-        } hover:opacity-90`}
+          } hover:opacity-90`}
         title={`Backend: ${activeConfig.isOnline ? 'Online Cloud API' : 'Local Machine API'}`}
       >
         <span className="relative flex h-2 w-2">
-          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-            activeConfig.isOnline ? 'bg-emerald-400' : 'bg-indigo-400'
-          }`} />
-          <span className={`relative inline-flex rounded-full h-2 w-2 ${
-            activeConfig.isOnline ? 'bg-emerald-600' : 'bg-indigo-600'
-          }`} />
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${activeConfig.isOnline ? 'bg-emerald-400' : 'bg-indigo-400'
+            }`} />
+          <span className={`relative inline-flex rounded-full h-2 w-2 ${activeConfig.isOnline ? 'bg-emerald-600' : 'bg-indigo-600'
+            }`} />
         </span>
 
         <span className="hidden sm:inline">
@@ -77,18 +74,17 @@ export const ApiStatusBadge = () => {
               <button
                 type="button"
                 onClick={() => setApiMode('online')}
-                className={`w-full text-left p-2 rounded-lg flex items-center justify-between transition-colors ${
-                  currentMode === 'online'
+                className={`w-full text-left p-2 rounded-lg flex items-center justify-between transition-colors ${currentMode === 'online'
                     ? 'bg-emerald-100 text-emerald-950 dark:bg-emerald-900/30 dark:text-emerald-200 font-bold'
                     : 'hover:bg-muted text-foreground'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Globe size={15} className="text-emerald-600 shrink-0" />
                   <div>
                     <div className="font-semibold">Online Cloud Backend</div>
                     <div className="text-[10px] text-muted-foreground font-mono truncate max-w-[170px]">
-                      erpapi.jtsonline.shop
+                      erpapi.jtsmiddleeast.com
                     </div>
                   </div>
                 </div>
@@ -99,11 +95,10 @@ export const ApiStatusBadge = () => {
               <button
                 type="button"
                 onClick={() => setApiMode('local')}
-                className={`w-full text-left p-2 rounded-lg flex items-center justify-between transition-colors ${
-                  currentMode === 'local'
+                className={`w-full text-left p-2 rounded-lg flex items-center justify-between transition-colors ${currentMode === 'local'
                     ? 'bg-indigo-100 text-indigo-950 dark:bg-indigo-900/30 dark:text-indigo-200 font-bold'
                     : 'hover:bg-muted text-foreground'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Server size={15} className="text-indigo-600 shrink-0" />
@@ -129,11 +124,10 @@ export const ApiStatusBadge = () => {
               <button
                 type="button"
                 onClick={() => setApiMode('auto')}
-                className={`w-full text-left p-2 rounded-lg flex items-center justify-between transition-colors ${
-                  currentMode === 'auto'
+                className={`w-full text-left p-2 rounded-lg flex items-center justify-between transition-colors ${currentMode === 'auto'
                     ? 'bg-primary/10 text-primary font-bold'
                     : 'hover:bg-muted text-foreground'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Wifi size={15} className="text-primary shrink-0" />

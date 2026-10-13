@@ -11,6 +11,10 @@ const posPaymentSchema = new mongoose.Schema({
     ref: 'Branch',
     required: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   posOrderId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'POSOrder',

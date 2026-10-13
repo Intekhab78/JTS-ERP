@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Save, Search, CheckSquare, Square, RefreshCcw, PackageSearch, Filter, List } from 'lucide-react';
+import { ArrowLeft, Save, Search, CheckSquare, Square, RefreshCcw, Undo2, PackageSearch, Filter, List } from 'lucide-react';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/ui/Button';
@@ -454,61 +454,91 @@ export default function VendorReturnForm() {
   ) : returnableItems;
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6 animate-in fade-in zoom-in-95 duration-300 pb-10">
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate('/purchases/returns')} className="p-2 text-slate-500 hover:text-slate-800">
-          <ArrowLeft size={20} />
-        </Button>
-        <PageHeader
-          title={isEditing ? 'Edit Vendor Return' : 'New Vendor Return'}
-          description="Create a return document. Return goods from a single GRN, multiple GRNs, or consolidate across the supplier."
-        />
+    <div className="animate-in fade-in zoom-in-95 duration-500 max-w-[1400px] mx-auto space-y-6 pb-10 bg-[#f8fafc] min-h-screen">
+      
+      {/* Aggressive Tech Header */}
+      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-start gap-4">
+            <button type="button" onClick={() => navigate('/purchases/returns')} className="p-2.5 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 mt-1">
+              <ArrowLeft size={20} className="text-slate-300" />
+            </button>
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
+                  <Undo2 size={18} className="text-white" />
+                </div>
+                <h1 className="text-3xl font-black tracking-tight text-white uppercase">{isEditing ? 'Edit Vendor Return' : 'New Vendor Return'}</h1>
+              </div>
+              <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl uppercase tracking-widest">
+                Create a return document. Return goods from a single GRN, multiple GRNs, or consolidate across the supplier.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 bg-[#111827] border border-slate-800 p-2.5 rounded-lg shadow-inner">
+             <button type="submit" form="vendor-return-form" disabled={loading} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm font-bold uppercase tracking-widest transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+                {loading ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" /> : <Save size={16} />}
+                {isEditing ? 'Update Return' : 'Create Return'}
+             </button>
+          </div>
+        </div>
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 text-red-600 rounded-lg border border-red-200 text-sm">
+        <div className="p-4 bg-red-50 text-red-600 rounded-lg border border-red-200 text-sm mx-4 sm:mx-6 lg:mx-8">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form id="vendor-return-form" onSubmit={handleSubmit} className="space-y-6">
         
         {/* Return Type Selector */}
-        <Card className="p-1 border-slate-200 bg-slate-100/50 flex space-x-1 overflow-x-auto w-full md:w-fit rounded-lg shadow-inner">
-           <button
-             type="button"
-             disabled={isEditing}
-             onClick={() => setReturnType('SINGLE_GRN')}
-             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${returnType === 'SINGLE_GRN' ? 'bg-white shadow-sm text-blue-600 ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
-           >
-             Single GRN
-           </button>
-           <button
-             type="button"
-             disabled={isEditing}
-             onClick={() => setReturnType('MULTIPLE_GRN')}
-             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${returnType === 'MULTIPLE_GRN' ? 'bg-white shadow-sm text-blue-600 ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
-           >
-             Multiple GRN
-           </button>
-           <button
-             type="button"
-             disabled={isEditing}
-             onClick={() => setReturnType('SUPPLIER_CONSOLIDATED')}
-             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${returnType === 'SUPPLIER_CONSOLIDATED' ? 'bg-white shadow-sm text-blue-600 ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
-           >
-             Supplier Consolidated
-           </button>
-        </Card>
+        <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+           <div className="flex flex-col sm:flex-row gap-4 items-center w-full">
+             <div className="relative w-full sm:w-auto">
+               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Return Mode</label>
+               <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                 <button
+                   type="button"
+                   disabled={isEditing}
+                   onClick={() => setReturnType('SINGLE_GRN')}
+                   className={`px-5 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${returnType === 'SINGLE_GRN' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                 >
+                   Single GRN
+                 </button>
+                 <button
+                   type="button"
+                   disabled={isEditing}
+                   onClick={() => setReturnType('MULTIPLE_GRN')}
+                   className={`px-5 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${returnType === 'MULTIPLE_GRN' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                 >
+                   Multiple GRN
+                 </button>
+                 <button
+                   type="button"
+                   disabled={isEditing}
+                   onClick={() => setReturnType('SUPPLIER_CONSOLIDATED')}
+                   className={`px-5 py-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all whitespace-nowrap ${returnType === 'SUPPLIER_CONSOLIDATED' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                 >
+                   Supplier Consolidated
+                 </button>
+               </div>
+             </div>
+           </div>
+        </div>
 
-        <Card className="p-6 border-slate-200 shadow-sm bg-white">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
+          <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
             
             {/* Header Form for Single/Multi GRN */}
             {returnType !== 'SUPPLIER_CONSOLIDATED' && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">
                     Purchase Order *
                   </label>
                   <Select
@@ -519,6 +549,7 @@ export default function VendorReturnForm() {
                     }}
                     required
                     disabled={isEditing}
+                    className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none"
                   >
                     <option value="">Select a Purchase Order...</option>
                     {purchaseOrders.map(po => (
@@ -534,7 +565,7 @@ export default function VendorReturnForm() {
 
                 {returnType === 'SINGLE_GRN' && (
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">
                       Specific GRN *
                     </label>
                     <Select
@@ -542,6 +573,7 @@ export default function VendorReturnForm() {
                       onChange={(e) => setSelectedGrnId(e.target.value)}
                       disabled={!selectedPoId || isEditing}
                       required
+                      className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none"
                     >
                       <option value="">Select a GRN...</option>
                       {grns.map(g => (
@@ -556,10 +588,10 @@ export default function VendorReturnForm() {
                 
                 {poDetails && (
                   <div className={returnType === 'MULTIPLE_GRN' ? 'md:col-span-2' : ''}>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">
                       Supplier
                     </label>
-                    <div className="px-3 py-2 bg-slate-50 rounded-md border border-slate-200 text-slate-700">
+                    <div className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm">
                       {poDetails.supplierId?.name}
                     </div>
                   </div>
@@ -580,7 +612,7 @@ export default function VendorReturnForm() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">
                     Supplier *
                   </label>
                   <Select
@@ -588,6 +620,7 @@ export default function VendorReturnForm() {
                     onChange={(e) => setSelectedSupplierId(e.target.value)}
                     required
                     disabled={isEditing}
+                    className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none"
                   >
                     <option value="">Select a Supplier...</option>
                     {suppliers.map(sup => (
@@ -599,11 +632,11 @@ export default function VendorReturnForm() {
                 </div>
 
                 <div className="md:col-span-3 border-t border-slate-100 pt-4 mt-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
                     Period
                   </label>
                   <div className="flex gap-4 mb-4">
-                    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase cursor-pointer">
                       <input 
                         type="radio" 
                         name="periodType" 
@@ -614,7 +647,7 @@ export default function VendorReturnForm() {
                       />
                       All Time
                     </label>
-                    <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase cursor-pointer">
                       <input 
                         type="radio" 
                         name="periodType" 
@@ -631,7 +664,7 @@ export default function VendorReturnForm() {
                 {periodType === 'DATE_RANGE' && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">
                         From Date
                       </label>
                       <Input
@@ -639,10 +672,11 @@ export default function VendorReturnForm() {
                         value={fromDate}
                         onChange={(e) => setFromDate(e.target.value)}
                         disabled={isEditing}
+                        className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 outline-none uppercase font-mono"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">
                         To Date
                       </label>
                       <Input
@@ -650,6 +684,7 @@ export default function VendorReturnForm() {
                         value={toDate}
                         onChange={(e) => setToDate(e.target.value)}
                         disabled={isEditing}
+                        className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 outline-none uppercase font-mono"
                       />
                     </div>
                     <div className="hidden md:block"></div>
@@ -666,41 +701,44 @@ export default function VendorReturnForm() {
 
             {/* Common Notes field */}
             <div className="md:col-span-3 border-t border-slate-100 pt-6 mt-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Notes / Reason for Return
-              </label>
-              <Input
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g., Monthly defective goods consolidation..."
-              />
+               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">
+                 Notes / Reason for Return
+               </label>
+               <Input
+                 value={reason}
+                 onChange={(e) => setReason(e.target.value)}
+                 placeholder="E.G., MONTHLY DEFECTIVE GOODS CONSOLIDATION..."
+                 className="h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 shadow-sm font-mono text-sm focus:border-blue-600 focus:ring-0 transition-colors uppercase outline-none"
+               />
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Consolidated Summary Card */}
         {returnType === 'SUPPLIER_CONSOLIDATED' && summary && (
            <div className="space-y-4">
              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <Card className="p-4 bg-white text-center border-slate-200">
-                   <div className="text-slate-500 text-xs font-bold uppercase mb-1">Purchase Orders</div>
-                   <div className="text-2xl font-bold text-slate-800">{summary.purchaseOrderCount}</div>
+                <Card className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl hover:shadow-lg hover:border-slate-300 transition-all group">
+                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Purchase Orders</div>
+                   <div className="text-3xl font-black text-slate-800 font-mono tracking-tighter">{summary.purchaseOrderCount}</div>
                 </Card>
-                <Card className="p-4 bg-white text-center border-slate-200">
-                   <div className="text-slate-500 text-xs font-bold uppercase mb-1">GRNs</div>
-                   <div className="text-2xl font-bold text-slate-800">{summary.grnCount}</div>
+                <Card className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl hover:shadow-lg hover:border-slate-300 transition-all group">
+                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">GRNs</div>
+                   <div className="text-3xl font-black text-slate-800 font-mono tracking-tighter">{summary.grnCount}</div>
                 </Card>
-                <Card className="p-4 bg-white text-center border-slate-200">
-                   <div className="text-slate-500 text-xs font-bold uppercase mb-1">Products</div>
-                   <div className="text-2xl font-bold text-slate-800">{summary.productCount}</div>
+                <Card className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl hover:shadow-lg hover:border-slate-300 transition-all group">
+                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Products</div>
+                   <div className="text-3xl font-black text-slate-800 font-mono tracking-tighter">{summary.productCount}</div>
                 </Card>
-                <Card className="p-4 bg-blue-50 text-center border-blue-100">
-                   <div className="text-blue-600 text-xs font-bold uppercase mb-1">Total Returnable</div>
-                   <div className="text-2xl font-bold text-blue-700">{summary.totalReturnableQuantity}</div>
+                <Card className="p-4 bg-white border border-blue-200 shadow-sm rounded-xl hover:shadow-lg hover:border-blue-400 transition-all group relative">
+                   <div className="absolute top-0 right-0 p-2"><div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div></div>
+                   <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Total Returnable</div>
+                   <div className="text-3xl font-black text-slate-800 font-mono tracking-tighter">{summary.totalReturnableQuantity}</div>
+                   <div className="h-1 w-full bg-blue-100 absolute bottom-0 left-0"><div className="h-full bg-blue-500 w-full"></div></div>
                 </Card>
-                <Card className="p-4 bg-white text-center border-slate-200">
-                   <div className="text-slate-500 text-xs font-bold uppercase mb-1">Return Lines</div>
-                   <div className="text-2xl font-bold text-slate-800">{pagination.total}</div>
+                <Card className="p-4 bg-white border border-slate-200 shadow-sm rounded-xl hover:shadow-lg hover:border-slate-300 transition-all group">
+                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Return Lines</div>
+                   <div className="text-3xl font-black text-slate-800 font-mono tracking-tighter">{pagination.total}</div>
                 </Card>
              </div>
              
@@ -720,23 +758,25 @@ export default function VendorReturnForm() {
 
         {(selectedPoId || (returnType === 'SUPPLIER_CONSOLIDATED' && returnableItems.length > 0)) && (
           <Card className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
-            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50">
-              <h3 className="font-semibold text-slate-800">Returnable Items</h3>
+            <div className="bg-slate-50 border-b border-slate-200 px-5 py-4 flex justify-between items-center flex-col md:flex-row gap-4">
+              <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <PackageSearch size={16} className="text-blue-500" /> RETURNABLE MATRIX
+              </h2>
 
               <div className="flex items-center gap-3 w-full md:w-auto flex-wrap md:flex-nowrap">
                 <div className="relative w-full md:w-64">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <Input
-                    placeholder="Search items..."
+                    placeholder="SCAN BY PRODUCT..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 h-9 text-sm bg-white"
+                    className="pl-9 h-10 w-full rounded-md border-2 border-slate-200 bg-white shadow-sm font-mono text-sm placeholder:text-slate-400 focus:border-blue-600 focus:ring-0 transition-colors uppercase outline-none"
                   />
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={handleClearAll} className="whitespace-nowrap h-9 bg-white">
+                <Button type="button" variant="outline" size="sm" onClick={handleClearAll} className="whitespace-nowrap h-10 bg-white border-2 border-slate-200 text-xs font-bold uppercase tracking-widest text-slate-600">
                   Clear All
                 </Button>
-                <Button type="button" variant="primary" size="sm" onClick={handleReturnAll} className="bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap h-9 shadow-sm">
+                <Button type="button" variant="primary" size="sm" onClick={handleReturnAll} className="bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap h-10 shadow-sm text-xs font-bold uppercase tracking-widest">
                   <CheckSquare size={16} className="mr-2" /> Return All
                 </Button>
               </div>
@@ -745,17 +785,17 @@ export default function VendorReturnForm() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
-                    <th className="px-4 py-3 w-10 text-center"></th>
-                    <th className="px-4 py-3">Product</th>
-                    {returnType === 'SUPPLIER_CONSOLIDATED' && <th className="px-4 py-3">PO Number</th>}
-                    {returnType !== 'SINGLE_GRN' && <th className="px-4 py-3">Source GRNs</th>}
-                    <th className="px-4 py-3">Location</th>
-                    <th className="px-4 py-3 text-center">Received</th>
-                    <th className="px-4 py-3 text-center">Prev. Returned</th>
-                    <th className="px-4 py-3 text-center text-blue-600">Returnable</th>
-                    <th className="px-4 py-3 w-32">Return Qty *</th>
-                    <th className="px-4 py-3 w-48">Item Reason</th>
+                  <tr className="border-b border-slate-200 bg-white">
+                    <th className="px-5 py-4 w-10 text-center"></th>
+                    <th className="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Product</th>
+                    {returnType === 'SUPPLIER_CONSOLIDATED' && <th className="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">PO Number</th>}
+                    {returnType !== 'SINGLE_GRN' && <th className="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Source GRNs</th>}
+                    <th className="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Location</th>
+                    <th className="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">Received</th>
+                    <th className="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap">Prev. Returned</th>
+                    <th className="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center whitespace-nowrap text-blue-600">Returnable</th>
+                    <th className="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap w-32">Return Qty *</th>
+                    <th className="px-5 py-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap w-48">Item Reason</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
@@ -777,7 +817,7 @@ export default function VendorReturnForm() {
 
                       return (
                         <tr key={idx} className={`hover:bg-slate-50 transition-colors ${state.selected ? 'bg-blue-50/30' : ''}`}>
-                          <td className="px-4 py-3 text-center">
+                          <td className="px-5 py-4 text-center">
                             <button
                               type="button"
                               onClick={() => toggleItemSelection(itemKey)}
@@ -786,33 +826,33 @@ export default function VendorReturnForm() {
                               {state.selected ? <CheckSquare size={20} /> : <Square size={20} />}
                             </button>
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="font-semibold text-slate-900">{item.product?.name || item.itemName}</div>
-                            <div className="text-xs text-slate-500">SKU: {item.product?.sku || item.sku}</div>
+                          <td className="px-5 py-4">
+                            <div className="font-bold text-slate-800 tracking-tight uppercase">{item.product?.name || item.itemName}</div>
+                            <div className="text-[10px] text-slate-400 font-mono font-bold tracking-widest uppercase">SKU: {item.product?.sku || item.sku}</div>
                           </td>
                           {returnType === 'SUPPLIER_CONSOLIDATED' && (
-                             <td className="px-4 py-3 text-slate-600 text-xs font-mono">
+                             <td className="px-5 py-4 text-slate-600 text-[10px] font-mono font-bold uppercase tracking-widest">
                                 {item.purchaseOrder?.purchaseOrderNumber || 'N/A'}
                              </td>
                           )}
                           {returnType !== 'SINGLE_GRN' && (
-                             <td className="px-4 py-3 text-slate-600 text-xs">
+                             <td className="px-5 py-4 text-slate-600 text-[10px] font-mono font-bold uppercase tracking-widest">
                                 {item.sourceGRNs ? item.sourceGRNs.map(g => g.grnNumber).join(', ') : (item.sourceGRNIds ? `${item.sourceGRNIds.length} GRNs` : '-')}
                              </td>
                           )}
-                          <td className="px-4 py-3 text-slate-700 font-medium text-xs">
+                          <td className="px-5 py-4 text-slate-700 font-bold text-[11px] uppercase tracking-widest">
                             {item.branch?.name || 'N/A'}
                           </td>
-                          <td className="px-4 py-3 text-center font-medium text-slate-700">
+                          <td className="px-5 py-4 text-center font-mono font-bold text-slate-700 text-sm">
                             {item.receivedQuantity}
                           </td>
-                          <td className="px-4 py-3 text-center text-slate-500">
+                          <td className="px-5 py-4 text-center font-mono font-bold text-slate-400 text-sm">
                             {item.alreadyReturnedQuantity}
                           </td>
-                          <td className="px-4 py-3 text-center font-bold text-blue-600 bg-blue-50/50">
+                          <td className="px-5 py-4 text-center font-mono font-black text-blue-600 bg-blue-50/50 text-sm">
                             {item.returnableQuantity}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-5 py-4">
                             <Input
                               type="number"
                               min="0.01"
@@ -824,20 +864,20 @@ export default function VendorReturnForm() {
                                 if (e.target.value && !state.selected) toggleItemSelection(itemKey);
                                 else if (!e.target.value && state.selected) toggleItemSelection(itemKey);
                               }}
-                              className={`h-9 text-right ${state.selected ? 'border-blue-300 ring-1 ring-blue-100' : ''}`}
+                              className={`h-10 text-right rounded-md border-2 bg-slate-50 shadow-sm font-mono text-sm focus:ring-0 transition-colors outline-none ${state.selected ? 'border-blue-400 focus:border-blue-600 text-blue-700 font-black' : 'border-slate-200 focus:border-blue-600'}`}
                               disabled={!state.selected && !state.returnQuantity}
                               onClick={() => !state.selected && toggleItemSelection(itemKey)}
-                              placeholder="Qty"
+                              placeholder="QTY"
                             />
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-5 py-4">
                             <Input
                               type="text"
                               value={state.reason}
                               onChange={(e) => handleItemChange(itemKey, 'reason', e.target.value)}
-                              className="h-9"
+                              className="h-10 rounded-md border-2 border-slate-200 bg-slate-50 shadow-sm font-mono text-sm focus:border-blue-600 focus:ring-0 transition-colors uppercase outline-none"
                               disabled={!state.selected}
-                              placeholder="Reason"
+                              placeholder="REASON..."
                             />
                           </td>
                         </tr>
@@ -876,19 +916,6 @@ export default function VendorReturnForm() {
             )}
           </Card>
         )}
-
-        <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-          <Button type="button" variant="outline" onClick={() => navigate('/purchases/returns')} disabled={loading}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
-            {loading ? 'Processing...' : (
-              <>
-                <Save size={18} className="mr-2" /> {isEditing ? 'Save Changes' : 'Create Vendor Return'}
-              </>
-            )}
-          </Button>
-        </div>
       </form>
     </div>
   );

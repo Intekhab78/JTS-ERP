@@ -132,23 +132,42 @@ const TaxMaster = () => {
   if (isLoading) return <PageSkeleton />;
 
   return (
-    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-      <div className="flex justify-between items-center">
-        <PageHeader 
-          title="Tax Master" 
-          description="Manage standard tax rates and tax groups for your enterprise."
-        />
-        <Button 
-          onClick={() => {
-            setEditingTax(null);
-            setFormData({ name: '', rate: '', type: 'Percentage', isActive: true });
-            setIsModalOpen(true);
-          }}
-          leftIcon={<Plus size={18} />}
-        >
-          New Tax
-        </Button>
+    <div className="animate-in fade-in zoom-in-95 duration-500 space-y-6 max-w-[1720px] mx-auto pb-10 bg-[#f8fafc] min-h-screen">
+      
+      {/* Aggressive Tech Header */}
+      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl mt-4 sm:mx-4 lg:mx-8 mb-6">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-black tracking-tight text-white uppercase">Tax Master</h1>
+            </div>
+            <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl">
+              FINANCIAL COMPLIANCE • TAX RATES & GROUPS
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex items-center gap-3 bg-[#111827] border border-slate-800 p-2 rounded-lg shadow-inner">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">System Online</span>
+            </div>
+            <button 
+              onClick={() => {
+                setEditingTax(null);
+                setFormData({ name: '', rate: '', type: 'Percentage', isActive: true });
+                setIsModalOpen(true);
+              }}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-bold text-sm tracking-wider uppercase transition-colors shadow-lg border border-blue-400 flex items-center gap-2"
+            >
+              <Plus size={16} strokeWidth={3} /> New Tax
+            </button>
+          </div>
+        </div>
       </div>
+      <div className="px-4 sm:px-6 lg:px-8 space-y-6">
 
       <Card>
         <CardContent className="p-0">
@@ -214,6 +233,7 @@ const TaxMaster = () => {
           </div>
         </form>
       </Modal>
+      </div>
     </div>
   );
 };

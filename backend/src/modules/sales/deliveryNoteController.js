@@ -8,6 +8,7 @@ const Stock = require('../../core/models/Stock');
 const StockMovement = require('../../core/models/StockMovement');
 const Product = require('../../core/models/Product');
 const uomService = require('../../utils/uomService');
+const { getReadFilter } = require('../../core/utils/scopeHelper');
 
 // Helper to generate DN Number
 const generateDNNumber = async (tenantId, session) => {
@@ -47,29 +48,23 @@ const getDeliveredQuantities = async (tenantId, orderId, session) => {
 exports.generateFromOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
-    const tenantId = req.user.tenantId;
+    const filter = getReadFilter(req);
 
-    const query = { _id: orderId, tenantId };
-    const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
-    if (req.user.branches && req.user.branches.length > 0) {
-      query.branchId = { $in: req.user.branches };
-    } else if (!hasWildcard) {
-      query.branchId = { $in: [] };
-    }
+    const query = { _id: orderId, ...filter };
     const order = await Order.findOne(query);
     if (!order) return res.status(404).json({ message: 'Sales Order not found' });
 
-    const customer = await Customer.findOne({ _id: order.customerId, tenantId });
+    const customer = await Customer.findOne({ _id: order.customerId, ...filter });
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
 
-    const orderItems = await OrderItem.find({ orderId: order._id, tenantId }).populate('productId');
+    const orderItems = await OrderItem.find({ orderId: order._id, ...filter }).populate('productId');
     
     // Using transaction just for safety, though it's a read for generating a draft
     const session = await mongoose.startSession();
     let deliveredMap;
     session.startTransaction();
     try {
-      deliveredMap = await getDeliveredQuantities(tenantId, orderId, session);
+      deliveredMap = await getDeliveredQuantities(req.user.tenantId, orderId, session);
       await session.commitTransaction();
     } catch (err) {
       await session.abortTransaction();
@@ -124,28 +119,23 @@ exports.createDeliveryNote = async (req, res) => {
   session.startTransaction();
   try {
     const tenantId = req.user.tenantId;
+    const filter = getReadFilter(req);
     const { salesOrderId, customerId, items, ...rest } = req.body;
 
-    const query = { _id: salesOrderId, tenantId };
-    const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
-    if (req.user.branches && req.user.branches.length > 0) {
-      query.branchId = { $in: req.user.branches };
-    } else if (!hasWildcard) {
-      query.branchId = { $in: [] };
-    }
+    const query = { _id: salesOrderId, ...filter };
     const order = await Order.findOne(query).session(session);
     if (!order) {
       throw new Error('Sales Order not found or access denied');
     }
 
-    const customer = await Customer.findOne({ _id: customerId, tenantId }).session(session);
+    const customer = await Customer.findOne({ _id: customerId, ...filter }).session(session);
     if (!customer) {
       throw new Error('Customer not found');
     }
 
     // Enforce over-delivery protection
     const deliveredMap = await getDeliveredQuantities(tenantId, salesOrderId, session);
-    const orderItems = await OrderItem.find({ orderId: salesOrderId, tenantId }).session(session);
+    const orderItems = await OrderItem.find({ orderId: salesOrderId, ...filter }).session(session);
     const orderItemMap = {};
     for (const oi of orderItems) {
       orderItemMap[oi.productId.toString()] = oi.quantity;
@@ -175,7 +165,7 @@ exports.createDeliveryNote = async (req, res) => {
     // Snapshot UOM details from Product Master
     if (items && items.length > 0) {
       const productIds = items.map(i => i.productId);
-      const products = await Product.find({ _id: { $in: productIds }, tenantId }).session(session);
+      const products = await Product.find({ _id: { $in: productIds }, ...filter }).session(session);
       for (const item of items) {
         const product = products.find(p => p._id.toString() === item.productId.toString());
         if (product) {
@@ -192,6 +182,7 @@ exports.createDeliveryNote = async (req, res) => {
     const dn = new DeliveryNote({
       ...rest,
       tenantId,
+      legalCompanyId: order.legalCompanyId,
       branchId: order.branchId,
       deliveryNoteNumber,
       salesOrderId,
@@ -222,14 +213,7 @@ exports.createDeliveryNote = async (req, res) => {
 
 exports.getDeliveryNotes = async (req, res) => {
   try {
-    const tenantId = req.user.tenantId;
-    const query = { tenantId, isActive: true };
-    const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
-    if (req.user.branches && req.user.branches.length > 0) {
-      query.branchId = { $in: req.user.branches };
-    } else if (!hasWildcard) {
-      query.branchId = { $in: [] };
-    }
+    const query = { ...getReadFilter(req), isActive: true };
 
     const dns = await DeliveryNote.find(query)
       .populate('salesOrderId', 'orderNumber status')
@@ -244,23 +228,16 @@ exports.getDeliveryNotes = async (req, res) => {
 
 exports.getDeliveryNoteById = async (req, res) => {
   try {
+    const filter = getReadFilter(req);
     const dn = await DeliveryNote.findOne({ 
       _id: req.params.id, 
-      tenantId: req.user.tenantId,
+      ...filter,
       isActive: true 
     })
     .populate('salesOrderId')
     .populate('customerId');
 
     if (!dn) return res.status(404).json({ message: 'Delivery Note not found' });
-    const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
-    if (req.user.branches && req.user.branches.length > 0) {
-      if (!req.user.branches.includes(dn.branchId.toString())) {
-        return res.status(403).json({ message: 'Access denied to this branch\'s Delivery Note' });
-      }
-    } else if (!hasWildcard) {
-      return res.status(403).json({ message: 'Access denied to this branch\'s Delivery Note' });
-    }
 
     res.status(200).json(dn);
   } catch (error) {
@@ -272,21 +249,14 @@ exports.updateDeliveryNote = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
+    const filter = getReadFilter(req);
     const dn = await DeliveryNote.findOne({ 
       _id: req.params.id, 
-      tenantId: req.user.tenantId,
+      ...filter,
       isActive: true 
     }).session(session);
 
     if (!dn) throw new Error('Delivery Note not found');
-    const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
-    if (req.user.branches && req.user.branches.length > 0) {
-      if (!req.user.branches.includes(dn.branchId.toString())) {
-        throw new Error('Access denied');
-      }
-    } else if (!hasWildcard) {
-      throw new Error('Access denied');
-    }
     if (dn.status !== 'DRAFT') {
       throw new Error(`Cannot edit Delivery Note in ${dn.status} status.`);
     }
@@ -297,7 +267,7 @@ exports.updateDeliveryNote = async (req, res) => {
     if (items) {
       // Get previously delivered quantities BUT exclude THIS delivery note since we're updating it
       const allDeliveryNotes = await DeliveryNote.find({
-        tenantId: req.user.tenantId,
+        ...filter,
         salesOrderId: dn.salesOrderId,
         status: { $ne: 'CANCELLED' },
         isActive: true,
@@ -314,7 +284,7 @@ exports.updateDeliveryNote = async (req, res) => {
         }
       }
 
-      const orderItems = await OrderItem.find({ orderId: dn.salesOrderId, tenantId: req.user.tenantId }).session(session);
+      const orderItems = await OrderItem.find({ orderId: dn.salesOrderId, ...filter }).session(session);
       const orderItemMap = {};
       for (const oi of orderItems) {
         orderItemMap[oi.productId.toString()] = oi.quantity;
@@ -336,7 +306,7 @@ exports.updateDeliveryNote = async (req, res) => {
       
       // Snapshot UOM details from Product Master on update
       const productIds = items.map(i => i.productId);
-      const products = await Product.find({ _id: { $in: productIds }, tenantId: req.user.tenantId }).session(session);
+      const products = await Product.find({ _id: { $in: productIds }, ...filter }).session(session);
       for (const item of items) {
         const product = products.find(p => p._id.toString() === item.productId.toString());
         if (product) {
@@ -372,7 +342,8 @@ exports.updateDeliveryNote = async (req, res) => {
 
 exports.deleteDeliveryNote = async (req, res) => {
   try {
-    const dn = await DeliveryNote.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const dn = await DeliveryNote.findOne({ _id: req.params.id, ...filter });
     if (!dn) return res.status(404).json({ message: 'Delivery Note not found' });
     if (dn.status !== 'DRAFT' && dn.status !== 'CANCELLED') {
       return res.status(400).json({ message: `Cannot delete Delivery Note in ${dn.status} status` });
@@ -391,9 +362,10 @@ exports.deleteDeliveryNote = async (req, res) => {
 // Status transition helpers
 const updateStatus = async (req, res, currentAllowed, newStatus) => {
   try {
+    const filter = getReadFilter(req);
     const dn = await DeliveryNote.findOne({ 
       _id: req.params.id, 
-      tenantId: req.user.tenantId,
+      ...filter,
       isActive: true 
     });
 
@@ -422,9 +394,10 @@ exports.dispatchDeliveryNote = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
+    const filter = getReadFilter(req);
     const dn = await DeliveryNote.findOne({ 
       _id: req.params.id, 
-      tenantId: req.user.tenantId,
+      ...filter,
       isActive: true 
     }).session(session);
 
@@ -443,7 +416,7 @@ exports.dispatchDeliveryNote = async (req, res) => {
       // Fetch Product to check its type
       const product = await mongoose.model('Product').findOne({
         _id: item.productId,
-        tenantId: dn.tenantId
+        ...filter
       }).session(session);
 
       if (!product) {
@@ -460,6 +433,7 @@ exports.dispatchDeliveryNote = async (req, res) => {
         // Try COMPANY stock first
         const companyStock = await Stock.findOne({
           tenantId: dn.tenantId,
+          legalCompanyId: dn.legalCompanyId,
           branchId: dn.branchId,
           productId: item.productId,
           ownerType: 'COMPANY'
@@ -473,6 +447,7 @@ exports.dispatchDeliveryNote = async (req, res) => {
 
           movementsToCreate.push({
             tenantId: req.user.tenantId,
+            legalCompanyId: dn.legalCompanyId,
             branchId: dn.branchId,
             productId: item.productId,
             quantity: -deductQty,
@@ -492,6 +467,7 @@ exports.dispatchDeliveryNote = async (req, res) => {
         if (remainingToDeduct > 0) {
           const supplierStocks = await Stock.find({
             tenantId: dn.tenantId,
+            legalCompanyId: dn.legalCompanyId,
             branchId: dn.branchId,
             productId: item.productId,
             ownerType: 'SUPPLIER',
@@ -507,6 +483,7 @@ exports.dispatchDeliveryNote = async (req, res) => {
 
             movementsToCreate.push({
               tenantId: req.user.tenantId,
+              legalCompanyId: dn.legalCompanyId,
               branchId: dn.branchId,
               productId: item.productId,
               quantity: -deductQty,
@@ -528,6 +505,7 @@ exports.dispatchDeliveryNote = async (req, res) => {
               // Find active consignment for this supplier and product
               const consignment = await Consignment.findOne({
                 tenantId: dn.tenantId,
+                legalCompanyId: dn.legalCompanyId,
                 supplierId: sStock.ownerId,
                 status: 'ACTIVE',
                 'items.productId': item.productId
@@ -542,6 +520,7 @@ exports.dispatchDeliveryNote = async (req, res) => {
                   // Create consumption movement
                   await StockMovement.create([{
                     tenantId: req.user.tenantId,
+                    legalCompanyId: dn.legalCompanyId,
                     branchId: dn.branchId,
                     productId: item.productId,
                     quantity: -deductQty,
@@ -573,6 +552,7 @@ exports.dispatchDeliveryNote = async (req, res) => {
       // 2. Update OrderItem
       const orderItem = await OrderItem.findOne({
         tenantId: dn.tenantId,
+        legalCompanyId: dn.legalCompanyId,
         orderId: dn.salesOrderId,
         productId: item.productId
       }).session(session);
@@ -584,7 +564,7 @@ exports.dispatchDeliveryNote = async (req, res) => {
     }
 
     // Check Order fulfillment status
-    const orderItems = await OrderItem.find({ orderId: dn.salesOrderId, tenantId: dn.tenantId }).session(session);
+    const orderItems = await OrderItem.find({ orderId: dn.salesOrderId, ...filter }).session(session);
     let allDelivered = true;
     let someDelivered = false;
 
@@ -593,7 +573,7 @@ exports.dispatchDeliveryNote = async (req, res) => {
       if (oi.deliveredQuantity < oi.quantity) allDelivered = false;
     }
 
-    const order = await Order.findById(dn.salesOrderId).session(session);
+    const order = await Order.findOne({ _id: dn.salesOrderId, ...filter }).session(session);
     if (order) {
       if (allDelivered) {
         order.deliveryStatus = 'DELIVERED';
@@ -627,9 +607,10 @@ exports.deliverDeliveryNote = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
+      const filter = getReadFilter(req);
       const dn = await DeliveryNote.findOne({ 
         _id: req.params.id, 
-        tenantId: req.user.tenantId,
+        ...filter,
         isActive: true 
       }).session(session);
 

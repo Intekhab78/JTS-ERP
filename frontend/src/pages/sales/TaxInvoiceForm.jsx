@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Save, X, Plus, Trash2, ArrowLeft, RefreshCw, Printer } from 'lucide-react';
+import { Save, X, Plus, Trash2, ArrowLeft, RefreshCw, Printer, Mail } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { EmailSendModal } from '../../components/common/EmailSendModal';
 
 const TaxInvoiceForm = () => {
   const { id } = useParams();
@@ -17,6 +18,8 @@ const TaxInvoiceForm = () => {
   const hasPermission = (perm) => userPermissions.includes('*') || userPermissions.includes(perm);
 
   const [loading, setLoading] = useState(false);
+  const [rawInvoice, setRawInvoice] = useState(null);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const { formatCurrency, currencySymbol } = useCurrency();
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -66,6 +69,7 @@ const TaxInvoiceForm = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const pf = res.data;
+      setRawInvoice(pf);
       setFormData({
         customerId: pf.customerId?._id || pf.customerId,
         issueDate: pf.issueDate ? pf.issueDate.split('T')[0] : '',
@@ -207,9 +211,14 @@ const TaxInvoiceForm = () => {
         </div>
         <div className="flex gap-3">
           {isEditing && hasPermission('VIEW_TAX_INVOICE') && (
-            <Button type="button" variant="outline" onClick={() => navigate(`/sales/tax-invoices/print/${id}`)} leftIcon={<Printer className="w-4 h-4" />}>
-              Print
-            </Button>
+            <>
+              <Button type="button" variant="outline" onClick={() => setIsEmailModalOpen(true)} leftIcon={<Mail className="w-4 h-4" />}>
+                Email
+              </Button>
+              <Button type="button" variant="outline" onClick={() => navigate(`/sales/tax-invoices/print/${id}`)} leftIcon={<Printer className="w-4 h-4" />}>
+                Print
+              </Button>
+            </>
           )}
           {!isReadOnly && (
             <>
@@ -493,6 +502,17 @@ const TaxInvoiceForm = () => {
         </div>
         </fieldset>
       </form>
+      {isEmailModalOpen && rawInvoice && (
+        <EmailSendModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          documentType="Tax Invoice"
+          documentNumber={rawInvoice.invoiceNumber}
+          recipientName={rawInvoice.customerSnapshot?.name || customers.find(c => c._id === formData.customerId)?.name}
+          defaultEmail={rawInvoice.customerSnapshot?.email || customers.find(c => c._id === formData.customerId)?.email}
+          sendEndpoint={`/api/v1/email/tax-invoice/${id}`}
+        />
+      )}
     </div>
   );
 };

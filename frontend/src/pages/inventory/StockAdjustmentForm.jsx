@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { PageHeader } from '../../components/common/PageHeader';
-import { Card } from '../../components/common/Card';
-import { Button } from '../../components/ui/Button';
+import { ArrowLeft, Save, Building, Package, Activity, X, Plus, Edit3 } from 'lucide-react';
 
 const StockAdjustmentForm = () => {
   const navigate = useNavigate();
@@ -80,99 +78,188 @@ const StockAdjustmentForm = () => {
     }
   };
 
-  return (
-    <div className="animate-in fade-in zoom-in-95 duration-300 space-y-6">
-      <PageHeader 
-        title="New Stock Adjustment"
-        description="Create a draft adjustment for inventory count."
-        onBack={() => navigate('/inventory/adjustments')}
-      />
+  const addRow = () => {
+    setFormData({
+      ...formData,
+      items: [...formData.items, { productId: '', expectedQuantity: 0, actualQuantity: 0 }]
+    });
+  };
 
-      <form onSubmit={handleSubmit}>
-        <Card className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Branch</label>
+  const removeRow = (index) => {
+    if (formData.items.length === 1) return;
+    const newItems = [...formData.items];
+    newItems.splice(index, 1);
+    setFormData({ ...formData, items: newItems });
+  };
+
+  return (
+    <div className="animate-in fade-in zoom-in-95 duration-300 max-w-[1400px] mx-auto space-y-6 pb-10 bg-[#f8fafc] min-h-screen">
+      
+      {/* Aggressive Tech Header */}
+      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <button onClick={() => navigate('/inventory/adjustments')} className="mr-2 text-slate-400 hover:text-white transition-colors">
+                <ArrowLeft size={24} strokeWidth={3} />
+              </button>
+              <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
+                <Activity size={18} className="text-white" />
+              </div>
+              <h1 className="text-3xl font-black tracking-tight text-white uppercase">New Stock Adjustment</h1>
+            </div>
+            <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl uppercase tracking-widest ml-14">
+              CREATE A DRAFT ADJUSTMENT FOR INVENTORY COUNT OR DISCREPANCIES
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/inventory/adjustments')}
+              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-md shadow-sm text-xs font-bold text-slate-300 uppercase tracking-widest hover:bg-slate-700 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="adjustmentForm"
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-md font-bold text-xs tracking-widest uppercase transition-colors shadow-[0_0_15px_rgba(37,99,235,0.4)] border border-blue-400 flex items-center gap-2 disabled:opacity-50"
+            >
+              <Save size={16} /> {loading ? 'Saving...' : 'Create Draft'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <form id="adjustmentForm" onSubmit={handleSubmit} className="px-2 sm:px-0 space-y-6">
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+              <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Building size={14} className="text-blue-500" /> TARGET FACILITY
+              </h2>
+            </div>
+            <div className="p-6">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Branch Location</label>
               <select 
                 required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                className="flex h-12 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
                 value={formData.branchId}
                 onChange={e => setFormData({...formData, branchId: e.target.value})}
               >
-                <option value="">Select Branch</option>
+                <option value="">-- SELECT BRANCH --</option>
                 {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Reason</label>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+              <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Edit3 size={14} className="text-blue-500" /> ADJUSTMENT CONTEXT
+              </h2>
+            </div>
+            <div className="p-6">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Reason / Reference</label>
               <input 
                 type="text" 
                 required
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                className="flex h-12 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors outline-none placeholder:text-slate-400"
                 value={formData.reason}
                 onChange={e => setFormData({...formData, reason: e.target.value})}
-                placeholder="e.g. Annual Inventory Count"
+                placeholder="E.G., ANNUAL INVENTORY COUNT, DAMAGE REPORT"
               />
             </div>
           </div>
+        </div>
 
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Items</h3>
-            {formData.items.map((item, index) => (
-              <div key={index} className="flex gap-4 items-end">
-                <div className="flex-1 space-y-2">
-                  <label className="text-sm font-medium">Product</label>
-                  <select 
-                    required
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                    value={item.productId}
-                    onChange={e => {
-                      const newItems = [...formData.items];
-                      newItems[index].productId = e.target.value;
-                      setFormData({...formData, items: newItems});
-                      fetchCurrentStock(formData.branchId, e.target.value, index);
-                    }}
-                  >
-                    <option value="">Select Product</option>
-                    {products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-                  </select>
-                </div>
-                <div className="w-32 space-y-2">
-                  <label className="text-sm font-medium text-muted-foreground">Expected</label>
-                  <input 
-                    type="number" 
-                    disabled
-                    className="flex h-10 w-full rounded-md border border-input bg-muted px-3 py-2 text-sm ring-offset-background text-muted-foreground"
-                    value={item.expectedQuantity}
-                  />
-                </div>
-                <div className="w-32 space-y-2">
-                  <label className="text-sm font-medium">Actual Count</label>
-                  <input 
-                    type="number" 
-                    required min="0"
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-                    value={item.actualQuantity}
-                    onChange={e => {
-                      const newItems = [...formData.items];
-                      newItems[index].actualQuantity = Number(e.target.value);
-                      setFormData({...formData, items: newItems});
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+            <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+              <Package size={14} className="text-blue-500" /> ADJUSTMENT ITEMS
+            </h2>
+            <button 
+              type="button"
+              onClick={addRow}
+              className="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded transition-colors flex items-center gap-1 border border-blue-200 shadow-sm"
+            >
+              <Plus size={12} strokeWidth={3} /> Add Product
+            </button>
           </div>
+          
+          <div className="p-6 space-y-4">
+            {formData.items.map((item, index) => {
+               const variance = item.actualQuantity - item.expectedQuantity;
+               const hasVariance = variance !== 0;
+               return (
+                <div key={index} className="flex gap-4 items-end bg-slate-50 p-4 rounded-lg border border-slate-100 relative">
+                  <div className="flex-1 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Product</label>
+                    <select 
+                      required
+                      className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
+                      value={item.productId}
+                      onChange={e => {
+                        const newItems = [...formData.items];
+                        newItems[index].productId = e.target.value;
+                        setFormData({...formData, items: newItems});
+                        fetchCurrentStock(formData.branchId, e.target.value, index);
+                      }}
+                    >
+                      <option value="">-- SELECT PRODUCT --</option>
+                      {products.map(p => <option key={p._id} value={p._id}>{p.name} (SKU: {p.sku})</option>)}
+                    </select>
+                  </div>
+                  <div className="w-32 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Expected</label>
+                    <input 
+                      type="number" 
+                      disabled
+                      className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-100 px-3 py-2 text-sm font-black font-mono text-slate-400 cursor-not-allowed shadow-inner outline-none text-right"
+                      value={item.expectedQuantity}
+                    />
+                  </div>
+                  <div className="w-32 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Actual Count</label>
+                    <input 
+                      type="number" 
+                      required min="0"
+                      className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-white px-3 py-2 text-sm font-black font-mono text-slate-900 shadow-sm focus:border-blue-600 focus:ring-0 outline-none text-right"
+                      value={item.actualQuantity}
+                      onChange={e => {
+                        const newItems = [...formData.items];
+                        newItems[index].actualQuantity = Number(e.target.value);
+                        setFormData({...formData, items: newItems});
+                      }}
+                    />
+                  </div>
+                  <div className="w-32 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block text-right">Variance</label>
+                    <div className={`flex h-10 w-full rounded-md border-2 px-3 py-2 text-sm font-black font-mono shadow-sm items-center justify-end ${hasVariance ? (variance > 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-rose-50 border-rose-200 text-rose-600') : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                       {variance > 0 ? '+' : ''}{variance}
+                    </div>
+                  </div>
+                  <div className="pb-1">
+                    <button 
+                      type="button" 
+                      onClick={() => removeRow(index)}
+                      disabled={formData.items.length === 1}
+                      className="h-10 w-10 flex items-center justify-center bg-white border-2 border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors shadow-sm rounded-md disabled:opacity-50"
+                    >
+                      <X size={16} strokeWidth={3} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
-          <div className="flex justify-end gap-4 border-t border-border pt-4">
-            <Button type="button" variant="outline" onClick={() => navigate('/inventory/adjustments')}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              Create Draft Adjustment
-            </Button>
-          </div>
-        </Card>
       </form>
     </div>
   );

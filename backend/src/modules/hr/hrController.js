@@ -1,3 +1,4 @@
+const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
 const Department = require('../../core/models/Department');
 const Employee = require('../../core/models/Employee');
 const Counter = require('../../core/models/Counter');
@@ -22,7 +23,7 @@ const generateEmployeeCode = async (tenantId) => {
 // @access  Private
 exports.getDepartments = async (req, res) => {
   try {
-    const departments = await Department.find({ tenantId: req.user.tenantId }).sort({ name: 1 });
+    const departments = await Department.find({ ...getReadFilter(req) }).sort({ name: 1 });
     res.status(200).json(departments);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -35,7 +36,7 @@ exports.getDepartments = async (req, res) => {
 exports.createDepartment = async (req, res) => {
   try {
     const department = await Department.create({
-      tenantId: req.user.tenantId,
+      ...getReadFilter(req),
       ...req.body
     });
     res.status(201).json(department);
@@ -49,7 +50,7 @@ exports.createDepartment = async (req, res) => {
 // @access  Private
 exports.getEmployees = async (req, res) => {
   try {
-    const filter = { tenantId: req.user.tenantId };
+    const filter = { ...getReadFilter(req) };
     if (req.user.branchId) {
       filter.branchId = req.user.branchId;
     }
@@ -81,8 +82,10 @@ exports.createEmployee = async (req, res) => {
       employeeCode = await generateEmployeeCode(req.user.tenantId);
     }
 
+    const scopedBody = validateCreateScope(req, req.body);
     const employee = await Employee.create({
-      tenantId: req.user.tenantId,
+      ...scopedBody,
+      ...getReadFilter(req),
       employeeCode,
       ...req.body
     });
@@ -103,11 +106,11 @@ exports.createEmployee = async (req, res) => {
 exports.linkUser = async (req, res) => {
   try {
     const { userId } = req.body;
-    const employee = await Employee.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const employee = await Employee.findOne({ _id: req.params.id, ...getReadFilter(req) });
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
     
     const User = require('../../core/models/User');
-    const user = await User.findOne({ _id: userId, tenantId: req.user.tenantId });
+    const user = await User.findOne({ _id: userId, ...getReadFilter(req) });
     if (!user) return res.status(404).json({ message: 'User not found' });
     
     // Check if user is already linked to another employee
@@ -132,7 +135,7 @@ exports.linkUser = async (req, res) => {
 // @access  Private
 exports.unlinkUser = async (req, res) => {
   try {
-    const employee = await Employee.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const employee = await Employee.findOne({ _id: req.params.id, ...getReadFilter(req) });
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
     
     if (employee.userId) {
@@ -153,7 +156,7 @@ exports.unlinkUser = async (req, res) => {
 // @access  Private
 exports.getEmployeeById = async (req, res) => {
   try {
-    const employee = await Employee.findOne({ _id: req.params.id, tenantId: req.user.tenantId })
+    const employee = await Employee.findOne({ _id: req.params.id, ...getReadFilter(req) })
       .populate('departmentId', 'name')
       .populate('branchId', 'name')
       .populate('locationId', 'name')
@@ -178,7 +181,7 @@ exports.getEmployeeById = async (req, res) => {
 // @access  Private
 exports.updateEmployee = async (req, res) => {
   try {
-    let employee = await Employee.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    let employee = await Employee.findOne({ _id: req.params.id, ...getReadFilter(req) });
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
@@ -194,7 +197,7 @@ exports.updateEmployee = async (req, res) => {
     delete req.body.userId;
 
     employee = await Employee.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.user.tenantId },
+      { _id: req.params.id, ...getReadFilter(req) },
       req.body,
       { returnDocument: 'after', runValidators: true }
     )
@@ -212,7 +215,7 @@ exports.updateEmployee = async (req, res) => {
 // @access  Private
 exports.deleteEmployee = async (req, res) => {
   try {
-    const employee = await Employee.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const employee = await Employee.findOne({ _id: req.params.id, ...getReadFilter(req) });
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
@@ -238,7 +241,7 @@ exports.uploadPhoto = async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
     
-    const employee = await Employee.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const employee = await Employee.findOne({ _id: req.params.id, ...getReadFilter(req) });
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
@@ -267,7 +270,7 @@ exports.uploadFamilyDocument = async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
     
-    const employee = await Employee.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const employee = await Employee.findOne({ _id: req.params.id, ...getReadFilter(req) });
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }

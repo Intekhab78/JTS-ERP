@@ -109,3 +109,78 @@ exports.createCompany = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Update a specific company (Superadmin only)
+// @route   PUT /api/v1/company/:id
+// @access  Private/Superadmin
+exports.updateCompanyById = async (req, res) => {
+  try {
+    const { name, legalName, taxId, registrationNumber, industry, companyType, contact, address, currency, settings, isActive } = req.body;
+    
+    const company = await Company.findById(req.params.id);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    if (name) company.name = name.trim();
+    if (legalName !== undefined) company.legalName = legalName;
+    if (taxId !== undefined) company.taxId = taxId;
+    if (registrationNumber !== undefined) company.registrationNumber = registrationNumber;
+    if (industry !== undefined) company.industry = industry;
+    if (companyType !== undefined) company.companyType = companyType;
+    if (contact) company.contact = contact;
+    if (address) company.address = address;
+    if (currency) company.currency = currency;
+    if (settings) company.settings = settings;
+    if (isActive !== undefined) company.isActive = isActive;
+
+    await company.save();
+    res.status(200).json(company);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Delete a company and CASCADE delete all related tenant data
+// @route   DELETE /api/v1/company/:id
+// @access  Private/Superadmin
+exports.deleteCompany = async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    const companyId = req.params.id;
+
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Dynamic Cascade Deletion across ALL registered models that have a tenantId field
+    let deletionStats = [];
+    const models = mongoose.modelNames();
+
+    for (const modelName of models) {
+      const model = mongoose.model(modelName);
+      // Check if this model's schema has a tenantId field
+      if (model.schema.paths.tenantId) {
+        try {
+          const result = await model.deleteMany({ tenantId: companyId });
+          if (result.deletedCount > 0) {
+            deletionStats.push({ model: modelName, deletedCount: result.deletedCount });
+          }
+        } catch (delErr) {
+          console.error(`Error deleting from ${modelName}:`, delErr);
+        }
+      }
+    }
+
+    // Finally, delete the company record itself
+    await Company.findByIdAndDelete(companyId);
+
+    res.status(200).json({ 
+      message: 'Company and all associated data permanently deleted.',
+      cascadeStats: deletionStats
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

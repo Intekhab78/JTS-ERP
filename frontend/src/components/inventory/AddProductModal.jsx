@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Modal } from '../common/Modal';
 import { FormField } from '../common/FormField';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Save, X, Box, ArrowLeft, Info, Layers, Settings, DollarSign, Image as ImageIcon } from 'lucide-react';
+import { MasterSelect } from '../common/MasterSelect';
 
 const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
   const isEditing = !!productToEdit;
@@ -99,6 +99,15 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
   const [sizes, setSizes] = useState([]);
   const [colors, setColors] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [itemTypes, setItemTypes] = useState([
+    { name: 'STANDARD', _id: 'STANDARD' },
+    { name: 'SERVICE', _id: 'SERVICE' },
+    { name: 'RAW_MATERIAL', _id: 'RAW_MATERIAL' },
+    { name: 'PACKING_MATERIAL', _id: 'PACKING_MATERIAL' },
+    { name: 'SEMI_FINISHED_GOODS', _id: 'SEMI_FINISHED_GOODS' },
+    { name: 'CONSUMABLE', _id: 'CONSUMABLE' },
+    { name: 'PHANTOM', _id: 'PHANTOM' }
+  ]);
 
   // Image Upload State
   const [existingImages, setExistingImages] = useState(productToEdit ? (productToEdit.images || []) : []);
@@ -144,7 +153,7 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
       try {
         const token = localStorage.getItem('token');
         const headers = { Authorization: `Bearer ${token}` };
-        const [taxRes, uomRes, convRes, supplierRes, famRes, subFamRes, sizeRes, colorRes, deptRes] = await Promise.all([
+        const [taxRes, uomRes, convRes, supplierRes, famRes, subFamRes, sizeRes, colorRes, deptRes, itemTypesRes] = await Promise.all([
           axios.get('/api/v1/taxes', { headers }).catch(() => ({ data: [] })),
           axios.get('/api/v1/inventory/uoms', { headers }).catch(() => ({ data: [] })),
           axios.get('/api/v1/inventory/uom-conversions', { headers }).catch(() => ({ data: [] })),
@@ -153,7 +162,8 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
           axios.get('/api/v1/hierarchy/subfamilies', { headers }).catch(() => ({ data: [] })),
           axios.get('/api/v1/hierarchy/sizes', { headers }).catch(() => ({ data: [] })),
           axios.get('/api/v1/hierarchy/colors', { headers }).catch(() => ({ data: [] })),
-          axios.get('/api/v1/hierarchy/departments', { headers }).catch(() => ({ data: [] }))
+          axios.get('/api/v1/hierarchy/departments', { headers }).catch(() => ({ data: [] })),
+          axios.get('/api/v1/hierarchy/itemtypes', { headers }).catch(() => ({ data: [] }))
         ]);
         setTaxes(taxRes.data.filter(t => t.isActive !== false));
         setUoms(uomRes.data.filter(u => u.isActive !== false));
@@ -164,6 +174,9 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
         setSizes(sizeRes.data.filter(s => s.isActive !== false));
         setColors(colorRes.data.filter(c => c.isActive !== false));
         setDepartments(deptRes.data.filter(d => d.isActive !== false));
+        if (itemTypesRes && itemTypesRes.data && itemTypesRes.data.length > 0) {
+          setItemTypes(itemTypesRes.data.filter(it => it.isActive !== false));
+        }
       } catch (err) {
         console.error('Failed to fetch master data', err);
       }
@@ -295,97 +308,167 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
 
 
   return (
-    <Modal 
-      isOpen={true} 
-      onClose={onClose} 
-      title={isEditing ? `Edit Product: ${formData.name}` : "New Product"}
-      size="custom"
-      className="max-w-[85vw] w-[85vw]"
-    >
-      <form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[80vh]">
-        {error && <Alert variant="destructive" className="mb-4">{error}</Alert>}
-
-        {/* Header fields always visible */}
-        <div className="flex gap-4 items-start mb-6 pb-6 border-b border-gray-200">
-          <div className="flex-1">
-            <FormField label="Product Name" required>
-              <Input 
-                className="text-lg font-medium"
-                required
-                placeholder="e.g. Widget Pro"
-                value={formData.name} 
-                onChange={e => setFormData({...formData, name: e.target.value})}
-              />
-            </FormField>
+    <div className="bg-[#f8fafc] flex flex-col min-h-[80vh] animate-in fade-in zoom-in-95 duration-300">
+      {/* Aggressive Tech Header */}
+      <div className="bg-[#0a0f1c] text-white p-6 shadow-xl relative shrink-0 border-l-4 border-blue-500 rounded-xl mb-6">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay rounded-xl"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none rounded-xl"></div>
+        
+        <div className="relative z-10 flex justify-between items-center w-full gap-4">
+          <div className="flex items-center gap-6">
+            <button type="button" onClick={onClose} className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors flex items-center justify-center border border-slate-700 shadow-inner">
+               <ArrowLeft size={20} />
+            </button>
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
+                  <Box size={18} className="text-white" />
+                </div>
+                <h1 className="text-3xl font-black uppercase tracking-widest">{isEditing ? `Edit Product: ${formData.name}` : "Initialize Product"}</h1>
+              </div>
+              <p className="text-slate-400 text-sm font-bold tracking-widest uppercase">
+                MASTER DATA MANAGEMENT • SKU PROTOCOLS
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 mt-8">
-            <input 
-              type="checkbox" 
-              id="isActive" 
-              checked={formData.isActive}
-              onChange={e => setFormData({...formData, isActive: e.target.checked})}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <label htmlFor="isActive" className="text-sm font-medium">Active Product</label>
+          <div className="flex items-center gap-3 bg-[#111827] border border-slate-800 p-3 rounded-lg shadow-inner">
+             <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+             <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">{isEditing ? 'UPDATE PROTOCOL' : 'CREATION PROTOCOL'}</span>
           </div>
         </div>
+      </div>
 
-        <div className="mb-4"></div>
+      <div className="flex-1 overflow-y-auto pb-8">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6 max-w-full">
+          {error && <Alert variant="destructive" className="mb-4">{error}</Alert>}
 
-        {/* Form Fields Grid */}
-        <div className="flex-1 overflow-y-auto pr-2 pb-4">
-          <div className="grid grid-cols-3 gap-6">
-            
-            <FormField label="Item Type">
-              <Select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
-                <option value="STANDARD">Product</option>
-                <option value="SERVICE">Service</option>
-                <option value="RAW_MATERIAL">Raw Material</option>
-                <option value="PACKING_MATERIAL">Packing Material</option>
-                <option value="SEMI_FINISHED_GOODS">Semi Finished Goods</option>
-                <option value="CONSUMABLE">Consumable</option>
-                <option value="PHANTOM">Phantom Items</option>
-              </Select>
-            </FormField>
+          {/* Primary Identification Card */}
+          <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden group hover:border-blue-300 transition-colors">
+            <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+              <Info size={18} className="text-blue-500" />
+              <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Primary Identification</h3>
+            </div>
+            <div className="p-6">
+              <div className="flex gap-6 items-start">
+                <div className="flex-1">
+                  <FormField label="Product Name" required>
+                    <Input 
+                      className="text-lg font-medium"
+                      required
+                      placeholder="e.g. Widget Pro"
+                      value={formData.name} 
+                      onChange={e => setFormData({...formData, name: e.target.value})}
+                    />
+                  </FormField>
+                </div>
+                <div className="flex items-center gap-2 mt-8">
+                  <input 
+                    type="checkbox" 
+                    id="isActive" 
+                    checked={formData.isActive}
+                    onChange={e => setFormData({...formData, isActive: e.target.checked})}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label htmlFor="isActive" className="text-sm font-bold uppercase tracking-widest text-slate-700">Active Product</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Hierarchy & Classification Card */}
+          <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden group hover:border-indigo-300 transition-colors">
+            <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+              <Layers size={18} className="text-indigo-500" />
+              <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Hierarchy & Classification</h3>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+
+
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-sm font-medium">Item Type</label>
+              </div>
+              <MasterSelect 
+                options={itemTypes.map(it => ({ value: it.name, label: it.name, original: it }))}
+                value={formData.type}
+                onChange={val => setFormData({...formData, type: val})}
+                endpoint="/api/v1/hierarchy/itemtypes"
+                title="Item Type"
+                onRefresh={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const headers = { Authorization: `Bearer ${token}` };
+                    const itemTypesRes = await axios.get('/api/v1/hierarchy/itemtypes', { headers });
+                    setItemTypes(itemTypesRes.data.filter(it => it.isActive !== false));
+                  } catch(e) { console.error('Failed to refresh item types', e); }
+                }}
+                fields={[{ name: 'name', label: 'Type Name' }, { name: 'code', label: 'Type Code' }]}
+              />
+            </div>
             
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="text-sm font-medium">Department</label>
               </div>
-              <Select value={formData.department} onChange={e => {
-                setFormData({
-                  ...formData, 
-                  department: e.target.value,
-                  categoryId: '',
-                  family: '',
-                  subFamily: ''
-                });
-              }}>
-                <option value="">Select Department</option>
-                {departments.map(d => <option key={d._id} value={d.name}>{d.name}</option>)}
-              </Select>
+              <MasterSelect 
+                options={departments.map(d => ({ value: d.name, label: d.name, original: d }))}
+                value={formData.department}
+                onChange={val => {
+                  setFormData({
+                    ...formData, 
+                    department: val,
+                    categoryId: '',
+                    family: '',
+                    subFamily: ''
+                  });
+                }}
+                endpoint="/api/v1/hierarchy/departments"
+                title="Department"
+                onRefresh={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const headers = { Authorization: `Bearer ${token}` };
+                    const deptRes = await axios.get('/api/v1/hierarchy/departments', { headers });
+                    setDepartments(deptRes.data.filter(d => d.isActive !== false));
+                  } catch(e) { console.error('Failed to refresh depts', e); }
+                }}
+                fields={[{ name: 'name', label: 'Department Name' }, { name: 'code', label: 'Department Code' }]}
+              />
             </div>
             
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="text-sm font-medium">Category <span className="text-error">*</span></label>
               </div>
-              <Select required value={formData.categoryId} onChange={e => {
-                setFormData({
-                  ...formData, 
-                  categoryId: e.target.value,
-                  family: '',
-                  subFamily: ''
-                });
-              }} disabled={!formData.department}>
-                <option value="">Select a category</option>
-                {categories
+              <MasterSelect 
+                options={categories
                   .filter(cat => {
                     const selDept = departments.find(d => d.name === formData.department);
                     return selDept && (cat.itemDepartmentId === selDept._id || cat.itemDepartmentId?._id === selDept._id);
                   })
-                  .map(cat => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
-              </Select>
+                  .map(cat => ({ value: cat._id, label: cat.name, original: cat }))}
+                value={formData.categoryId}
+                onChange={val => {
+                  setFormData({
+                    ...formData, 
+                    categoryId: val,
+                    family: '',
+                    subFamily: ''
+                  });
+                }}
+                endpoint="/api/v1/inventory/categories"
+                title="Category"
+                isDisabled={!formData.department}
+                extraPayload={{ itemDepartmentId: departments.find(d => d.name === formData.department)?._id }}
+                onRefresh={async () => {
+                  // Trigger parent refresh or local refresh
+                  // To be safe, we call the parent's refresh passed as a prop, but wait, categories are passed as prop!
+                  // I should call refresh() which fetches everything in Inventory.jsx, but categories is a prop!
+                  // Since categories is a prop, we need to call `refresh()` which updates `categories` in `Inventory.jsx` and re-renders.
+                  if (refresh) refresh();
+                }}
+                fields={[{ name: 'name', label: 'Category Name' }]}
+              />
             </div>
 
             <FormField label="SKU" required>
@@ -401,26 +484,70 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
             
             <FormField label="Company"><Input value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} /></FormField>
             <FormField label="Location"><Input value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} /></FormField>
-            <FormField label="Family">
-              <Select value={formData.family} onChange={e => {
-                const familyName = e.target.value;
-                setFormData({...formData, family: familyName, subFamily: ''}); // Clear subFamily when family changes
-              }} disabled={!formData.categoryId}>
-                <option value="">Select Family</option>
-                {families
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-sm font-medium">Family</label>
+              </div>
+              <MasterSelect 
+                options={families
                   .filter(f => f.categoryId === formData.categoryId || f.categoryId?._id === formData.categoryId)
-                  .map(f => <option key={f._id} value={f.name}>{f.name}</option>)}
-              </Select>
-            </FormField>
+                  .map(f => ({ value: f.name, label: f.name, original: f }))}
+                value={formData.family}
+                onChange={val => setFormData({...formData, family: val, subFamily: ''})}
+                endpoint="/api/v1/hierarchy/families"
+                title="Family"
+                isDisabled={!formData.categoryId}
+                extraPayload={{ categoryId: formData.categoryId }}
+                onRefresh={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const headers = { Authorization: `Bearer ${token}` };
+                    const famRes = await axios.get('/api/v1/hierarchy/families', { headers });
+                    // Usually we would update families here, but families is a state inside the component!
+                    // Wait, we need to add setFamilies to the scope or rely on the parent refresh?
+                    // families is a state in AddProductModal.jsx! So we can use setFamilies.
+                    setFamilies(famRes.data.filter(f => f.isActive !== false));
+                  } catch(e) { console.error('Failed to refresh families', e); }
+                }}
+                fields={[{ name: 'name', label: 'Family Name' }, { name: 'code', label: 'Code' }]}
+              />
+            </div>
             
-            <FormField label="Sub Family">
-              <Select value={formData.subFamily} onChange={e => setFormData({...formData, subFamily: e.target.value})} disabled={!formData.family}>
-                <option value="">Select Sub Family</option>
-                {subFamilies
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-sm font-medium">Sub Family</label>
+              </div>
+              <MasterSelect 
+                options={subFamilies
                   .filter(sf => sf.familyId?.name === formData.family)
-                  .map(sf => <option key={sf._id} value={sf.name}>{sf.name}</option>)}
-              </Select>
-            </FormField>
+                  .map(sf => ({ value: sf.name, label: sf.name, original: sf }))}
+                value={formData.subFamily}
+                onChange={val => setFormData({...formData, subFamily: val})}
+                endpoint="/api/v1/hierarchy/subfamilies"
+                title="Sub Family"
+                isDisabled={!formData.family}
+                extraPayload={{ familyId: families.find(f => f.name === formData.family)?._id }}
+                onRefresh={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const headers = { Authorization: `Bearer ${token}` };
+                    const subFamRes = await axios.get('/api/v1/hierarchy/subfamilies', { headers });
+                    setSubFamilies(subFamRes.data.filter(sf => sf.isActive !== false));
+                  } catch(e) { console.error('Failed to refresh sub families', e); }
+                }}
+                fields={[{ name: 'name', label: 'Sub Family Name' }, { name: 'code', label: 'Code' }]}
+              />
+            </div>
+          </div>
+          </div>
+
+          {/* Attributes & Characteristics */}
+          <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden group hover:border-emerald-300 transition-colors">
+            <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+              <Settings size={18} className="text-emerald-500" />
+              <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Attributes & Characteristics</h3>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
             <FormField label="Long Description">
               <Input value={formData.longDescription} onChange={e => setFormData({...formData, longDescription: e.target.value})} />
             </FormField>
@@ -428,23 +555,62 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
             
             <FormField label="Description 4"><Input value={formData.description4} onChange={e => setFormData({...formData, description4: e.target.value})} /></FormField>
             <FormField label="Style Code"><Input value={formData.styleCode} onChange={e => setFormData({...formData, styleCode: e.target.value})} /></FormField>
-            <FormField label="Color">
-              <Select value={formData.color} onChange={e => setFormData({...formData, color: e.target.value})}>
-                <option value="">Select Color</option>
-                {colors.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
-              </Select>
-            </FormField>
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-sm font-medium">Color</label>
+              </div>
+              <MasterSelect 
+                options={colors.map(c => ({ value: c.name, label: c.name, original: c }))}
+                value={formData.color}
+                onChange={val => setFormData({...formData, color: val})}
+                endpoint="/api/v1/hierarchy/colors"
+                title="Color"
+                onRefresh={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const headers = { Authorization: `Bearer ${token}` };
+                    const colorRes = await axios.get('/api/v1/hierarchy/colors', { headers });
+                    setColors(colorRes.data.filter(c => c.isActive !== false));
+                  } catch(e) { console.error('Failed to refresh colors', e); }
+                }}
+                fields={[{ name: 'name', label: 'Color Name' }, { name: 'code', label: 'Code' }]}
+              />
+            </div>
             
-            <FormField label="Size">
-              <Select value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})}>
-                <option value="">Select Size</option>
-                {sizes.map(s => <option key={s._id} value={s.name}>{s.name}</option>)}
-              </Select>
-            </FormField>
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-sm font-medium">Size</label>
+              </div>
+              <MasterSelect 
+                options={sizes.map(s => ({ value: s.name, label: s.name, original: s }))}
+                value={formData.size}
+                onChange={val => setFormData({...formData, size: val})}
+                endpoint="/api/v1/hierarchy/sizes"
+                title="Size"
+                onRefresh={async () => {
+                  try {
+                    const token = localStorage.getItem('token');
+                    const headers = { Authorization: `Bearer ${token}` };
+                    const sizeRes = await axios.get('/api/v1/hierarchy/sizes', { headers });
+                    setSizes(sizeRes.data.filter(s => s.isActive !== false));
+                  } catch(e) { console.error('Failed to refresh sizes', e); }
+                }}
+                fields={[{ name: 'name', label: 'Size Name' }, { name: 'code', label: 'Code' }]}
+              />
+            </div>
             <FormField label="UPC"><Input value={formData.upc} onChange={e => setFormData({...formData, upc: e.target.value})} /></FormField>
             <FormField label="Item Reference"><Input value={formData.itemReference} onChange={e => setFormData({...formData, itemReference: e.target.value})} /></FormField>
-            
             <FormField label="HSN Code"><Input value={formData.hsnCode} onChange={e => setFormData({...formData, hsnCode: e.target.value})} /></FormField>
+          </div>
+          </div>
+
+          {/* Stock Metrics & UOM */}
+          <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden group hover:border-amber-300 transition-colors">
+            <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+              <Box size={18} className="text-amber-500" />
+              <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Stock Metrics & UOM Protocols</h3>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
 
             <FormField label="Base Unit (Stock UOM)" required>
               <Select required value={formData.uomDetails.baseUnit} onChange={e => handleUomChange('baseUnit', e.target.value)}>
@@ -501,6 +667,17 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
               </Select>
             </FormField>
             
+          </div>
+          </div>
+
+          {/* Financials & Trade */}
+          <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden group hover:border-emerald-300 transition-colors">
+            <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+              <DollarSign size={18} className="text-emerald-600" />
+              <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Financial & Trade Data</h3>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+
             <FormField label="Sales Price ($)" required>
               <Input type="number" required min="0" step="0.01" value={formData.salesPrice} onChange={e => setFormData({...formData, salesPrice: e.target.value})} />
             </FormField>
@@ -544,6 +721,16 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
             <FormField label="Expiry Days/Type">
               <Input placeholder="e.g. 30 Days" value={formData.expiryType} onChange={e => setFormData({...formData, expiryType: e.target.value})} />
             </FormField>
+          </div>
+          </div>
+
+          {/* Details & Images */}
+          <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden group hover:border-blue-300 transition-colors">
+            <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+              <ImageIcon size={18} className="text-blue-500" />
+              <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Dates, Notes & Imagery</h3>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
 
             <FormField label="Note 1"><Input value={formData.note1} onChange={e => setFormData({...formData, note1: e.target.value})} /></FormField>
             <FormField label="Note 2"><Input value={formData.note2} onChange={e => setFormData({...formData, note2: e.target.value})} /></FormField>
@@ -552,8 +739,8 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
             <FormField label="Date 1"><Input type="date" value={formData.date1} onChange={e => setFormData({...formData, date1: e.target.value})} /></FormField>
             <FormField label="Date 2"><Input type="date" value={formData.date2} onChange={e => setFormData({...formData, date2: e.target.value})} /></FormField>
 
-            <div className="col-span-3 border-t border-gray-200 mt-4 pt-4">
-              <h3 className="text-lg font-medium mb-4">Product Images</h3>
+            <div className="col-span-1 md:col-span-3 border-t border-gray-200 mt-4 pt-4">
+              <h3 className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-4">Product Images</h3>
               
               <div className="mb-4">
                 <input 
@@ -616,26 +803,35 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
                 </FormField>
               </>
             )}
+            </div>
           </div>
           
           {isEditing && (
-            <Alert className="bg-yellow-50 text-yellow-800 border-yellow-200 mt-6">
+            <Alert className="bg-yellow-50 text-yellow-800 border-yellow-200">
               <strong>Warning:</strong> Modifying Base Unit or conversion factors for an item with existing stock history will cause validation errors to prevent data corruption.
             </Alert>
           )}
-        </div>
 
         {/* Footer */}
-        <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-3 shrink-0">
-          <Button type="button" variant="outline" onClick={onClose}>
+        <div className="mt-4 flex justify-end gap-3 shrink-0">
+          <button 
+            type="button" 
+            onClick={onClose}
+            className="px-6 py-3 bg-white border-2 border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-widest rounded hover:bg-slate-100 transition-colors"
+          >
             Cancel
-          </Button>
-          <Button type="submit" disabled={loading} isLoading={loading}>
-            {isEditing ? 'Save Changes' : 'Save Product'}
-          </Button>
+          </button>
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white text-xs font-bold uppercase tracking-widest rounded hover:bg-blue-500 shadow-md transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Committing...' : <><Save size={16} /> Commit Changes</>}
+          </button>
         </div>
       </form>
-    </Modal>
+      </div>
+    </div>
   );
 };
 

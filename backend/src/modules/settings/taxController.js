@@ -5,7 +5,7 @@ const Tax = require('../../core/models/Tax');
 // @access  Private
 exports.getTaxes = async (req, res) => {
   try {
-    const taxes = await Tax.find({ tenantId: req.user.tenantId }).sort('-createdAt');
+    const taxes = await Tax.find({ tenantId: (req.user.activeTenantId || req.user.tenantId) }).sort('-createdAt');
     res.status(200).json(taxes);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -19,7 +19,7 @@ exports.getTax = async (req, res) => {
   try {
     const tax = await Tax.findOne({
       _id: req.params.id,
-      tenantId: req.user.tenantId
+      tenantId: (req.user.activeTenantId || req.user.tenantId)
     });
 
     if (!tax) {
@@ -52,7 +52,7 @@ exports.updateTax = async (req, res) => {
   try {
     let tax = await Tax.findOne({
       _id: req.params.id,
-      tenantId: req.user.tenantId
+      tenantId: (req.user.activeTenantId || req.user.tenantId)
     });
 
     if (!tax) {
@@ -77,7 +77,7 @@ exports.deleteTax = async (req, res) => {
   try {
     const tax = await Tax.findOne({
       _id: req.params.id,
-      tenantId: req.user.tenantId
+      tenantId: (req.user.activeTenantId || req.user.tenantId)
     });
 
     if (!tax) {

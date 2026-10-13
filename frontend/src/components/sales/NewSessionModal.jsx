@@ -44,15 +44,28 @@ const NewSessionModal = ({ isOpen, onClose, onSuccess, initialBranchId }) => {
       // Fetch branches
       const fetchBranches = async () => {
         try {
-          const res = await axios.get('/api/v1/branches', {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-          });
+          const headers = { 
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          };
+          const activeWorkspace = localStorage.getItem('active_workspace_id');
+          if (activeWorkspace) {
+            headers['x-tenant-id'] = activeWorkspace;
+          }
+
+          let url = '/api/v1/branches';
+          const activeCompanyId = localStorage.getItem('active_company_id');
+          if (activeCompanyId && activeCompanyId !== 'ALL') {
+            url += `?legalCompanyId=${activeCompanyId}`;
+          }
+
+          const res = await axios.get(url, { headers });
           if (res.data) {
             let branchesData = Array.isArray(res.data) ? res.data : (res.data.data || []);
             
             // Filter list if user has specific branches assigned
             if (authUser.branches && authUser.branches.length > 0) {
-              branchesData = branchesData.filter(b => authUser.branches.includes(b._id));
+              const userBranchIds = authUser.branches.map(br => typeof br === 'object' && br !== null ? (br._id || br) : br);
+              branchesData = branchesData.filter(b => userBranchIds.includes(b._id));
             } else if (!authUser.permissions?.includes('*') && authUser.roleName !== 'TENANT ADMIN') {
               branchesData = [];
             }
@@ -80,9 +93,15 @@ const NewSessionModal = ({ isOpen, onClose, onSuccess, initialBranchId }) => {
     if (branchId && isOpen) {
       const fetchRegisters = async () => {
         try {
-          const res = await axios.get(`/api/v1/pos/registers?branchId=${branchId}&status=ACTIVE`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-          });
+          const headers = { 
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          };
+          const activeWorkspace = localStorage.getItem('active_workspace_id');
+          if (activeWorkspace) {
+            headers['x-tenant-id'] = activeWorkspace;
+          }
+
+          const res = await axios.get(`/api/v1/pos/registers?branchId=${branchId}&status=ACTIVE`, { headers });
           const availableRegisters = res.data;
           setRegisters(availableRegisters);
           if (availableRegisters.length > 0) {
@@ -118,6 +137,14 @@ const NewSessionModal = ({ isOpen, onClose, onSuccess, initialBranchId }) => {
 
     setLoading(true);
     try {
+      const headers = { 
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      };
+      const activeWorkspace = localStorage.getItem('active_workspace_id');
+      if (activeWorkspace) {
+        headers['x-tenant-id'] = activeWorkspace;
+      }
+
       const res = await axios.post('http://localhost:5000/api/v1/pos/sessions/open', {
         branchId,
         registerId,
@@ -130,9 +157,7 @@ const NewSessionModal = ({ isOpen, onClose, onSuccess, initialBranchId }) => {
              total: d.value * parseInt(d.count)
           })),
         notes
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      }, { headers });
 
       setLoading(false);
       // joined:true means MULTIPLE_CASHIERS mode — we joined an existing session

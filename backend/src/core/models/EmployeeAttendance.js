@@ -30,6 +30,10 @@ const employeeAttendanceSchema = new mongoose.Schema({
     ref: 'Tenant',
     required: true
   },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   employeeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Employee',

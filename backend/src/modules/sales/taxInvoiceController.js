@@ -4,6 +4,7 @@ const Order = require('../../core/models/Order');
 const OrderItem = require('../../core/models/OrderItem');
 const Customer = require('../../core/models/Customer');
 const Counter = require('../../core/models/Counter');
+const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
 
 const generateInvoiceNumber = async (tenantId, session) => {
   const currentYear = new Date().getFullYear();
@@ -24,16 +25,17 @@ exports.createInvoiceFromOrder = async (req, res) => {
   session.startTransaction();
   try {
     const tenantId = req.user.tenantId;
+    const filter = getReadFilter(req);
     const { orderId } = req.params;
     const { itemsToInvoice, dueDate, notes, termsAndConditions } = req.body;
 
-    const order = await Order.findOne({ _id: orderId, tenantId }).session(session);
+    const order = await Order.findOne({ _id: orderId, ...filter }).session(session);
     if (!order) throw new Error('Sales Order not found');
 
-    const customer = await Customer.findOne({ _id: order.customerId, tenantId }).session(session);
+    const customer = await Customer.findOne({ _id: order.customerId, ...filter }).session(session);
     if (!customer) throw new Error('Customer not found');
 
-    const orderItems = await OrderItem.find({ orderId: order._id, tenantId }).populate('productId').session(session);
+    const orderItems = await OrderItem.find({ orderId: order._id, ...filter }).populate('productId').session(session);
     
     let subtotal = 0;
     let taxTotal = 0;
@@ -100,6 +102,7 @@ exports.createInvoiceFromOrder = async (req, res) => {
 
     const taxInvoice = new TaxInvoice({
       tenantId,
+      legalCompanyId: order.legalCompanyId,
       branchId: order.branchId,
       invoiceNumber,
       orderId: order._id,
@@ -152,13 +155,7 @@ exports.createInvoiceFromOrder = async (req, res) => {
 
 exports.getTaxInvoices = async (req, res) => {
   try {
-    const query = { tenantId: req.user.tenantId, isActive: true };
-    const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
-    if (req.user.branches && req.user.branches.length > 0) {
-      query.branchId = { $in: req.user.branches };
-    } else if (!hasWildcard) {
-      query.branchId = { $in: [] };
-    }
+    const query = { ...getReadFilter(req), isActive: true };
     const taxInvoices = await TaxInvoice.find(query).sort({ createdAt: -1 });
     res.status(200).json(taxInvoices);
   } catch (error) {
@@ -168,18 +165,10 @@ exports.getTaxInvoices = async (req, res) => {
 
 exports.getTaxInvoiceById = async (req, res) => {
   try {
-    const taxInvoice = await TaxInvoice.findOne({ _id: req.params.id, tenantId: req.user.tenantId, isActive: true });
+    const filter = getReadFilter(req);
+    const taxInvoice = await TaxInvoice.findOne({ _id: req.params.id, ...filter, isActive: true });
     if (!taxInvoice) return res.status(404).json({ message: 'TaxInvoice not found' });
     
-    const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';
-    if (req.user.branches && req.user.branches.length > 0) {
-      if (!req.user.branches.includes(taxInvoice.branchId?.toString())) {
-        return res.status(403).json({ message: 'Forbidden' });
-      }
-    } else if (!hasWildcard) {
-      return res.status(403).json({ message: 'Forbidden' });
-    }
-
     res.status(200).json(taxInvoice);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -189,8 +178,9 @@ exports.getTaxInvoiceById = async (req, res) => {
 exports.updateTaxInvoiceStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    const filter = getReadFilter(req);
     const taxInvoice = await TaxInvoice.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.user.tenantId, isActive: true },
+      { _id: req.params.id, ...filter, isActive: true },
       { status, updatedBy: req.user._id },
       { returnDocument: 'after' }
     );
@@ -203,12 +193,14 @@ exports.updateTaxInvoiceStatus = async (req, res) => {
 
 exports.createTaxInvoice = async (req, res) => {
   try {
-    const { items, ...rest } = req.body;
+    const scopedBody = validateCreateScope(req, req.body);
+    const { items, ...rest } = scopedBody;
     const invoiceNumber = await generateInvoiceNumber(req.user.tenantId, null);
 
     const taxInvoice = new TaxInvoice({
       ...rest,
       tenantId: req.user.tenantId,
+      legalCompanyId: scopedBody.legalCompanyId,
       branchId: rest.branchId,
       invoiceNumber,
       items,
@@ -225,7 +217,8 @@ exports.createTaxInvoice = async (req, res) => {
 
 exports.updateTaxInvoice = async (req, res) => {
   try {
-    const existing = await TaxInvoice.findOne({ _id: req.params.id, tenantId: req.user.tenantId, isActive: true });
+    const filter = getReadFilter(req);
+    const existing = await TaxInvoice.findOne({ _id: req.params.id, ...filter, isActive: true });
     if (!existing) return res.status(404).json({ message: 'TaxInvoice not found' });
     if (existing.status !== 'DRAFT') {
       return res.status(403).json({ message: 'Only DRAFT invoices can be edited' });
@@ -235,8 +228,8 @@ exports.updateTaxInvoice = async (req, res) => {
     
     // Recalculate totals if items are provided, though frontend usually does it.
     // It's safer to rely on frontend sent totals or calculate here. We'll trust frontend grandTotal for simplicity in this manual flow, matching ProForma.
-    const updated = await TaxInvoice.findByIdAndUpdate(
-      req.params.id,
+    const updated = await TaxInvoice.findOneAndUpdate(
+      { _id: req.params.id, ...filter },
       { ...rest, items, updatedBy: req.user._id },
       { returnDocument: 'after' }
     );
@@ -248,8 +241,9 @@ exports.updateTaxInvoice = async (req, res) => {
 
 exports.deleteTaxInvoice = async (req, res) => {
   try {
+    const filter = getReadFilter(req);
     const taxInvoice = await TaxInvoice.findOneAndUpdate(
-      { _id: req.params.id, tenantId: req.user.tenantId, status: 'DRAFT' },
+      { _id: req.params.id, ...filter, status: 'DRAFT' },
       { isActive: false, updatedBy: req.user._id }
     );
     if (!taxInvoice) return res.status(404).json({ message: 'TaxInvoice not found or cannot be deleted in its current state' });

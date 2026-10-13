@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCurrency } from '../../contexts/CurrencyContext';
-import { Store, ChevronDown, Receipt, Plus, Monitor, Banknote, TrendingUp, CreditCard, ShieldCheck, CheckCircle, Search, Calendar, Filter, Check, AlertTriangle, MoreVertical, Printer, Download, ShoppingBag, BarChart2, PieChart, Truck, Trash2, Edit, FileText, Eye, XCircle, AlertCircle } from 'lucide-react';
+import { Store, ChevronDown, Receipt, Plus, Monitor, Banknote, TrendingUp, CreditCard, ShieldCheck, CheckCircle, Search, Calendar, Filter, Check, AlertTriangle, MoreVertical, Printer, Download, ShoppingBag, BarChart2, PieChart, Truck, Trash2, Edit, FileText, Eye, XCircle, AlertCircle, Mail } from 'lucide-react';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -14,8 +14,9 @@ import { SearchInput } from '../../components/ui/SearchInput';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { FormField } from '../../components/common/FormField';
+import { EmailSendModal } from '../../components/common/EmailSendModal';
 
-const POActionsMenu = ({ po, navigate, hasPermission, onEdit, onDelete, onConfirm, onCancel }) => {
+const POActionsMenu = ({ po, navigate, hasPermission, onEdit, onDelete, onConfirm, onCancel, onSendEmail }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -38,6 +39,13 @@ const POActionsMenu = ({ po, navigate, hasPermission, onEdit, onDelete, onConfir
                 onClick={() => { setIsOpen(false); navigate(`/purchases/${po._id}`); }}
               >
                 <Eye size={16} className="mr-2.5 text-muted-foreground" /> View Details
+              </button>
+
+              <button
+                className="flex items-center w-full px-4 py-2 text-sm text-left font-medium text-emerald-600 hover:bg-emerald-50 transition-colors"
+                onClick={() => { setIsOpen(false); onSendEmail && onSendEmail(po); }}
+              >
+                <Mail size={16} className="mr-2.5 text-emerald-600" /> Send Email
               </button>
 
               {po.status === 'DRAFT' && hasPermission('CREATE_PURCHASES') && (
@@ -107,6 +115,11 @@ const PurchaseOrders = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [search, setSearch] = useState('');
   
+  // New States for Loading and Pagination
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  
   // New PO Form State
   const [supplierId, setSupplierId] = useState('');
   const [branchId, setBranchId] = useState('');
@@ -114,6 +127,7 @@ const PurchaseOrders = () => {
   const [items, setItems] = useState([{ productId: '', quantity: 1, unitCost: '', uom: 'PCS' }]);
 
   const [editingPOId, setEditingPOId] = useState(null);
+  const [emailModal, setEmailModal] = useState({ isOpen: false, po: null });
 
   const authUser = JSON.parse(localStorage.getItem('user') || '{}');
   const userPermissions = authUser.permissions || [];
@@ -139,6 +153,7 @@ const PurchaseOrders = () => {
   };
 
   const fetchPOs = async () => {
+    setLoading(true);
     try {
       const res = await axios.get('/api/v1/purchases', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -146,6 +161,8 @@ const PurchaseOrders = () => {
       setPos(res.data);
     } catch (error) {
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -281,10 +298,16 @@ const PurchaseOrders = () => {
   const addItemRow = () => setItems([...items, { productId: '', quantity: 1, unitCost: '', uom: 'PCS' }]);
   const removeItemRow = (index) => setItems(items.filter((_, i) => i !== index));
 
-  const filteredPOs = pos.filter(po => 
-    po.purchaseOrderNumber?.toLowerCase().includes(search.toLowerCase()) || 
-    po.supplierId?.name?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredPOs = useMemo(() => {
+    return pos.filter(po => {
+      const matchSearch = (po.purchaseOrderNumber?.toLowerCase() || '').includes(search.toLowerCase()) ||
+                          (po.supplierId?.name?.toLowerCase() || '').includes(search.toLowerCase());
+      return matchSearch;
+    });
+  }, [pos, search]);
+
+  const totalPages = Math.ceil(filteredPOs.length / limit);
+  const paginatedPOs = filteredPOs.slice((page - 1) * limit, page * limit);
 
   const getSupplierTradeLicenseError = () => {
     if (!companySettings.ENABLE_TRADE_LICENSE_EXPIRY_CHECK) return null;
@@ -329,105 +352,114 @@ const PurchaseOrders = () => {
   };
 
   return (
-    <div className="flex-1 w-full bg-slate-50 px-4 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6 max-w-[1720px] mx-auto font-sans text-[14px] text-slate-900 antialiased">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-1">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-bold text-indigo-600 tracking-wider uppercase">Purchases</span>
-            <span className="text-slate-400">•</span>
-            <span className="text-xs text-slate-500 font-medium">Procurement & Supplier Orders</span>
+    <div className="animate-in fade-in zoom-in-95 duration-500 max-w-[1400px] mx-auto space-y-6 pb-10 bg-[#f8fafc] min-h-screen">
+      
+      {/* Aggressive Tech Header */}
+      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl no-print">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
+                <ShoppingBag size={18} className="text-white" />
+              </div>
+              <h1 className="text-3xl font-black tracking-tight text-white uppercase">Purchase Orders</h1>
+            </div>
+            <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl">
+              PROCUREMENT COMMAND • SUPPLIER STOCK REPLENISHMENT
+            </p>
           </div>
-          <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">Purchase Orders</h1>
-          <p className="text-xs sm:text-sm text-slate-500">Manage incoming stock and supplier purchases.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-          <button className="inline-flex items-center gap-2 px-3.5 py-2 bg-white text-slate-900 hover:bg-slate-50 border border-slate-200/80 rounded-lg shadow-sm text-xs sm:text-sm font-semibold transition-all" type="button">
-            <Download size={18} className="text-slate-500" />
-            <span>Export POs</span>
-          </button>
-          <button className="inline-flex items-center gap-2 px-3.5 py-2 bg-white text-slate-900 hover:bg-slate-50 border border-slate-200/80 rounded-lg shadow-sm text-xs sm:text-sm font-semibold transition-all" type="button">
-            <Printer size={18} className="text-slate-500" />
-            <span className="hidden sm:inline">Print Batch</span>
-            <span className="sm:hidden">Print Receipts</span>
-          </button>
-          <button onClick={() => setIsCreating(true)} className="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-600 text-white hover:opacity-95 rounded-lg shadow-[0_4px_14px_0_rgba(79,70,229,0.35)] text-xs sm:text-sm font-semibold transition-all" type="button">
-            <CheckCircle size={18} className="text-emerald-600" />
-            <span>New PO</span>
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white ml-0.5">
-              <Check size={13} />
-            </span>
-          </button>
+          
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="flex items-center gap-3 bg-[#111827] border border-slate-800 p-2 rounded-lg shadow-inner">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">System Online</span>
+            </div>
+            <button 
+              onClick={() => setIsCreating(true)}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-bold text-sm tracking-wider uppercase transition-colors shadow-lg border border-blue-400 flex items-center gap-2"
+            >
+              <Plus size={16} strokeWidth={3} /> New PO
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-        <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between gap-2">
+        <div className="bg-[#0f172a] border border-slate-800 rounded-xl overflow-hidden shadow-sm group hover:shadow-lg transition-all">
+          <div className="p-5 flex justify-between items-start">
             <div>
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Active POs</span>
-              <div className="flex items-baseline gap-1.5 mt-1">
-                <span className="font-sans text-2xl sm:text-3xl font-bold text-slate-900">{pos.length}</span>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Active POs</p>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-black text-white font-mono tracking-tighter">{pos.length}</span>
                 <span className="text-xs text-slate-500 font-medium">Orders</span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-indigo-600 shrink-0">
-              <ShoppingBag size={22} />
+            <div className="p-2.5 bg-slate-800/50 text-slate-300 rounded-lg group-hover:bg-slate-700 transition-colors">
+              <ShoppingBag size={22} strokeWidth={2.5} />
             </div>
           </div>
+          <div className="h-1.5 w-full bg-slate-800"><div className="h-full bg-slate-400 w-full"></div></div>
         </div>
 
-        <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between gap-2">
+        <div className="bg-white border border-emerald-200 rounded-xl overflow-hidden shadow-sm group hover:shadow-lg hover:border-emerald-400 transition-all">
+          <div className="p-5 flex justify-between items-start">
             <div>
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Average PO Value</span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="font-sans text-2xl sm:text-3xl font-bold text-slate-900">AED 0.00</span>
+              <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Average PO Value</p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-black text-slate-800 font-mono tracking-tighter">AED 0.00</span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-blue-600 shrink-0">
-              <BarChart2 size={22} />
+            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+              <BarChart2 size={22} strokeWidth={2.5} />
             </div>
           </div>
+          <div className="h-1.5 w-full bg-emerald-100"><div className="h-full bg-emerald-500 w-[75%]"></div></div>
         </div>
 
-        <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between gap-2">
+        <div className="bg-white border border-amber-200 rounded-xl overflow-hidden shadow-sm group hover:shadow-lg hover:border-amber-400 transition-all">
+          <div className="p-5 flex justify-between items-start">
             <div>
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Status Split</span>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-base sm:text-lg font-bold text-slate-900">100% Draft</span>
+              <p className="text-[11px] font-bold text-amber-600 uppercase tracking-widest mb-1">Status Split</p>
+              <div className="flex items-center gap-2">
+                <span className="text-xl sm:text-2xl font-black text-slate-800 font-mono tracking-tighter">100% Draft</span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-indigo-600 shrink-0">
-              <PieChart size={22} />
+            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-lg group-hover:bg-amber-500 group-hover:text-white transition-colors">
+              <PieChart size={22} strokeWidth={2.5} />
             </div>
           </div>
+          <div className="h-1.5 w-full bg-amber-100"><div className="h-full bg-amber-500 w-[50%]"></div></div>
         </div>
 
-        <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between gap-2">
+        <div className="bg-white border border-rose-200 rounded-xl overflow-hidden shadow-sm group hover:shadow-lg hover:border-rose-400 transition-all bg-gradient-to-br from-white to-rose-50/30">
+          <div className="p-5 flex justify-between items-start">
             <div>
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Pending Deliveries</span>
-              <div className="flex items-baseline gap-1.5 mt-1">
-                <span className="font-sans text-2xl sm:text-3xl font-bold text-red-600">0</span>
-                <span className="text-xs font-semibold text-red-600">Pending</span>
+              <p className="text-[11px] font-bold text-rose-600 uppercase tracking-widest mb-1">Pending Deliveries</p>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-black text-rose-700 font-mono tracking-tighter">0</span>
+                <span className="text-xs font-semibold text-rose-600">Pending</span>
               </div>
             </div>
-            <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-red-600 shrink-0">
-              <Truck size={22} />
+            <div className="p-2.5 bg-rose-100 text-rose-600 rounded-lg group-hover:bg-rose-600 group-hover:text-white transition-colors">
+              <Truck size={22} strokeWidth={2.5} />
             </div>
           </div>
+          <div className="h-1.5 w-full bg-rose-100"><div className="h-full bg-rose-600 w-full"></div></div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200/80 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2.5 sm:gap-3">
-          <div className="sm:col-span-2 lg:flex-1 lg:min-w-[240px]">
+      <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-4 items-center w-full sm:max-w-2xl">
+          <div className="relative w-full sm:flex-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Filter Database</label>
             <div className="relative flex items-center">
               <Search size={18} className="absolute left-3 text-slate-400" />
               <input 
-                className="w-full h-10 pl-9 pr-3 bg-slate-50 rounded-lg text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 border-none focus:ring-2 focus:ring-indigo-600/30 focus:bg-white transition-all" 
-                placeholder="Search PO Number, Supplier..." 
+                className="w-full h-10 pl-9 pr-3 rounded-md border-2 border-slate-200 bg-slate-50 shadow-sm font-mono text-sm placeholder:text-slate-400 focus:border-blue-600 focus:ring-0 transition-colors uppercase" 
+                placeholder="SCAN BY PO NUMBER OR SUPPLIER..." 
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
@@ -437,24 +469,43 @@ const PurchaseOrders = () => {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden flex flex-col">
-        <div className="w-full overflow-x-auto custom-scroll">
-          <table className="w-full text-left border-collapse min-w-[850px]">
+      <div className="bg-white border border-slate-200 shadow-sm rounded-xl flex flex-col pb-4">
+        <div className="w-full overflow-x-auto custom-scroll min-h-[400px]">
+          <table className="w-full text-left border-collapse min-w-[850px] font-mono">
             <thead>
-              <tr className="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider font-bold border-b border-slate-200">
-                <th className="py-3 px-4" scope="col">PO Number</th>
-                <th className="py-3 px-3" scope="col">Date & Time</th>
-                <th className="py-3 px-3" scope="col">Supplier</th>
-                <th className="py-3 px-3" scope="col">Destination</th>
-                <th className="py-3 px-3" scope="col">Items Summary</th>
-                <th className="py-3 px-3 text-right" scope="col">Total Amount</th>
-                <th className="py-3 px-3 text-center" scope="col">Approval</th>
-                <th className="py-3 px-4 text-right" scope="col">Actions</th>
+              <tr className="bg-slate-50 text-[10px] text-slate-500 uppercase tracking-widest border-b-2 border-slate-200">
+                <th className="py-4 px-4 font-black" scope="col">PO Number</th>
+                <th className="py-4 px-3 font-black" scope="col">Date & Time</th>
+                <th className="py-4 px-3 font-black" scope="col">Supplier</th>
+                <th className="py-4 px-3 font-black" scope="col">Destination</th>
+                <th className="py-4 px-3 font-black" scope="col">Items Summary</th>
+                <th className="py-4 px-3 font-black text-right" scope="col">Total Amount</th>
+                <th className="py-4 px-3 font-black text-center" scope="col">Approval</th>
+                <th className="py-4 px-4 font-black text-right" scope="col">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-xs">
-              {filteredPOs.map(po => (
-                <tr key={po._id} className="hover:bg-slate-50 transition-colors">
+              {loading ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                      <div className="animate-spin rounded-none h-10 w-10 border-4 border-slate-200 border-t-blue-600"></div>
+                      <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">Fetching Database...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedPOs.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <ShoppingBag size={48} className="text-slate-200 mb-2" />
+                      <p className="text-sm font-bold text-slate-600 uppercase tracking-wider">0 Records Found</p>
+                      <p className="text-xs text-slate-400 font-mono">No purchase orders match current parameters.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedPOs.map(po => (
+                <tr key={po._id} className="hover:bg-slate-50 transition-colors group">
                   <td className="py-3 px-4 font-mono font-bold text-indigo-600 whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
                       <Receipt size={16} className="text-slate-400" />
@@ -507,6 +558,7 @@ const PurchaseOrders = () => {
                       onDelete={handleDeletePO}
                       onConfirm={handleConfirmPO}
                       onCancel={handleCancelPO}
+                      onSendEmail={(po) => setEmailModal({ isOpen: true, po })}
                     />
                   </td>
                 </tr>
@@ -514,6 +566,42 @@ const PurchaseOrders = () => {
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination Controls */}
+        {!loading && filteredPOs.length > 0 && (
+          <div className="px-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Showing {(page - 1) * limit + 1}-{Math.min(page * limit, filteredPOs.length)} of {filteredPOs.length} items
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="w-8 h-8 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+              >
+                &lt;
+              </button>
+              <div className="flex gap-1">
+                {Array.from({ length: totalPages }).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setPage(i + 1)}
+                    className={`w-8 h-8 rounded text-xs font-bold transition-colors ${page === i + 1 ? 'bg-blue-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+              <button 
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="w-8 h-8 flex items-center justify-center rounded bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+              >
+                &gt;
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <Modal
@@ -641,6 +729,18 @@ const PurchaseOrders = () => {
           </div>
         </form>
       </Modal>
+
+      {emailModal.isOpen && emailModal.po && (
+        <EmailSendModal
+          isOpen={emailModal.isOpen}
+          onClose={() => setEmailModal({ isOpen: false, po: null })}
+          documentType="Purchase Order"
+          documentNumber={emailModal.po.purchaseOrderNumber || `PO-${emailModal.po._id?.slice(-6).toUpperCase()}`}
+          recipientName={emailModal.po.supplierId?.name}
+          defaultEmail={emailModal.po.supplierId?.email}
+          sendEndpoint={`/api/v1/email/purchase-order/${emailModal.po._id}`}
+        />
+      )}
     </div>
   );
 };

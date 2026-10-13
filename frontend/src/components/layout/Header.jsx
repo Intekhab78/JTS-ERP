@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { SearchInput } from '../ui/SearchInput';
 import { DropdownMenu } from '../common/DropdownMenu';
 import { ApiStatusBadge } from '../common/ApiStatusBadge';
+import { WorkspaceSelector } from './WorkspaceSelector';
+import { CompanySelector } from './CompanySelector';
 
-const Header = ({ toggleSidebar }) => {
+const Header = ({ toggleSidebar, isSidebarOpen }) => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const navigate = useNavigate();
 
@@ -26,13 +28,15 @@ const Header = ({ toggleSidebar }) => {
     <header className="print:hidden h-20 bg-card flex items-center justify-between px-4 lg:px-10 shrink-0 border-b">
       
       <div className="flex items-center gap-3 flex-1">
-        <button 
-          aria-label="Toggle Sidebar"
-          onClick={toggleSidebar}
-          className="lg:hidden p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Menu size={20} />
-        </button>
+        {!isSidebarOpen && (
+          <button 
+            aria-label="Toggle Sidebar"
+            onClick={toggleSidebar}
+            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Menu size={20} />
+          </button>
+        )}
         
         <div className="hidden sm:block w-64 lg:w-96">
           <SearchInput placeholder="Search modules..." className="rounded-full bg-background" />
@@ -41,6 +45,8 @@ const Header = ({ toggleSidebar }) => {
 
       {/* Right Actions */}
       <div className="flex items-center gap-3 lg:gap-5">
+        <WorkspaceSelector />
+        <CompanySelector />
         <ApiStatusBadge />
 
         <button aria-label="Notifications" className="relative p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

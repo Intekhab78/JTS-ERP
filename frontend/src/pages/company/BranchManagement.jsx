@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 
 const BranchManagement = () => {
   const [branches, setBranches] = useState([]);
+  const [legalCompanies, setLegalCompanies] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -20,6 +21,7 @@ const BranchManagement = () => {
   const initialFormState = {
     name: '', 
     type: 'Store',
+    legalCompanyId: '',
     address: { street: '', city: '', state: '', zipCode: '', country: '' }
   };
   const [formData, setFormData] = useState(initialFormState);
@@ -40,8 +42,20 @@ const BranchManagement = () => {
     }
   };
 
+  const fetchLegalCompanies = async () => {
+    try {
+      const { data } = await axios.get('/api/v1/legal-company/my-companies', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setLegalCompanies(data);
+    } catch (error) {
+      console.error('Failed to fetch legal companies', error);
+    }
+  };
+
   useEffect(() => {
     fetchBranches();
+    fetchLegalCompanies();
   }, []);
 
   const handleEditClick = (branch) => {
@@ -49,6 +63,7 @@ const BranchManagement = () => {
     setFormData({
       name: branch.name,
       type: branch.type || 'Store',
+      legalCompanyId: branch.legalCompanyId?._id || branch.legalCompanyId || '',
       address: {
         street: branch.address?.street || '',
         city: branch.address?.city || '',
@@ -112,6 +127,15 @@ const BranchManagement = () => {
           </div>
           <span className="font-medium text-foreground">{row.name}</span>
         </div>
+      )
+    },
+    { 
+      accessorKey: 'legalCompanyId', 
+      header: 'Company',
+      cell: (row) => (
+        <span className="text-muted-foreground font-medium">
+          {row.legalCompanyId?.name || 'Platform'}
+        </span>
       )
     },
     { accessorKey: 'type', header: 'Type' },
@@ -243,6 +267,21 @@ const BranchManagement = () => {
                 </Select>
               </FormField>
             </div>
+            
+            {legalCompanies.length > 0 && (
+              <FormField label="Belongs to Company" required>
+                <Select
+                  required
+                  value={formData.legalCompanyId}
+                  onChange={e => setFormData({...formData, legalCompanyId: e.target.value})}
+                >
+                  <option value="" disabled>Select a Company</option>
+                  {legalCompanies.map(c => (
+                    <option key={c._id} value={c._id}>{c.name}</option>
+                  ))}
+                </Select>
+              </FormField>
+            )}
           </div>
 
           <div className="space-y-4">

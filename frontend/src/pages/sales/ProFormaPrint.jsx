@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { Printer, ArrowLeft, Mail } from 'lucide-react';
 import { format } from 'date-fns';
+import { EmailSendModal } from '../../components/common/EmailSendModal';
 
 const ProFormaPrint = () => {
   const { id } = useParams();
@@ -11,6 +12,7 @@ const ProFormaPrint = () => {
   const [data, setData] = useState(null);
   const { formatCurrency, currencySymbol } = useCurrency();
   const [loading, setLoading] = useState(true);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchProForma = async () => {
@@ -42,9 +44,14 @@ const ProFormaPrint = () => {
         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-slate-600 hover:text-slate-900 bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
-        <button onClick={() => window.print()} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-lg shadow-sm hover:bg-indigo-700">
-          <Printer className="w-4 h-4" /> Print Document
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => setIsEmailModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-2 rounded-lg shadow-sm hover:bg-emerald-700 font-medium text-sm transition-colors">
+            <Mail className="w-4 h-4" /> Email Document
+          </button>
+          <button onClick={() => window.print()} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-lg shadow-sm hover:bg-indigo-700 font-medium text-sm transition-colors">
+            <Printer className="w-4 h-4" /> Print Document
+          </button>
+        </div>
       </div>
 
       <div className="max-w-4xl mx-auto bg-white p-12 shadow-sm rounded-lg print:shadow-none print:rounded-none">
@@ -196,6 +203,18 @@ const ProFormaPrint = () => {
         )}
 
       </div>
+
+      {isEmailModalOpen && data && (
+        <EmailSendModal
+          isOpen={isEmailModalOpen}
+          onClose={() => setIsEmailModalOpen(false)}
+          documentType="Pro-Forma Invoice"
+          documentNumber={data.proFormaNumber}
+          recipientName={data.customerSnapshot?.name || data.customerId?.name}
+          defaultEmail={data.customerSnapshot?.email || data.customerId?.email}
+          sendEndpoint={`/api/v1/email/proforma/${data._id}`}
+        />
+      )}
     </div>
   );
 };

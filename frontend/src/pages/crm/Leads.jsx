@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Drawer } from '../../components/common/Drawer';
 import { FormField } from '../../components/common/FormField';
 import { Input } from '../../components/ui/Input';
+import { EmailSendModal } from '../../components/common/EmailSendModal';
 
 const PIPELINE_STAGES = ['NEW', 'CONTACTED', 'QUALIFIED', 'LOST'];
 
@@ -14,6 +15,7 @@ const Leads = () => {
   const [leads, setLeads] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailModal, setEmailModal] = useState({ isOpen: false, lead: null });
   
   const [formData, setFormData] = useState({ name: '', company: '', email: '', phone: '', status: 'NEW', notes: '' });
 
@@ -108,7 +110,15 @@ const Leads = () => {
                   )}
                   
                   <div className="mt-3 space-y-1.5">
-                    {lead.email && <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium"><Mail size={12} /> <span className="truncate">{lead.email}</span></div>}
+                    {lead.email && (
+                      <div 
+                        onClick={(e) => { e.stopPropagation(); setEmailModal({ isOpen: true, lead }); }}
+                        className="flex items-center gap-1.5 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer hover:underline transition-colors"
+                        title="Click to send email to lead"
+                      >
+                        <Mail size={12} /> <span className="truncate">{lead.email}</span>
+                      </div>
+                    )}
                     {lead.phone && <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium"><Phone size={12} /> {lead.phone}</div>}
                   </div>
 
@@ -217,6 +227,18 @@ const Leads = () => {
           </div>
         </form>
       </Drawer>
+
+      {emailModal.isOpen && emailModal.lead && (
+        <EmailSendModal
+          isOpen={emailModal.isOpen}
+          onClose={() => setEmailModal({ isOpen: false, lead: null })}
+          documentType="Lead Follow-up"
+          documentNumber={emailModal.lead.name}
+          recipientName={emailModal.lead.company || emailModal.lead.name}
+          defaultEmail={emailModal.lead.email}
+          sendEndpoint={`/api/v1/email/lead/${emailModal.lead._id}`}
+        />
+      )}
     </div>
   );
 };

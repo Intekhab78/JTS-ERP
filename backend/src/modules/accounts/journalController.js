@@ -1,3 +1,4 @@
+const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
 const JournalEntry = require('../../core/models/JournalEntry');
 const JournalEntryLine = require('../../core/models/JournalEntryLine');
 const AccountingService = require('../../services/accountingService');
@@ -7,7 +8,7 @@ const AccountingService = require('../../services/accountingService');
 // @access  Private
 exports.getJournalEntries = async (req, res) => {
   try {
-    const entries = await JournalEntry.find({ tenantId: req.user.tenantId })
+    const entries = await JournalEntry.find({ ...getReadFilter(req) })
       .sort({ entryDate: -1, createdAt: -1 });
       
     // Fetch lines for each entry (inefficient for large sets, but works for now)

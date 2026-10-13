@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getFileUrl } from '../../config/api';
@@ -122,7 +122,12 @@ export default function SupplierDetail() {
     }
   };
 
-  if (loading) return <div className="p-10 text-center">Loading supplier details...</div>;
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
+      <div className="animate-spin rounded-none h-10 w-10 border-4 border-slate-200 border-t-blue-600"></div>
+      <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">Fetching Database...</p>
+    </div>
+  );
   if (!supplier) return null;
 
   const getLicenseStatus = (expiryDate) => {
@@ -142,119 +147,134 @@ export default function SupplierDetail() {
   };
 
   return (
-    <div className="animate-in fade-in zoom-in-95 duration-300 space-y-6 max-w-6xl mx-auto pb-12">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button type="button" variant="ghost" onClick={() => navigate('/suppliers')} className="p-2">
-            <ArrowLeft size={20} />
-          </Button>
-          
-          {/* Owner Photo */}
-          <div className="relative group shrink-0">
-            <div className="w-16 h-16 rounded-full border-2 border-slate-200 flex items-center justify-center bg-indigo-50 text-indigo-700 font-bold text-xl overflow-hidden">
-              {supplier.ownerPhoto?.url ? (
-                <img src={getFileUrl(supplier.ownerPhoto.url)} alt={supplier.name} className="w-full h-full object-cover" />
-              ) : (
-                supplier.name.substring(0, 2).toUpperCase()
-              )}
-            </div>
-            {hasPermission('EDIT_SUPPLIERS') && (
-              <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
-                <label className="cursor-pointer text-white hover:text-indigo-300 p-1" title="Change Photo">
-                  <Camera size={14} />
-                  <input type="file" className="hidden" accept="image/jpeg, image/png, image/webp" onChange={handlePhotoChange} />
-                </label>
-                {supplier.ownerPhoto?.url && (
-                  <button onClick={removePhoto} className="text-white hover:text-red-400 p-1" title="Remove Photo">
-                    <Trash2 size={14} />
-                  </button>
+    <div className="animate-in fade-in zoom-in-95 duration-500 space-y-6 max-w-[1400px] mx-auto pb-10 bg-[#f8fafc] min-h-screen">
+      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
+        
+        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="flex items-start gap-4">
+            <button type="button" onClick={() => navigate('/suppliers')} className="p-2.5 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 mt-1">
+              <ArrowLeft size={20} className="text-slate-300" />
+            </button>
+            
+            {/* Owner Photo */}
+            <div className="relative group shrink-0 mt-1">
+              <div className="w-14 h-14 rounded border-2 border-slate-700 flex items-center justify-center bg-slate-800 text-blue-400 font-black text-xl overflow-hidden shadow-lg">
+                {supplier.ownerPhoto?.url ? (
+                  <img src={getFileUrl(supplier.ownerPhoto.url)} alt={supplier.name} className="w-full h-full object-cover" />
+                ) : (
+                  supplier.name.substring(0, 2).toUpperCase()
                 )}
               </div>
+              {hasPermission('EDIT_SUPPLIERS') && (
+                <div className="absolute inset-0 bg-black/50 rounded opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                  <label className="cursor-pointer text-white hover:text-blue-400 p-1" title="Change Photo">
+                    <Camera size={14} />
+                    <input type="file" className="hidden" accept="image/jpeg, image/png, image/webp" onChange={handlePhotoChange} />
+                  </label>
+                  {supplier.ownerPhoto?.url && (
+                    <button onClick={removePhoto} className="text-white hover:text-red-400 p-1" title="Remove Photo">
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-3xl font-black tracking-tight text-white uppercase">{supplier.name}</h1>
+                <Badge variant={supplier.status === 'ACTIVE' ? 'success' : 'secondary'} className="ml-2 bg-green-500/20 text-green-400 border-green-500/50">
+                  {supplier.status}
+                </Badge>
+                <Badge variant="outline" className="ml-2 border-slate-700 text-slate-300 bg-slate-800/50">
+                  {supplier.vendorType || 'Other'}
+                </Badge>
+              </div>
+              <p className="text-slate-400 text-sm font-medium tracking-wide uppercase tracking-widest">
+                Vendor Code: {supplier.vendorCode || 'N/A'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3 bg-[#111827] border border-slate-800 p-2.5 rounded-lg shadow-inner">
+            {hasPermission('EDIT_SUPPLIERS') && (
+              <button 
+                onClick={() => navigate(`/suppliers/edit/${supplier._id}`)} 
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm font-bold uppercase tracking-widest transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(37,99,235,0.4)]"
+              >
+                <Edit size={16} /> Edit Profile
+              </button>
             )}
           </div>
-
-          <PageHeader 
-            title={supplier.name} 
-            description={`Vendor Code: ${supplier.vendorCode || 'N/A'}`}
-          />
-          <Badge variant={supplier.status === 'ACTIVE' ? 'success' : 'secondary'} className="ml-2">
-            {supplier.status}
-          </Badge>
-          <Badge variant="outline" className="ml-2">
-            {supplier.vendorType || 'Other'}
-          </Badge>
         </div>
-        {hasPermission('EDIT_SUPPLIERS') && (
-          <Button onClick={() => navigate(`/suppliers/edit/${supplier._id}`)} leftIcon={<Edit size={16} />}>
-            Edit
-          </Button>
-        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column: Quick Info */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+          <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                 <Building size={16} /> Company Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              </h3>
+            </div>
+            <div className="p-5 space-y-4">
               <div>
-                <p className="text-xs text-muted-foreground">Website</p>
-                <p className="text-sm font-medium">{supplier.website || '-'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Website</p>
+                <p className="text-sm font-bold text-slate-900">{supplier.website || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Email</p>
-                <p className="text-sm font-medium">{supplier.email || '-'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email</p>
+                <p className="text-sm font-bold text-slate-900">{supplier.email || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Phone</p>
-                <p className="text-sm font-medium">{supplier.phone || '-'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Phone</p>
+                <p className="text-sm font-bold text-slate-900">{supplier.phone || '-'}</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+          <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                 <ShieldCheck size={16} /> Contact Person
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              </h3>
+            </div>
+            <div className="p-5 space-y-4">
               <div>
-                <p className="text-xs text-muted-foreground">Name</p>
-                <p className="text-sm font-medium">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Name</p>
+                <p className="text-sm font-bold text-slate-900">
                   {supplier.contactDetails?.firstName 
                     ? `${supplier.contactDetails.firstName} ${supplier.contactDetails.lastName || ''}` 
                     : supplier.contactName || '-'}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Email</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Email</p>
                 <div className="flex items-center gap-2 mt-1">
                   <Mail size={14} className="text-muted-foreground" />
-                  <span className="text-sm font-medium">{supplier.contactDetails?.email || '-'}</span>
+                  <span className="text-sm font-bold text-slate-900">{supplier.contactDetails?.email || '-'}</span>
                 </div>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Mobile</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Mobile</p>
                 <div className="flex items-center gap-2 mt-1">
                   <Phone size={14} className="text-muted-foreground" />
-                  <span className="text-sm font-medium">{supplier.contactDetails?.mobile || '-'}</span>
+                  <span className="text-sm font-bold text-slate-900">{supplier.contactDetails?.mobile || '-'}</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+          <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                 <MapPin size={16} /> Address
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </h3>
+            </div>
+            <div className="p-5">
               {supplier.addressDetails?.address ? (
                 <div className="text-sm">
                   <p>{supplier.addressDetails.address}</p>
@@ -264,36 +284,36 @@ export default function SupplierDetail() {
               ) : (
                 <p className="text-sm">{supplier.address || '-'}</p>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Deeper details */}
         <div className="md:col-span-2 space-y-6">
           
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="flex items-center gap-2">
                 <Landmark size={18} /> Tax & Legal
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-y-4 gap-x-6">
+              </h3>
+            </div>
+            <div className="p-5 grid grid-cols-2 gap-y-4 gap-x-6">
               <div>
-                <p className="text-xs text-muted-foreground">Tax Registration No.</p>
-                <p className="text-sm font-medium">{supplier.legalDetails?.taxRegistrationNumber || supplier.taxId || '-'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tax Registration No.</p>
+                <p className="text-sm font-bold text-slate-900">{supplier.legalDetails?.taxRegistrationNumber || supplier.taxId || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Company Reg No.</p>
-                <p className="text-sm font-medium">{supplier.legalDetails?.companyRegistrationNumber || '-'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Company Reg No.</p>
+                <p className="text-sm font-bold text-slate-900">{supplier.legalDetails?.companyRegistrationNumber || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Trade License</p>
-                <p className="text-sm font-medium">{supplier.legalDetails?.tradeLicense || '-'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Trade License</p>
+                <p className="text-sm font-bold text-slate-900">{supplier.legalDetails?.tradeLicense || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Trade License Expiry Date</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Trade License Expiry Date</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-sm font-medium">
+                  <span className="text-sm font-bold text-slate-900">
                     {supplier.legalDetails?.tradeLicenseExpiryDate 
                       ? new Date(supplier.legalDetails.tradeLicenseExpiryDate).toLocaleDateString()
                       : '-'}
@@ -311,29 +331,29 @@ export default function SupplierDetail() {
                 </div>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Import License</p>
-                <p className="text-sm font-medium">{supplier.legalDetails?.importLicenseNo || '-'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Import License</p>
+                <p className="text-sm font-bold text-slate-900">{supplier.legalDetails?.importLicenseNo || '-'}</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="flex items-center gap-2">
                 <Landmark size={18} /> Bank Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-y-4 gap-x-6">
+              </h3>
+            </div>
+            <div className="p-5 grid grid-cols-2 gap-y-4 gap-x-6">
               <div>
-                <p className="text-xs text-muted-foreground">Bank Name</p>
-                <p className="text-sm font-medium">{supplier.bankDetails?.bankName || '-'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Bank Name</p>
+                <p className="text-sm font-bold text-slate-900">{supplier.bankDetails?.bankName || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Account Holder</p>
-                <p className="text-sm font-medium">{supplier.bankDetails?.accountHolderName || '-'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account Holder</p>
+                <p className="text-sm font-bold text-slate-900">{supplier.bankDetails?.accountHolderName || '-'}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Account No.</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account No.</p>
                 <p className="text-sm font-medium font-mono">
                   {supplier.bankDetails?.accountNo 
                     ? `****${supplier.bankDetails.accountNo.slice(-4)}` 
@@ -341,19 +361,19 @@ export default function SupplierDetail() {
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">IFSC / Swift</p>
-                <p className="text-sm font-medium">{supplier.bankDetails?.ifsc || '-'}</p>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">IFSC / Swift</p>
+                <p className="text-sm font-bold text-slate-900">{supplier.bankDetails?.ifsc || '-'}</p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="flex items-center gap-2">
                 <FileText size={18} /> Compliance Documents
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </h3>
+            </div>
+            <div className="p-5">
               {supplier.documents && supplier.documents.filter(d => d.fileUrl).length > 0 ? (
                 <div className="space-y-3">
                   {supplier.documents.filter(d => d.fileUrl).map((doc, idx) => (
@@ -361,7 +381,7 @@ export default function SupplierDetail() {
                       <div className="flex items-center justify-between mb-2">
                         <div>
                           <p className="text-sm font-semibold text-slate-800">{doc.documentName}</p>
-                          <p className="text-xs text-slate-500">{doc.documentType.replace('_', ' ')} • {(doc.fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                          <p className="text-xs text-slate-500">{doc.documentType.replace('_', ' ')} â€¢ {(doc.fileSize / 1024 / 1024).toFixed(2)} MB</p>
                         </div>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${doc.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : doc.status === 'EXPIRED' ? 'bg-red-100 text-red-700' : 'bg-slate-200 text-slate-700'}`}>
                           {doc.status}
@@ -394,23 +414,23 @@ export default function SupplierDetail() {
               ) : (
                 <p className="text-sm text-muted-foreground">No compliance documents uploaded.</p>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="flex items-center gap-2">
                 <FileText size={18} /> Legacy References
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+              </h3>
+            </div>
+            <div className="p-5">
               {supplier.documents && supplier.documents.filter(d => !d.fileUrl).length > 0 ? (
                 <div className="space-y-3">
                   {supplier.documents.filter(d => !d.fileUrl).map((doc, idx) => (
                     <div key={idx} className="flex items-center justify-between p-3 border border-border rounded-lg bg-muted/10">
                       <div>
                         <p className="text-sm font-semibold">{doc.documentName}</p>
-                        <p className="text-xs text-muted-foreground">No: {doc.documentNumber || 'N/A'}</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">No: {doc.documentNumber || 'N/A'}</p>
                       </div>
                       {doc.documentUrl && (
                         <a href={doc.documentUrl} target="_blank" rel="noreferrer" className="text-blue-600 text-sm hover:underline">
@@ -423,18 +443,18 @@ export default function SupplierDetail() {
               ) : (
                 <p className="text-sm text-muted-foreground">No legacy references.</p>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {supplier.remarks && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Remarks</CardTitle>
-              </CardHeader>
-              <CardContent>
+            <div className="rounded-xl border-slate-200 shadow-sm overflow-hidden bg-white">
+              <div className="p-4 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">Remarks</h3>
+              </div>
+              <div className="p-5">
                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{supplier.remarks}</p>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           )}
 
         </div>

@@ -15,6 +15,10 @@ const taxInvoiceItemSchema = new mongoose.Schema({
 
 const taxInvoiceSchema = new mongoose.Schema({
   tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company', required: true },
+  legalCompanyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LegalCompany'
+  },
   branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true },
   invoiceNumber: { type: String, required: true },
   orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },

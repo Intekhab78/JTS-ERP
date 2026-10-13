@@ -5,6 +5,7 @@ const PurchaseOrderItem = require('../../core/models/PurchaseOrderItem');
 const GRN = require('../../core/models/GRN');
 const Counter = require('../../core/models/Counter');
 const { verifyBranchAccess } = require('../../core/middleware/authMiddleware');
+const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
 
 const generateBillNumber = async (tenantId, session) => {
   const currentYear = new Date().getFullYear();
@@ -22,7 +23,8 @@ const generateBillNumber = async (tenantId, session) => {
 
 exports.getVendorBills = async (req, res) => {
   try {
-    const bills = await VendorBill.find({ tenantId: req.user.tenantId, isActive: true })
+    const filter = getReadFilter(req);
+    const bills = await VendorBill.find({ ...filter, isActive: true })
       .populate('branchId', 'name')
       .populate('supplierId', 'name email')
       .populate('purchaseOrderId', 'purchaseOrderNumber')
@@ -35,7 +37,8 @@ exports.getVendorBills = async (req, res) => {
 
 exports.getVendorBillById = async (req, res) => {
   try {
-    const bill = await VendorBill.findOne({ _id: req.params.id, tenantId: req.user.tenantId, isActive: true })
+    const filter = getReadFilter(req);
+    const bill = await VendorBill.findOne({ _id: req.params.id, ...filter, isActive: true })
       .populate('branchId', 'name')
       .populate('supplierId', 'name email phone address')
       .populate('purchaseOrderId', 'purchaseOrderNumber expectedDate')
@@ -63,9 +66,16 @@ exports.createVendorBill = async (req, res) => {
       body.billNumber = await generateBillNumber(tenantId, session);
     }
     
+    let finalLegalCompanyId;
+
     if (body.purchaseOrderId && body.grnIds && body.grnIds.length > 0) {
       // Validate GRNs
-      const grns = await GRN.find({ _id: { $in: body.grnIds }, tenantId }).session(session);
+      const filter = getReadFilter(req);
+      const grns = await GRN.find({ _id: { $in: body.grnIds }, ...filter }).session(session);
+      
+      if (grns.length === 0) throw new Error('No valid GRNs found');
+      finalLegalCompanyId = grns[0].legalCompanyId;
+
       for (const grn of grns) {
         if (grn.status !== 'VALIDATED') {
           throw new Error(`GRN ${grn.grnNumber} is not VALIDATED. Only VALIDATED GRNs can be billed.`);
@@ -122,11 +132,15 @@ exports.createVendorBill = async (req, res) => {
            throw new Error(`Cannot bill quantity ${item.quantity} for product ${pid}. Only ${remainingBillable} remaining billable (Accepted: ${accepted}, Already Billed: ${billedAlready}).`);
         }
       }
+    } else {
+      const scopedBody = validateCreateScope(req, body);
+      finalLegalCompanyId = scopedBody.legalCompanyId;
     }
 
     const bill = await VendorBill.create([{
       ...body,
       tenantId,
+      legalCompanyId: finalLegalCompanyId,
       createdBy: req.user._id,
       status: 'DRAFT',
       amountPaid: 0,
@@ -147,7 +161,8 @@ exports.updateVendorBill = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const bill = await VendorBill.findOne({ _id: req.params.id, tenantId: req.user.tenantId }).session(session);
+    const filter = getReadFilter(req);
+    const bill = await VendorBill.findOne({ _id: req.params.id, ...filter }).session(session);
     if (!bill) throw new Error('Vendor Bill not found');
     if (bill.status !== 'DRAFT') throw new Error('Only DRAFT bills can be edited');
 
@@ -208,7 +223,8 @@ exports.updateVendorBill = async (req, res) => {
 
 exports.postVendorBill = async (req, res) => {
   try {
-    const bill = await VendorBill.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const bill = await VendorBill.findOne({ _id: req.params.id, ...filter });
     if (!bill) return res.status(404).json({ message: 'Vendor Bill not found' });
     if (bill.status !== 'DRAFT') return res.status(400).json({ message: 'Only DRAFT bills can be posted' });
 
@@ -222,7 +238,8 @@ exports.postVendorBill = async (req, res) => {
 
 exports.cancelVendorBill = async (req, res) => {
   try {
-    const bill = await VendorBill.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const bill = await VendorBill.findOne({ _id: req.params.id, ...filter });
     if (!bill) return res.status(404).json({ message: 'Vendor Bill not found' });
     if (bill.status !== 'DRAFT') return res.status(400).json({ message: 'Only DRAFT bills can be cancelled' });
 
@@ -236,7 +253,8 @@ exports.cancelVendorBill = async (req, res) => {
 
 exports.deleteVendorBill = async (req, res) => {
   try {
-    const bill = await VendorBill.findOne({ _id: req.params.id, tenantId: req.user.tenantId });
+    const filter = getReadFilter(req);
+    const bill = await VendorBill.findOne({ _id: req.params.id, ...filter });
     if (!bill) return res.status(404).json({ message: 'Vendor Bill not found' });
     if (bill.status !== 'DRAFT' && bill.status !== 'CANCELLED') {
       return res.status(400).json({ message: 'Only DRAFT or CANCELLED bills can be deleted' });

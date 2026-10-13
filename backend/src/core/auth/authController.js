@@ -2,7 +2,9 @@ const User = require('../models/User');
 const Company = require('../models/Company');
 const Role = require('../models/Role');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const auditService = require('../../modules/audit/auditService');
+const emailService = require('../../services/emailService');
 
 // In-memory brute force tracker
 const loginAttemptTracker = {};
@@ -70,7 +72,8 @@ exports.register = async (req, res) => {
       email,
       password,
       tenantId,
-      roleId
+      roleId,
+      portalAccess: 'WEB + MOBILE'
     });
 
     res.status(201).json({
@@ -97,8 +100,16 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ email }).select('+password').populate('roleId');
 
     if (user && (await user.matchPassword(password))) {
+      if (user.isActive === false) {
+        return res.status(403).json({ message: 'Account is disabled. Please contact your administrator.' });
+      }
+      
       const isGlobalAdmin = !user.tenantId;
       const isTenantAdmin = user.tenantId && (!user.roleId || user.roleId.name === 'Tenant Admin');
+      
+      if (!isGlobalAdmin && !isTenantAdmin && user.portalAccess === 'NO ACCESS') {
+        return res.status(403).json({ message: 'You do not have portal access. Please contact your administrator.' });
+      }
       const roleName = user.roleId?.name || (user.tenantId ? 'Tenant Admin' : 'Global Admin');
       let permissions = user.roleId?.permissions || [];
       
@@ -106,6 +117,8 @@ exports.login = async (req, res) => {
       if ((isGlobalAdmin || isTenantAdmin) && !permissions.includes('*')) {
         permissions = ['*'];
       }
+
+      const scope = await user.resolveScope();
 
       res.json({
         _id: user._id,
@@ -116,6 +129,8 @@ exports.login = async (req, res) => {
         permissions,
         roleName,
         branches: user.branches || [],
+        accessibleCompanyIds: scope.accessibleCompanyIds,
+        accessibleBranchIds: scope.accessibleBranchIds,
         token: generateToken(user._id),
       });
     } else {
@@ -145,6 +160,8 @@ exports.getMe = async (req, res) => {
       permissions = ['*'];
     }
 
+    const scope = await user.resolveScope();
+
     res.json({
       _id: user._id,
       firstName: user.firstName,
@@ -153,7 +170,9 @@ exports.getMe = async (req, res) => {
       tenantId: user.tenantId,
       permissions,
       roleName,
-      branches: user.branches || []
+      branches: user.branches || [],
+      accessibleCompanyIds: scope.accessibleCompanyIds,
+      accessibleBranchIds: scope.accessibleBranchIds
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -323,3 +342,123 @@ exports.setPosPin = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Forgot Password - Request reset link
+// @route   POST /api/v1/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Please provide an email address' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      return res.status(404).json({ message: 'No registered user found with this email address' });
+    }
+
+    // Generate token
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
+
+    // Determine reset link URL
+    const origin = req.headers.origin || process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${origin}/reset-password/${resetToken}`;
+
+    // Get company name
+    let companyName = 'JTS ERP';
+    if (user.tenantId) {
+      const comp = await Company.findById(user.tenantId);
+      if (comp && comp.name) companyName = comp.name;
+    }
+
+    try {
+      const mailResult = await emailService.sendPasswordResetEmail({
+        user,
+        resetUrl,
+        resetToken,
+        companyName
+      });
+
+      res.status(200).json({
+        success: true,
+        message: mailResult?.simulated
+          ? 'Password reset link simulated successfully (SMTP not configured in .env).'
+          : 'A password reset link has been sent to your email address.',
+        result: mailResult
+      });
+    } catch (mailError) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save({ validateBeforeSave: false });
+      return res.status(500).json({ message: 'Failed to dispatch email: ' + mailError.message });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Reset Password with Token
+// @route   PUT /api/v1/auth/reset-password/:token
+// @access  Public
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ message: 'Reset token is required' });
+    }
+
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+
+    // Hash token from url param to match against hashed DB value
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Password reset link is invalid or has expired' });
+    }
+
+    // Set new password
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    // Safely write audit log without throwing if unauthenticated
+    try {
+      const AuditLog = require('../models/AuditLog');
+      await AuditLog.create({
+        tenantId: user.tenantId,
+        userId: user._id,
+        action: 'PASSWORD_RESET_SUCCESS',
+        entityType: 'User',
+        entityId: user._id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+        metadata: { userId: user._id, email: user.email }
+      });
+    } catch (auditErr) {
+      console.warn('Audit log write skipped for reset password:', auditErr.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Password reset successfully! You can now log in with your new password.'
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+

@@ -73,6 +73,26 @@ const RoleManagement = () => {
     });
   };
 
+  const handleToggleAllPermissions = () => {
+    const allModules = getAllPermissionModules();
+    const allPerms = [];
+    allModules.forEach(mod => {
+      ACTIONS.forEach(a => {
+        allPerms.push(`${a.id}_${mod.id}`);
+      });
+    });
+    
+    const posOverrides = ['OVERRIDE_SESSION_VARIANCE', 'OVERRIDE_POS_DISCOUNT', 'OVERRIDE_POS_PRICE', 'VOID_POS_ORDER', 'OVERRIDE_POS_RETURN', 'OPEN_CASH_DRAWER'];
+    
+    const hasAll = allPerms.every(p => formData.permissions.includes(p));
+    
+    if (hasAll) {
+      setFormData(prev => ({ ...prev, permissions: [] }));
+    } else {
+      setFormData(prev => ({ ...prev, permissions: [...allPerms, ...posOverrides] }));
+    }
+  };
+
   const handleCreateOrUpdate = async (e) => {
     e.preventDefault();
     try {
@@ -236,7 +256,7 @@ const RoleManagement = () => {
                 onChange={(e) => setSelectedCompany(e.target.value)}
                 className="w-48"
               >
-                <option value="">All Companies</option>
+                <option value="">All Groups</option>
                 {uniqueCompanies.map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -352,9 +372,9 @@ const RoleManagement = () => {
             </div>
 
             {uniqueCompanies.length > 0 && (
-              <FormField label="Assign Company" required>
+              <FormField label="Assign Group (Workspace)" required>
                 <Select required value={formData.tenantId} onChange={e => setFormData({...formData, tenantId: e.target.value})}>
-                  <option value="" disabled>Select a Company</option>
+                  <option value="" disabled>Select a Group</option>
                   {uniqueCompanies.map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
@@ -363,7 +383,16 @@ const RoleManagement = () => {
             )}
             
             <div>
-              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Granular Permissions</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Granular Permissions</h3>
+                <button 
+                  type="button"
+                  onClick={handleToggleAllPermissions}
+                  className="text-[10px] font-bold text-primary hover:text-primary/80 uppercase"
+                >
+                  Select All / Clear All
+                </button>
+              </div>
               <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                 {ERP_MODULES.map(parentMod => {
                   if (!parentMod.isParent) {

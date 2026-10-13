@@ -28,12 +28,33 @@ export const CurrencyProvider = ({ children }) => {
         setIsLoading(false);
         return;
       }
-      const res = await axios.get('/api/v1/company', {
+      
+      let baseCurrency = 'USD';
+
+      // 1. Fetch Workspace (Group) Currency as fallback
+      const companyRes = await axios.get('/api/v1/company', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (res.data && res.data.currency) {
-        setCurrency(res.data.currency);
+      if (companyRes.data && companyRes.data.currency) {
+        baseCurrency = companyRes.data.currency;
       }
+
+      // 2. Fetch Active Legal Company Currency (if selected)
+      const activeCompanyId = localStorage.getItem('active_company_id');
+      if (activeCompanyId && activeCompanyId !== 'ALL') {
+        try {
+          const legalRes = await axios.get(`/api/v1/legal-company/${activeCompanyId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (legalRes.data && legalRes.data.baseCurrency) {
+            baseCurrency = legalRes.data.baseCurrency;
+          }
+        } catch (err) {
+          console.warn('Could not fetch active legal company currency, falling back to group currency.');
+        }
+      }
+
+      setCurrency(baseCurrency);
     } catch (error) {
       console.error('Failed to fetch company currency:', error);
     } finally {
