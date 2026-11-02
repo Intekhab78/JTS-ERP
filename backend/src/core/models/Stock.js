@@ -20,6 +20,11 @@ const stockSchema = new mongoose.Schema({
     ref: 'Product',
     required: true
   },
+  variantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ProductVariant',
+    default: null
+  },
   quantity: {
     type: Number,
     required: true,
@@ -40,7 +45,7 @@ const stockSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// A product can only have one stock entry per branch per owner
-stockSchema.index({ tenantId: 1, branchId: 1, productId: 1, ownerType: 1, ownerId: 1 }, { unique: true });
+// A product or variant can only have one stock entry per branch per owner
+stockSchema.index({ tenantId: 1, branchId: 1, productId: 1, variantId: 1, ownerType: 1, ownerId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Stock', stockSchema);

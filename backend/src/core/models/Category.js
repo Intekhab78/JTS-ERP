@@ -11,6 +11,11 @@ const categorySchema = new mongoose.Schema({
     required: [true, 'Please add a category name'],
     trim: true
   },
+  code: {
+    type: String,
+    trim: true,
+    uppercase: true
+  },
   description: {
     type: String,
     trim: true
@@ -18,6 +23,10 @@ const categorySchema = new mongoose.Schema({
   itemDepartmentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ItemDepartment'
+  },
+  isActive: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true

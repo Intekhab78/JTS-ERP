@@ -83,12 +83,12 @@ const userSchema = new mongoose.Schema({
 });
 
 // Encrypt password and posPin using bcrypt
-userSchema.pre('save', async function() {
+userSchema.pre('save', async function () {
   if (this.isModified('password')) {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
   }
-  
+
   if (this.isModified('posPin') && this.posPin) {
     const salt = await bcrypt.genSalt(10);
     this.posPin = await bcrypt.hash(this.posPin, salt);
@@ -96,19 +96,19 @@ userSchema.pre('save', async function() {
 });
 
 // Match user entered password to hashed password in database
-userSchema.methods.matchPassword = async function(enteredPassword) {
+userSchema.methods.matchPassword = async function (enteredPassword) {
   if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 // Match entered POS PIN to hashed posPin in database
-userSchema.methods.matchPosPin = async function(enteredPin) {
+userSchema.methods.matchPosPin = async function (enteredPin) {
   if (!this.posPin || !enteredPin) return false;
   return await bcrypt.compare(enteredPin, this.posPin);
 };
 
 // Generate and hash password reset token
-userSchema.methods.getResetPasswordToken = function() {
+userSchema.methods.getResetPasswordToken = function () {
   const resetToken = crypto.randomBytes(24).toString('hex');
 
   this.resetPasswordToken = crypto
@@ -122,27 +122,36 @@ userSchema.methods.getResetPasswordToken = function() {
 };
 
 // Resolve dynamic Group-of-Companies scope
-userSchema.methods.resolveScope = async function(activeTenantId) {
+userSchema.methods.resolveScope = async function (activeTenantId) {
   const LegalCompany = mongoose.model('LegalCompany');
   const Branch = mongoose.model('Branch');
   const Role = mongoose.model('Role');
   const Company = mongoose.model('Company'); // Workspace
-  
+
   const scope = { tenantId: null, accessibleCompanyIds: [], accessibleBranchIds: [] };
 
   const isGlobalAdmin = !this.tenantId;
 
   if (isGlobalAdmin) {
-    if (!activeTenantId) {
-      return scope;
+    if (!activeTenantId || !mongoose.isValidObjectId(activeTenantId)) {
+      // Auto-fallback for Global Admin when accessing routes without explicit header or non-ObjectId (e.g. 'ALL')
+      const defaultCompany = await Company.findOne({ name: /JTS middleeast/i }) || await Company.findOne();
+      if (defaultCompany) {
+        scope.tenantId = defaultCompany._id;
+      } else {
+        return scope;
+      }
+    } else {
+      // Verify target workspace exists
+      const workspace = await Company.findById(activeTenantId);
+      if (workspace) {
+        scope.tenantId = activeTenantId;
+      } else {
+        const defaultCompany = await Company.findOne({ name: /JTS middleeast/i }) || await Company.findOne();
+        if (defaultCompany) scope.tenantId = defaultCompany._id;
+        else return scope;
+      }
     }
-    
-    // Verify target workspace exists
-    const workspace = await Company.findById(activeTenantId);
-    if (!workspace) {
-      return scope; // Invalid workspace
-    }
-    scope.tenantId = activeTenantId;
   } else {
     scope.tenantId = this.tenantId;
   }
@@ -171,9 +180,9 @@ userSchema.methods.resolveScope = async function(activeTenantId) {
     // 1. Explicitly assigned legal companies
     if (this.legalCompanyIds && this.legalCompanyIds.length > 0) {
       // Must verify they actually belong to the user's tenant
-      const validCompanies = await LegalCompany.find({ 
-        _id: { $in: this.legalCompanyIds }, 
-        tenantId: targetTenantId 
+      const validCompanies = await LegalCompany.find({
+        _id: { $in: this.legalCompanyIds },
+        tenantId: targetTenantId
       }).select('_id');
       validCompanies.forEach(c => companyIds.add(c._id.toString()));
     }
@@ -181,9 +190,9 @@ userSchema.methods.resolveScope = async function(activeTenantId) {
     // 2. Inherited companies via Group assignment
     if (this.groupIds && this.groupIds.length > 0) {
       // Must verify group companies belong to the user's tenant
-      const groupCompanies = await LegalCompany.find({ 
-        groupId: { $in: this.groupIds }, 
-        tenantId: targetTenantId 
+      const groupCompanies = await LegalCompany.find({
+        groupId: { $in: this.groupIds },
+        tenantId: targetTenantId
       }).select('_id');
       groupCompanies.forEach(c => companyIds.add(c._id.toString()));
     }
@@ -193,7 +202,7 @@ userSchema.methods.resolveScope = async function(activeTenantId) {
 
   // 3. Resolve Branches based on resolved companies
   const isBranchRestricted = this.branches && this.branches.length > 0;
-  
+
   if (isBranchRestricted && !isGlobalAdmin && !isTenantAdmin) {
     // If restricted, grant ONLY assigned branches that ALSO belong to resolved companies
     const validBranches = await Branch.find({
@@ -205,7 +214,7 @@ userSchema.methods.resolveScope = async function(activeTenantId) {
         { legalCompanyId: null }
       ]
     }).select('_id');
-    
+
     scope.accessibleBranchIds = validBranches.map(b => b._id.toString());
   } else {
     // If NOT restricted, they inherit access to ALL branches under their resolved companies
@@ -218,7 +227,7 @@ userSchema.methods.resolveScope = async function(activeTenantId) {
           { legalCompanyId: null }
         ]
       }).select('_id');
-      
+
       scope.accessibleBranchIds = allCompanyBranches.map(b => b._id.toString());
     }
   }

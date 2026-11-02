@@ -124,7 +124,8 @@ const PurchaseOrders = () => {
   const [supplierId, setSupplierId] = useState('');
   const [branchId, setBranchId] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
-  const [items, setItems] = useState([{ productId: '', quantity: 1, unitCost: '', uom: 'PCS' }]);
+  const [variantsMap, setVariantsMap] = useState({});
+  const [items, setItems] = useState([{ productId: '', variantId: '', variantSku: '', quantity: 1, unitCost: '', uom: 'PCS' }]);
 
   const [editingPOId, setEditingPOId] = useState(null);
   const [emailModal, setEmailModal] = useState({ isOpen: false, po: null });
@@ -132,6 +133,19 @@ const PurchaseOrders = () => {
   const authUser = JSON.parse(localStorage.getItem('user') || '{}');
   const userPermissions = authUser.permissions || [];
   const hasPermission = (perm) => userPermissions.includes('*') || userPermissions.includes(perm);
+
+  const fetchVariantsForProduct = async (productId) => {
+    if (!productId || variantsMap[productId]) return;
+    try {
+      const res = await axios.get(`/api/v1/inventory/products/${productId}/variants`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const list = res.data?.variants || (Array.isArray(res.data) ? res.data : []);
+      setVariantsMap(prev => ({ ...prev, [productId]: list }));
+    } catch (error) {
+      console.error('Failed to fetch variants:', error);
+    }
+  };
 
   useEffect(() => {
     fetchPOs();
@@ -199,6 +213,14 @@ const PurchaseOrders = () => {
     }
   };
 
+  const availableProducts = useMemo(() => {
+    if (!branchId) return products;
+    return products.filter(p => {
+      if (!p.branchIds || p.branchIds.length === 0) return true;
+      return p.branchIds.some(b => (b._id || b).toString() === branchId.toString());
+    });
+  }, [products, branchId]);
+
   const handleEditPO = async (poId) => {
     try {
       const res = await axios.get(`/api/v1/purchases/${poId}`, {
@@ -209,9 +231,20 @@ const PurchaseOrders = () => {
       setBranchId(poData.branchId?._id || poData.branchId);
       setExpectedDate(poData.expectedDate ? new Date(poData.expectedDate).toISOString().split('T')[0] : '');
       if (poData.items && poData.items.length > 0) {
-        setItems(poData.items.map(i => ({ productId: i.productId?._id || i.productId, quantity: i.quantity, unitCost: i.unitCost, uom: i.uom || 'PCS' })));
+        setItems(poData.items.map(i => {
+          const pId = i.productId?._id || i.productId;
+          if (pId) fetchVariantsForProduct(pId);
+          return {
+            productId: pId,
+            variantId: i.variantId?._id || i.variantId || '',
+            variantSku: i.variantSku || i.variantId?.sku || '',
+            quantity: i.quantity,
+            unitCost: i.unitCost,
+            uom: i.uom || 'PCS'
+          };
+        }));
       } else {
-        setItems([{ productId: '', quantity: 1, unitCost: '', uom: 'PCS' }]);
+        setItems([{ productId: '', variantId: '', variantSku: '', quantity: 1, unitCost: '', uom: 'PCS' }]);
       }
       setEditingPOId(poId);
       setIsCreating(true);
@@ -286,17 +319,58 @@ const PurchaseOrders = () => {
     setSupplierId('');
     setBranchId('');
     setExpectedDate('');
-    setItems([{ productId: '', quantity: 1, unitCost: '', uom: 'PCS' }]);
+    setItems([{ productId: '', variantId: '', variantSku: '', quantity: 1, unitCost: '', uom: 'PCS' }]);
   };
 
   const updateItem = (index, field, value) => {
     const newItems = [...items];
-    newItems[index][field] = value;
+    if (field === 'productId') {
+      newItems[index].productId = value;
+      newItems[index].variantId = '';
+      newItems[index].variantSku = '';
+      const prod = products.find(p => p._id === value);
+      if (prod) {
+        newItems[index].uom = prod.unitOfMeasure || prod.uom || 'PCS';
+        newItems[index].unitCost = prod.costPrice || prod.purchasePrice || '';
+        fetchVariantsForProduct(value);
+      }
+    } else if (field === 'variantId') {
+      const selectedVariant = variantsMap[newItems[index].productId]?.find(v => v._id === value);
+      newItems[index].variantId = value;
+      newItems[index].variantSku = selectedVariant ? selectedVariant.sku : '';
+      if (selectedVariant && selectedVariant.purchasePrice) {
+        newItems[index].unitCost = selectedVariant.purchasePrice;
+      }
+    } else {
+      newItems[index][field] = value;
+    }
     setItems(newItems);
   };
 
-  const addItemRow = () => setItems([...items, { productId: '', quantity: 1, unitCost: '', uom: 'PCS' }]);
+  const addItemRow = () => setItems([...items, { productId: '', variantId: '', variantSku: '', quantity: 1, unitCost: '', uom: 'PCS' }]);
   const removeItemRow = (index) => setItems(items.filter((_, i) => i !== index));
+
+  const handlePopulateAllVariants = (productId, currentIndex) => {
+    const vars = variantsMap[productId] || [];
+    if (vars.length === 0) return;
+
+    const prod = products.find(p => p._id === productId);
+    const uom = prod?.unitOfMeasure || prod?.uom || 'PCS';
+    const baseCost = prod?.costPrice || prod?.purchasePrice || '';
+
+    const newRows = vars.map(v => ({
+      productId,
+      variantId: v._id,
+      variantSku: v.sku,
+      quantity: 1,
+      unitCost: v.purchasePrice || v.costPrice || baseCost,
+      uom
+    }));
+
+    const updated = [...items];
+    updated.splice(currentIndex, 1, ...newRows);
+    setItems(updated);
+  };
 
   const filteredPOs = useMemo(() => {
     return pos.filter(po => {
@@ -663,14 +737,45 @@ const PurchaseOrders = () => {
                   <FormField label="Product">
                     <Select 
                       required 
+                      disabled={!branchId}
                       value={item.productId} 
                       onChange={e => updateItem(index, 'productId', e.target.value)}
                     >
-                      <option value="">Select Product</option>
-                      {products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                      <option value="">{branchId ? "Select Product" : "-- Select Branch First --"}</option>
+                      {availableProducts.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
                     </Select>
                   </FormField>
                 </div>
+
+                {variantsMap[item.productId]?.length > 0 && (
+                  <div className="w-64 shrink-0">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-foreground">Variant / Spec</label>
+                        <button
+                          type="button"
+                          onClick={() => handlePopulateAllVariants(item.productId, index)}
+                          className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
+                          title="Populate rows for all variants of this product"
+                        >
+                          ⚡ All Variants
+                        </button>
+                      </div>
+                      <Select
+                        value={item.variantId || ''}
+                        onChange={e => updateItem(index, 'variantId', e.target.value)}
+                      >
+                        <option value="">-- Base Product --</option>
+                        {variantsMap[item.productId].map(v => {
+                          const attrStr = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
+                          const label = v.title ? `${v.title} (${v.sku})` : (attrStr ? `${attrStr} (${v.sku})` : v.sku);
+                          return <option key={v._id} value={v._id}>{label}</option>;
+                        })}
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
                 <div className="w-24 shrink-0">
                   <FormField label="Qty">
                     <Input 

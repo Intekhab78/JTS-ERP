@@ -105,8 +105,8 @@ const OrderView = () => {
               STATUS: {derivedStatus}
             </span>
             
-            <button onClick={handlePrint} className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
-              <Printer size={14} /> Print
+            <button onClick={() => window.open(`/ecommerce/orders/${order._id}/invoice`, '_blank')} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2 cursor-pointer">
+              <FileText size={14} /> A4 Tax Invoice
             </button>
 
             {order.status === 'DRAFT' && (
@@ -180,7 +180,7 @@ const OrderView = () => {
                 {order.status === 'PENDING' || order.status === 'DRAFT' || order.status === 'CONFIRMED' ? (
                   <span className="text-rose-500">UNPAID</span>
                 ) : (
-                  order.paymentMethod.replace('_', ' ')
+                  (order.paymentMethod || 'COD').replace('_', ' ')
                 )}
               </div>
             </div>
@@ -199,7 +199,7 @@ const OrderView = () => {
                 <div className="text-xs text-slate-400 tracking-wider uppercase font-semibold mb-2 print:text-slate-500">Total Amount</div>
                 <div className="flex items-baseline gap-2">
                    <span className="text-xl font-bold text-blue-400">{soSymbol}</span>
-                   <span className="text-4xl font-bold tracking-tight text-white print:text-black">{order.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                   <span className="text-4xl font-bold tracking-tight text-white print:text-black">{(order.totalAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
              </div>
            </div>
@@ -208,16 +208,22 @@ const OrderView = () => {
               <div className="pt-4 border-t border-slate-800 print:border-slate-200">
                 <div className="flex justify-between items-center mb-2">
                   <div className="text-xs text-slate-400 print:text-slate-500">Subtotal</div>
-                  <div className="text-sm font-semibold">{soSymbol} {(order.subTotal || 0).toFixed(2)}</div>
+                  <div className="text-sm font-semibold">{soSymbol} {Number(order.subtotalAmount ?? order.subTotal ?? ((order.totalAmount || 0) - (order.taxAmount || 0) - (order.shippingAmount || 0))).toFixed(2)}</div>
                 </div>
+                {Number(order.shippingAmount || 0) > 0 && (
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="text-xs text-slate-400 print:text-slate-500">Shipping</div>
+                    <div className="text-sm font-semibold">{soSymbol} {Number(order.shippingAmount).toFixed(2)}</div>
+                  </div>
+                )}
                 <div className="flex justify-between items-center mb-2">
-                  <div className="text-xs text-slate-400 print:text-slate-500">Tax ({order.taxRate}%)</div>
-                  <div className="text-sm font-semibold">{soSymbol} {(order.taxAmount || 0).toFixed(2)}</div>
+                  <div className="text-xs text-slate-400 print:text-slate-500">Tax {order.taxRate ? `(${order.taxRate}%)` : ''}</div>
+                  <div className="text-sm font-semibold">{soSymbol} {Number(order.taxAmount || 0).toFixed(2)}</div>
                 </div>
-                {order.discountAmount > 0 && (
+                {Number(order.discountAmount || 0) > 0 && (
                   <div className="flex justify-between items-center mb-2">
                     <div className="text-xs text-slate-400 print:text-slate-500">Discount</div>
-                    <div className="text-sm font-semibold text-emerald-400">-{soSymbol} {order.discountAmount.toFixed(2)}</div>
+                    <div className="text-sm font-semibold text-emerald-400">-{soSymbol} {Number(order.discountAmount).toFixed(2)}</div>
                   </div>
                 )}
               </div>
@@ -245,28 +251,44 @@ const OrderView = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
-              {items.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-slate-900">{item.productName || item.productId?.name}</div>
-                  </td>
-                  <td className="px-6 py-4 text-center text-slate-600 font-mono text-xs">
-                    {item.productId?.sku || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="font-bold text-slate-800">{item.quantity}</span>
-                  </td>
-                  <td className="px-6 py-4 text-center text-slate-600">
-                    <div className="text-[10px] text-slate-400">{soSymbol}</div>
-                    <div className="font-mono">{item.unitPrice.toFixed(2)}</div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="font-bold text-slate-800 font-mono">
-                      {soSymbol} {item.totalPrice.toFixed(2)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {(items || []).map((item, idx) => {
+                const unitPrice = Number(item.unitPrice || 0);
+                const lineTotal = Number(item.totalPrice ?? item.subTotal ?? ((item.quantity || 0) * unitPrice));
+                return (
+                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-900">{item.productName || item.productId?.name || item.name || 'Product'}</div>
+                      {item.variantSku && (
+                        <div className="text-xs text-blue-600 font-medium mt-0.5 flex items-center gap-1">
+                          <span className="bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                            Variant: {item.variantSku}
+                          </span>
+                          {item.selectedAttributes && Object.keys(item.selectedAttributes).length > 0 && (
+                            <span className="text-slate-500 text-[11px]">
+                              ({Object.entries(item.selectedAttributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center text-slate-600 font-mono text-xs">
+                      {item.variantSku || item.productId?.sku || item.sku || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="font-bold text-slate-800">{item.quantity}</span>
+                    </td>
+                    <td className="px-6 py-4 text-center text-slate-600">
+                      <div className="text-[10px] text-slate-400">{soSymbol}</div>
+                      <div className="font-mono">{unitPrice.toFixed(2)}</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="font-bold text-slate-800 font-mono">
+                        {soSymbol} {lineTotal.toFixed(2)}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

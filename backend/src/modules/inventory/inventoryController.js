@@ -8,6 +8,11 @@ const StockMovement = require('../../core/models/StockMovement');
 const UomConversion = require('../../core/models/UomConversion');
 const CompanyItem = require('../../core/models/CompanyItem');
 const LegalCompany = require('../../core/models/LegalCompany');
+const EcomSettings = require('../../core/models/EcomSettings');
+const POSOrder = require('../../core/models/POSOrder');
+const TaxInvoice = require('../../core/models/TaxInvoice');
+const VendorBill = require('../../core/models/VendorBill');
+const ProductVariant = require('../../core/models/ProductVariant');
 
 // @desc    Get all products for the tenant
 // @route   GET /api/v1/inventory/products
@@ -53,70 +58,98 @@ exports.getProducts = async (req, res) => {
       { $match: filter }
     ];
 
-    let branchIdObj = null;
-    if (req.query.branchId) {
-      branchIdObj = new mongoose.Types.ObjectId(req.query.branchId.split(',')[0].trim());
-      
-      const Branch = require('../../core/models/Branch');
-      const branch = await Branch.findOne({ _id: branchIdObj, tenantId }).lean();
-      
-      if (!branch || !branch.legalCompanyId) {
-        return res.status(403).json({ message: 'Branch is not configured with a Legal Company.' });
-      }
-      
-      const legalCompanyId = branch.legalCompanyId;
+    // Company filtering (via query or x-company-id header)
+    const reqCompanyId = req.query.companyId || req.headers['x-company-id'];
+    let companyIdObj = null;
+    if (reqCompanyId && reqCompanyId !== 'ALL' && reqCompanyId !== 'null' && reqCompanyId !== 'undefined' && mongoose.Types.ObjectId.isValid(reqCompanyId)) {
+      companyIdObj = new mongoose.Types.ObjectId(reqCompanyId);
+      const LegalCompany = require('../../core/models/LegalCompany');
+      const legalCompany = await LegalCompany.findOne({ _id: companyIdObj, tenantId }).lean();
 
-      // Ensure product is commercially configured for this Legal Company
-      pipeline.push(
-        {
-          $lookup: {
-            from: 'companyitems',
-            let: { pid: '$_id' },
-            pipeline: [
+      const compOr = [
+        { companyIds: { $exists: false } },
+        { companyIds: { $size: 0 } },
+        { companyIds: companyIdObj }
+      ];
+      if (legalCompany && legalCompany.name) {
+        compOr.push({ company: new RegExp(legalCompany.name, 'i') });
+      }
+      pipeline.push({ $match: { $or: compOr } });
+    }
+
+    let branchIdObj = null;
+    if (req.query.branchId && req.query.branchId !== 'ALL' && req.query.branchId !== 'null' && req.query.branchId !== 'undefined') {
+      const rawBranchId = req.query.branchId.split(',')[0].trim();
+      if (mongoose.Types.ObjectId.isValid(rawBranchId)) {
+        branchIdObj = new mongoose.Types.ObjectId(rawBranchId);
+        
+        const Branch = require('../../core/models/Branch');
+        const branch = await Branch.findOne({ _id: branchIdObj, tenantId }).lean();
+        
+        if (branch) {
+          const branchOr = [
+            { branchIds: { $exists: false } },
+            { branchIds: { $size: 0 } },
+            { branchIds: branchIdObj }
+          ];
+          if (branch.name) {
+            branchOr.push({ location: new RegExp(branch.name, 'i') });
+          }
+          pipeline.push({ $match: { $or: branchOr } });
+
+          // Overlay CompanyItem pricing if branch has a Legal Company
+          if (branch.legalCompanyId) {
+            const legalCompanyId = branch.legalCompanyId;
+            pipeline.push(
               {
-                $match: {
-                  $expr: {
-                    $and: [
-                      { $eq: ['$productId', '$$pid'] },
-                      { $eq: ['$tenantId', tenantId] },
-                      { $eq: ['$legalCompanyId', legalCompanyId] },
-                      { $eq: [{ $ifNull: ['$isActive', true] }, true] }
-                    ]
-                  }
+                $lookup: {
+                  from: 'companyitems',
+                  let: { pid: '$_id' },
+                  pipeline: [
+                    {
+                      $match: {
+                        $expr: {
+                          $and: [
+                            { $eq: ['$productId', '$$pid'] },
+                            { $eq: ['$tenantId', tenantId] },
+                            { $eq: ['$legalCompanyId', legalCompanyId] },
+                            { $eq: [{ $ifNull: ['$isActive', true] }, true] }
+                          ]
+                        }
+                      }
+                    },
+                    { $limit: 1 }
+                  ],
+                  as: 'companyItemMatch'
                 }
               },
-              { $limit: 1 }
-            ],
-            as: 'companyItemMatch'
+              {
+                $addFields: {
+                  companyItem: { $arrayElemAt: ['$companyItemMatch', 0] }
+                }
+              },
+              {
+                $addFields: {
+                  sku: { $ifNull: ['$companyItem.companySku', '$sku'] },
+                  salesPrice: { $ifNull: ['$companyItem.salesPrice', '$salesPrice'] },
+                  purchasePrice: { $ifNull: ['$companyItem.purchasePrice', '$purchasePrice'] },
+                  taxRate: { $ifNull: ['$companyItem.taxRate', '$taxRate'] },
+                  categoryId: { $ifNull: ['$companyItem.categoryId', '$categoryId'] },
+                  department: { $ifNull: ['$companyItem.department', '$department'] },
+                  section: { $ifNull: ['$companyItem.section', '$section'] },
+                  tax1: { $ifNull: ['$companyItem.tax1', '$tax1'] },
+                  isActive: { $ifNull: ['$companyItem.isActive', '$isActive'] },
+                  allowDiscount: { $ifNull: ['$companyItem.allowDiscount', '$allowDiscount'] }
+                }
+              },
+              {
+                $project: { companyItemMatch: 0, companyItem: 0 }
+              }
+            );
           }
-        },
-        {
-          $match: {
-            $expr: { $gt: [{ $size: '$companyItemMatch' }, 0] }
-          }
-        },
-        {
-          $unwind: '$companyItemMatch'
-        },
-        {
-          $addFields: {
-            sku: { $ifNull: ['$companyItemMatch.companySku', '$sku'] },
-            salesPrice: { $ifNull: ['$companyItemMatch.salesPrice', '$salesPrice'] },
-            purchasePrice: { $ifNull: ['$companyItemMatch.purchasePrice', '$purchasePrice'] },
-            taxRate: { $ifNull: ['$companyItemMatch.taxRate', '$taxRate'] },
-            categoryId: { $ifNull: ['$companyItemMatch.categoryId', '$categoryId'] },
-            department: { $ifNull: ['$companyItemMatch.department', '$department'] },
-            section: { $ifNull: ['$companyItemMatch.section', '$section'] },
-            tax1: { $ifNull: ['$companyItemMatch.tax1', '$tax1'] },
-            isActive: { $ifNull: ['$companyItemMatch.isActive', '$isActive'] },
-            allowDiscount: { $ifNull: ['$companyItemMatch.allowDiscount', '$allowDiscount'] }
-          }
-        },
-        {
-          $project: { companyItemMatch: 0 }
         }
-      );
-    } // <-- Added missing closing brace here
+      }
+    }
 
       // User requested to remove the Assortment/Catalog restriction entirely.
       // Visibility is now strictly based on CompanyItem and Stock.
@@ -273,7 +306,7 @@ exports.createProduct = async (req, res) => {
       department, family, subFamily, color, size, hsnCode, itemReference, styleCode,
       longDescription, description3, description4, itemDescriptionDetails, note1, note2, note3,
       minStockLevel, maxStockLevel, stockManagement, weight, weightUom, expiry, expiryType, expiryDays, date1, date2, uploadImage,
-      company, location, tax1, supplierName
+      company, location, companyIds, branchIds, tax1, supplierName, hasVariants, variantAttributeDefinitions
     } = req.body;
 
     // Check if category exists and belongs to tenant
@@ -302,20 +335,32 @@ exports.createProduct = async (req, res) => {
       }
     }
 
+    const resolvedType = (type && String(type).trim()) ? String(type).trim() : 'STANDARD';
+
     const product = await Product.create({
-      tenantId, name, sku, categoryId, price: salesPrice || price || 0, type, uom, brand, barcode, 
+      tenantId, name, sku, categoryId, price: salesPrice || price || 0, type: resolvedType, uom, brand, barcode, 
       purchasePrice, salesPrice: salesPrice || price || 0, taxRate, isActive: isActive !== undefined ? isActive : true,
       uomDetails, landedCost, costingMethod, department, family, subFamily, color, size, hsnCode, itemReference, styleCode,
       longDescription, description3, description4, itemDescriptionDetails, note1, note2, note3,
       minStockLevel, maxStockLevel, stockManagement, weight, weightUom, expiry, expiryType, expiryDays, date1, date2, uploadImage,
-      company, location, tax1, supplierName, createdBy: req.user._id
+      company, location, 
+      companyIds: Array.isArray(companyIds) ? companyIds : [],
+      branchIds: Array.isArray(branchIds) ? branchIds : [],
+      tax1, supplierName,
+      hasVariants: Boolean(hasVariants),
+      variantAttributeDefinitions: Array.isArray(variantAttributeDefinitions)
+        ? variantAttributeDefinitions.filter(d => d && d.name && Array.isArray(d.values) && d.values.some(v => typeof v === 'string' && v.trim() !== ''))
+        : [],
+      createdBy: req.user._id
     });
 
     // PHASE 6: Centralized Product + Localized CompanyItem Creation
     const activeCompanyId = req.headers['x-company-id'];
     let targetCompanies = [];
 
-    if (!activeCompanyId || activeCompanyId === 'ALL' || activeCompanyId === 'null' || activeCompanyId === 'undefined') {
+    if (Array.isArray(companyIds) && companyIds.length > 0) {
+      targetCompanies = await LegalCompany.find({ _id: { $in: companyIds }, tenantId });
+    } else if (!activeCompanyId || activeCompanyId === 'ALL' || activeCompanyId === 'null' || activeCompanyId === 'undefined') {
       // Create CompanyItem for ALL active legal companies in the tenant
       targetCompanies = await LegalCompany.find({ tenantId, isActive: true });
     } else {
@@ -350,6 +395,9 @@ exports.createProduct = async (req, res) => {
   } catch (error) {
     if (error.code === 11000) {
       return res.status(400).json({ message: 'A product with this SKU already exists.' });
+    }
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: error.message });
     }
     res.status(500).json({ message: error.message });
   }
@@ -431,18 +479,54 @@ exports.updateProduct = async (req, res) => {
       }
     }
 
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { returnDocument: 'after', runValidators: true }
-    ).populate('categoryId', 'name');
+    if (updates.variantAttributeDefinitions && Array.isArray(updates.variantAttributeDefinitions)) {
+      updates.variantAttributeDefinitions = updates.variantAttributeDefinitions.filter(
+        d => d && d.name && Array.isArray(d.values) && d.values.some(v => typeof v === 'string' && v.trim() !== '')
+      );
+    }
 
-    // PHASE 6: Update CompanyItem for the currently selected Legal Company
+    Object.assign(product, updates);
+    await product.save();
+
+    // Clean up disk files if images list was modified
+    if (updates.images !== undefined || updates.uploadImage !== undefined) {
+      try {
+        const pDir = path.join(__dirname, '../../../uploads/products', tenantId.toString(), product._id.toString());
+        if (fs.existsSync(pDir)) {
+          const retainedFiles = new Set();
+          const extractBaseName = (url) => {
+            if (!url || typeof url !== 'string') return;
+            const clean = url.split('?')[0].split('#')[0];
+            const base = path.basename(clean);
+            if (base) retainedFiles.add(base);
+          };
+          if (product.uploadImage) extractBaseName(product.uploadImage);
+          if (Array.isArray(product.images)) product.images.forEach(extractBaseName);
+
+          const diskFiles = fs.readdirSync(pDir);
+          for (const file of diskFiles) {
+            if (!retainedFiles.has(file)) {
+              try {
+                fs.unlinkSync(path.join(pDir, file));
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    const updatedProduct = await Product.findById(product._id).populate('categoryId', 'name');
+
+    // PHASE 6: Update CompanyItem for the currently selected Legal Company or explicit companyIds
     const activeCompanyId = req.headers['x-company-id'];
-    if (activeCompanyId && activeCompanyId !== 'ALL' && activeCompanyId !== 'null' && activeCompanyId !== 'undefined') {
-      const CompanyItem = require('../../core/models/CompanyItem');
+    const CompanyItem = require('../../core/models/CompanyItem');
+    const targetCompIds = (Array.isArray(updates.companyIds) && updates.companyIds.length > 0)
+      ? updates.companyIds
+      : (activeCompanyId && activeCompanyId !== 'ALL' && activeCompanyId !== 'null' && activeCompanyId !== 'undefined' ? [activeCompanyId] : []);
+
+    for (const cId of targetCompIds) {
       await CompanyItem.findOneAndUpdate(
-        { tenantId, productId: updatedProduct._id, legalCompanyId: activeCompanyId },
+        { tenantId, productId: updatedProduct._id, legalCompanyId: cId },
         {
           $set: {
             salesPrice: updates.salesPrice !== undefined ? updates.salesPrice : (updates.price || updatedProduct.price),
@@ -459,6 +543,9 @@ exports.updateProduct = async (req, res) => {
   } catch (error) {
     if (error.code === 11000) {
       return res.status(400).json({ message: 'A product with this SKU already exists.' });
+    }
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ message: error.message });
     }
     res.status(500).json({ message: error.message });
   }
@@ -480,22 +567,41 @@ exports.deleteProduct = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Check dependencies
-    const hasStock = await Stock.exists({ productId: product._id, tenantId });
+    const force = req.query.force === 'true';
+
+    // Check transactional dependencies (sales orders, purchases, POS, tax invoices, vendor bills)
     const hasSales = await OrderItem.exists({ productId: product._id });
     const hasPurchases = await PurchaseOrderItem.exists({ productId: product._id });
+    const hasPOS = await POSOrder.exists({ 'items.productId': product._id });
+    const hasTaxInvoices = await TaxInvoice.exists({ 'items.productId': product._id });
+    const hasVendorBills = await VendorBill.exists({ 'items.productId': product._id });
 
-    if (hasStock || hasSales || hasPurchases) {
-      // Soft Delete
+    const hasTransactions = Boolean(hasSales || hasPurchases || hasPOS || hasTaxInvoices || hasVendorBills);
+
+    if (hasTransactions && !force) {
+      // Soft Delete: deactivate product and related company items
       product.isActive = false;
       await product.save();
-      return res.status(200).json({ message: 'Product has dependencies and was soft-deleted (deactivated).' });
+      await CompanyItem.updateMany(
+        { productId: product._id, tenantId },
+        { $set: { isActive: false } }
+      );
+      return res.status(200).json({ 
+        message: 'Product has historical transaction records and was deactivated/archived.',
+        softDeleted: true 
+      });
     }
 
-    // Hard Delete
-    await Product.findOneAndDelete({ _id: req.params.id, tenantId });
+    // Hard Delete: cascade cleanup of all child records
+    await Promise.all([
+      Stock.deleteMany({ productId: product._id, tenantId }),
+      StockMovement.deleteMany({ productId: product._id, tenantId }),
+      CompanyItem.deleteMany({ productId: product._id, tenantId }),
+      ProductVariant.deleteMany({ productId: product._id, tenantId }),
+      Product.findOneAndDelete({ _id: product._id, tenantId })
+    ]);
 
-    res.status(200).json({ message: 'Product permanently removed' });
+    res.status(200).json({ message: 'Product permanently removed', softDeleted: false });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -507,7 +613,9 @@ exports.deleteProduct = async (req, res) => {
 exports.getCategories = async (req, res) => {
   try {
     const tenantContext = req.user.activeTenantId || req.user.tenantId;
-    const categories = await Category.find({ tenantId: tenantContext }).sort('name');
+    const categories = await Category.find({ tenantId: tenantContext })
+      .populate('itemDepartmentId', 'name code')
+      .sort('name');
     res.status(200).json(categories);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -526,11 +634,19 @@ exports.createCategory = async (req, res) => {
       tenantId: tenantContext,
       name,
       description,
-      itemDepartmentId,
-      code,
+      itemDepartmentId: itemDepartmentId || undefined,
+      code: code ? code.trim().toUpperCase() : undefined,
       isActive: isActive !== undefined ? isActive : true
     });
-    res.status(201).json(category);
+
+    // Auto-map to ecommerce settings
+    EcomSettings.updateOne(
+      { tenantId: tenantContext },
+      { $addToSet: { mappedCategories: category._id.toString() } }
+    ).catch(() => {});
+
+    const populated = await Category.findById(category._id).populate('itemDepartmentId', 'name code');
+    res.status(201).json(populated || category);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -539,11 +655,15 @@ exports.createCategory = async (req, res) => {
 exports.updateCategory = async (req, res) => {
   try {
     const tenantContext = req.user.activeTenantId || req.user.tenantId;
+    const updateData = { ...req.body };
+    if (updateData.code) {
+      updateData.code = updateData.code.trim().toUpperCase();
+    }
     const category = await Category.findOneAndUpdate(
       { _id: req.params.id, tenantId: tenantContext },
-      req.body,
+      updateData,
       { returnDocument: 'after', runValidators: true }
-    );
+    ).populate('itemDepartmentId', 'name code');
     if (!category) return res.status(404).json({ message: 'Category not found' });
     res.status(200).json(category);
   } catch (error) {
@@ -577,7 +697,12 @@ exports.deleteCategory = async (req, res) => {
 // @access  Private
 exports.uploadProductImage = async (req, res) => {
   try {
-    let tenantId = req.user.activeTenantId || req.user.tenantId;
+    let tenantId = req.user?.activeTenantId || req.user?.tenantId || req.headers?.['x-tenant-id'];
+    if (!tenantId) {
+      const Company = require('../../core/models/Company');
+      const company = await Company.findOne({ name: /JTS Group/i }) || await Company.findOne();
+      tenantId = company?._id;
+    }
     if (!tenantId) {
       return res.status(400).json({ message: 'Tenant ID is required' });
     }
@@ -587,21 +712,26 @@ exports.uploadProductImage = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    if (!req.files || req.files.length === 0) {
+    const uploadedFiles = req.files && req.files.length > 0 ? req.files : (req.file ? [req.file] : []);
+    if (uploadedFiles.length === 0) {
       return res.status(400).json({ message: 'Please upload at least one image' });
     }
 
-    const newImageUrls = req.files.map(file => {
-      // Build URL path relative to server root
-      return `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/products/${tenantId}/${product._id}/${file.filename}`;
+    const newImageUrls = uploadedFiles.map(file => {
+      // Build clean URL path relative to server root
+      return `/uploads/products/${tenantId}/${product._id}/${file.filename}`;
     });
 
     product.images = [...(product.images || []), ...newImageUrls];
+    if (!product.uploadImage || product.uploadImage.trim() === '') {
+      product.uploadImage = product.images[0] || null;
+    }
     await product.save();
 
     res.status(200).json({
       message: 'Images uploaded successfully',
-      images: product.images
+      images: product.images,
+      uploadImage: product.uploadImage
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -615,7 +745,12 @@ exports.deleteProductImage = async (req, res) => {
   try {
     const fs = require('fs');
     const path = require('path');
-    let tenantId = req.user.activeTenantId || req.user.tenantId;
+    let tenantId = req.user?.activeTenantId || req.user?.tenantId || req.headers?.['x-tenant-id'];
+    if (!tenantId) {
+      const Company = require('../../core/models/Company');
+      const company = await Company.findOne({ name: /JTS Group/i }) || await Company.findOne();
+      tenantId = company?._id;
+    }
 
     const product = await Product.findOne({ _id: req.params.id, tenantId });
     if (!product) {
@@ -625,25 +760,39 @@ exports.deleteProductImage = async (req, res) => {
     const { imageName } = req.params;
     
     // Find the image URL in the array that ends with the given imageName
-    const imageUrlIndex = product.images.findIndex(url => url.endsWith(imageName));
-    
-    if (imageUrlIndex === -1) {
+    let imageUrlIndex = -1;
+    if (Array.isArray(product.images)) {
+      imageUrlIndex = product.images.findIndex(url => url && url.endsWith(imageName));
+      if (imageUrlIndex !== -1) {
+        product.images.splice(imageUrlIndex, 1);
+      }
+    }
+
+    let uploadImageMatched = false;
+    if (product.uploadImage && product.uploadImage.endsWith(imageName)) {
+      product.uploadImage = (product.images && product.images.length > 0) ? product.images[0] : null;
+      uploadImageMatched = true;
+    }
+
+    // Remove from filesystem (src/modules/inventory -> 3 levels up to backend root)
+    const filePath = path.join(__dirname, '../../../uploads/products', tenantId.toString(), product._id.toString(), imageName);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) {
+        console.error('Failed to unlink deleted image file:', e.message);
+      }
+    }
+
+    if (imageUrlIndex === -1 && !uploadImageMatched && !fs.existsSync(filePath)) {
       return res.status(404).json({ message: 'Image not found in product record' });
     }
 
-    // Remove from array
-    product.images.splice(imageUrlIndex, 1);
     await product.save();
-
-    // Remove from filesystem
-    const filePath = path.join(__dirname, '../../../../uploads/products', tenantId.toString(), product._id.toString(), imageName);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
 
     res.status(200).json({
       message: 'Image deleted successfully',
-      images: product.images
+      images: product.images || []
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -661,14 +810,37 @@ exports.getProductByBarcode = async (req, res) => {
     if (!tenantId) return res.status(400).json({ message: 'Missing tenant context' });
     if (!barcode) return res.status(400).json({ message: 'Barcode is required' });
 
-    // Exact lookup by barcode
+    // Exact lookup by barcode on parent product, then fallback to ProductVariant
     let product = await Product.findOne({ tenantId, barcode, isActive: { $ne: false } }).lean();
+    let matchedVariant = null;
+
+    if (!product) {
+      const ProductVariant = require('../../core/models/ProductVariant');
+      matchedVariant = await ProductVariant.findOne({ tenantId, barcode, isActive: { $ne: false } }).lean();
+      if (matchedVariant) {
+        product = await Product.findOne({ _id: matchedVariant.productId, tenantId, isActive: { $ne: false } }).lean();
+      }
+    }
     
     if (!product) {
       return res.status(404).json({ message: 'Product not found with this barcode' });
     }
 
     if (branchId) {
+      // Validate branch allocation if product is branch-restricted
+      if (product.branchIds && product.branchIds.length > 0) {
+        const branchIdStr = branchId.toString();
+        const isBranchAllowed = product.branchIds.some(b => (b._id || b).toString() === branchIdStr);
+        if (!isBranchAllowed) {
+          const Branch = require('../../core/models/Branch');
+          const branchDoc = await Branch.findById(branchId).lean();
+          const matchesLocation = branchDoc && product.location && new RegExp(branchDoc.name, 'i').test(product.location);
+          if (!matchesLocation) {
+            return res.status(404).json({ message: 'Product is not assigned to this branch' });
+          }
+        }
+      }
+
       const companyItemService = require('../../services/companyItemService');
       let resolvedItem;
       try {
@@ -690,9 +862,13 @@ exports.getProductByBarcode = async (req, res) => {
       }
 
       // Overwrite global commercial fields with local resolved commercial fields
-      product.sku = resolvedItem.companySku;
-      product.salesPrice = resolvedItem.salesPrice;
-      product.purchasePrice = resolvedItem.purchasePrice;
+      product.sku = matchedVariant ? matchedVariant.sku : resolvedItem.companySku;
+      product.salesPrice = (matchedVariant && matchedVariant.salesPrice != null && matchedVariant.salesPrice > 0)
+        ? matchedVariant.salesPrice
+        : resolvedItem.salesPrice;
+      product.purchasePrice = (matchedVariant && matchedVariant.purchasePrice != null && matchedVariant.purchasePrice > 0)
+        ? matchedVariant.purchasePrice
+        : resolvedItem.purchasePrice;
       product.taxRate = resolvedItem.taxRate;
       product.categoryId = resolvedItem.categoryId;
       product.department = resolvedItem.department;
@@ -702,10 +878,28 @@ exports.getProductByBarcode = async (req, res) => {
       product.allowDiscount = resolvedItem.allowDiscount;
       product.isConfigured = true;
 
-      // Stock lookup
+      if (matchedVariant) {
+        product.variantId = matchedVariant._id;
+        product.variantSku = matchedVariant.sku;
+        product.variantAttributes = matchedVariant.attributes;
+      }
+
+      // Stock lookup with variant partitioning
       const Stock = require('../../core/models/Stock');
       const branchIdObj = new mongoose.Types.ObjectId(branchId);
-      const stockRecords = await Stock.find({ tenantId, branchId: branchIdObj, productId: product._id, ownerType: 'COMPANY' }).lean();
+      const stockFilter = {
+        tenantId,
+        branchId: branchIdObj,
+        productId: product._id,
+        ownerType: 'COMPANY'
+      };
+      if (matchedVariant) {
+        stockFilter.variantId = matchedVariant._id;
+      } else {
+        stockFilter.variantId = { $in: [null, undefined] };
+      }
+
+      const stockRecords = await Stock.find(stockFilter).lean();
       const totalStock = stockRecords.reduce((sum, s) => sum + s.quantity, 0);
       
       product.stock = totalStock;

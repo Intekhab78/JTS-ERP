@@ -14,7 +14,8 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Serve static uploads
 const path = require('path');
@@ -81,4 +82,4 @@ app.listen(PORT, () => {
 
 // restarted
 // restarted frontend for DeliveryNoteForm.jsx
-// restarted frontend for DeliveryNoteForm.jsx
+// restarted for ecommerce module expansion with Atlas db

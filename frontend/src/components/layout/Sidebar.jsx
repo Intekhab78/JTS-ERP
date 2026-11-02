@@ -33,7 +33,9 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }));
   };
 
-  const renderModule = (mod) => {
+  const renderModule = (mod, modIndex = 0) => {
+    const baseDelay = Math.min(modIndex * 35, 240);
+
     if (mod.isParent) {
       const hasAnyAccess = mod.subModules.some(sub => hasAccess(sub.id));
       if (!hasAnyAccess) return null;
@@ -42,10 +44,14 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       const isActiveParent = mod.subModules.some(sub => location.pathname.startsWith(sub.path));
 
       return (
-        <li key={mod.id} className="space-y-1 mb-2">
+        <li 
+          key={mod.id} 
+          className="space-y-1 mb-2 animate-module-in"
+          style={{ animationDelay: `${baseDelay}ms` }}
+        >
           <button
             onClick={() => toggleModule(mod.id)}
-            className={`w-full flex items-center justify-between gap-3 px-4 py-2 transition-all duration-200 text-[11px] font-bold tracking-wider uppercase focus-visible:outline-none ${
+            className={`w-full flex items-center justify-between gap-3 px-4 py-2 transition-all duration-200 text-[11px] font-bold tracking-wider uppercase focus-visible:outline-none hover:translate-x-0.5 ${
               isActiveParent
                 ? 'text-indigo-300'
                 : 'text-slate-400 hover:text-slate-200'
@@ -64,13 +70,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             }`}
           >
             <ul className="space-y-1">
-              {mod.subModules.filter(sub => hasAccess(sub.id) || (sub.children && sub.children.some(c => hasAccess(c.id)))).map(sub => {
+              {mod.subModules.filter(sub => hasAccess(sub.id) || (sub.children && sub.children.some(c => hasAccess(c.id)))).map((sub, subIdx) => {
+                const subDelay = Math.min(baseDelay + (subIdx + 1) * 22, 380);
+
                 if (sub.children) {
                   const isSubExpanded = expandedModules[sub.id];
                   const isActiveGroup = location.pathname.startsWith(sub.path);
 
                   return (
-                    <li key={sub.id} className="px-2 mb-1 mt-1">
+                    <li 
+                      key={sub.id} 
+                      className="px-2 mb-1 mt-1 animate-module-in"
+                      style={{ animationDelay: `${subDelay}ms` }}
+                    >
                       <button
                         onClick={() => {
                           toggleModule(sub.id);
@@ -80,7 +92,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                             if (window.innerWidth < 1024) setIsOpen(false);
                           }
                         }}
-                        className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none ${
+                        className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none hover:translate-x-1 ${
                           isActiveGroup && !isSubExpanded
                             ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                             : 'text-slate-300 hover:bg-white/5 hover:text-white'
@@ -100,7 +112,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                               <NavLink
                                 to={child.path}
                                 onClick={() => setIsOpen(false)}
-                                className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 text-[13px] font-semibold focus-visible:outline-none ${
+                                className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 text-[13px] font-semibold focus-visible:outline-none hover:translate-x-1 ${
                                   isActive
                                     ? 'bg-white/10 text-white' // Distinct active state for nested item
                                     : 'text-slate-400 hover:bg-white/5 hover:text-white'
@@ -117,7 +129,11 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 }
 
                 return (
-                  <li key={sub.id} className="px-2">
+                  <li 
+                    key={sub.id} 
+                    className="px-2 animate-module-in"
+                    style={{ animationDelay: `${subDelay}ms` }}
+                  >
                   <NavLink
                     to={sub.path}
                     end={sub.path === '/sales' || sub.path === '/purchases' || sub.path === '/inventory' || sub.path === '/pos'}
@@ -132,7 +148,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                         }
                       }
                       
-                      return `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none ${
+                      return `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none hover:translate-x-1 ${
                         trulyActive
                           ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                           : 'text-slate-300 hover:bg-white/5 hover:text-white'
@@ -152,12 +168,16 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     } else {
       if (!hasAccess(mod.id)) return null;
       return (
-        <li key={mod.id} className="px-2 mb-2">
+        <li 
+          key={mod.id} 
+          className="px-2 mb-2 animate-module-in"
+          style={{ animationDelay: `${baseDelay}ms` }}
+        >
           <NavLink
             to={mod.path}
             onClick={() => setIsOpen(false)}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none ${
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none hover:translate-x-1 ${
                 isActive
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                   : 'text-slate-300 hover:bg-white/5 hover:text-white'
@@ -173,44 +193,69 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   };
 
   return (
-    <aside aria-label="Sidebar Navigation" className={`print:hidden fixed lg:static inset-y-0 left-0 z-30 w-64 bg-[#262b3a] flex flex-col transition-all duration-300 ease-in-out shadow-2xl lg:shadow-none ${isOpen ? 'translate-x-0 lg:ml-0' : '-translate-x-full lg:translate-x-0 lg:-ml-64'}`}>
-      <div className="h-20 flex items-center justify-between px-5 shrink-0 pt-2">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-600/30">
-            J
+    <aside 
+      aria-label="Sidebar Navigation" 
+      className={`print:hidden fixed lg:static inset-y-0 left-0 z-30 w-64 bg-[#262b3a] flex flex-col shrink-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-2xl lg:shadow-none select-none will-change-transform ${
+        isOpen ? 'translate-x-0 lg:ml-0 opacity-100' : '-translate-x-full lg:translate-x-0 lg:-ml-64 lg:opacity-0 pointer-events-none lg:pointer-events-auto'
+      }`}
+    >
+      <div className="w-64 flex flex-col h-full">
+        {/* Sleek Sidebar Header matching Header height (h-14) */}
+        <div className="h-14 flex items-center justify-between px-4 shrink-0 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-indigo-600/30">
+              J
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-white tracking-tight leading-tight">
+                JTS ERP
+              </span>
+              <span className="text-[10px] font-medium text-slate-400">Enterprise v4.2</span>
+            </div>
           </div>
-          <div className="flex flex-col">
-            <span className="text-base font-bold text-white tracking-tight leading-tight">
-              JTS ERP
-            </span>
-            <span className="text-[11px] font-medium text-slate-400">Enterprise v4.2</span>
-          </div>
+          <button 
+            type="button"
+            aria-label="Close Sidebar"
+            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 cursor-pointer active:scale-90" 
+            onClick={() => setIsOpen(false)}
+            title="Collapse Sidebar"
+          >
+            <span className="lg:hidden"><X size={18} /></span>
+            <span className="hidden lg:block"><ChevronLeft size={18} /></span>
+          </button>
         </div>
-        <button 
-          aria-label="Close Sidebar"
-          className="text-slate-400 hover:text-white p-1 rounded-md transition-colors absolute right-4 top-6" 
-          onClick={() => setIsOpen(false)}
-        >
-          <span className="lg:hidden"><X size={20} /></span>
-          <span className="hidden lg:block"><ChevronLeft size={20} /></span>
-        </button>
-      </div>
 
-      <nav className="flex-1 py-4 overflow-y-auto custom-scrollbar">
-        <ul className="space-y-1">
-          {ERP_MODULES.map(renderModule)}
-        </ul>
-      </nav>
+        {/* Navigation list with smooth scroll & staggered entrance animation */}
+        <nav id="tour-sidebar-modules" className="flex-1 py-3 overflow-y-auto custom-scrollbar">
+          <ul key={isOpen ? 'sidebar-modules-open' : 'sidebar-modules-closed'} className="space-y-1">
+            {ERP_MODULES.map((mod, idx) => renderModule(mod, idx))}
+          </ul>
+        </nav>
 
-      <div className="p-4 shrink-0 space-y-4">
-        <div className="space-y-1">
-          <button className="flex items-center gap-3 px-3 py-2 w-full rounded-xl transition-all duration-200 text-sm font-semibold text-slate-400 hover:bg-white/5 hover:text-white focus-visible:outline-none">
-            <HelpCircle size={18} />
+        {/* Footer actions with smooth entrance animation */}
+        <div className="p-3 shrink-0 border-t border-white/5 space-y-1">
+          <button 
+            id="tour-help-center"
+            type="button"
+            onClick={() => navigate('/help')}
+            style={{ animationDelay: '260ms' }}
+            className={`flex items-center gap-3 px-3 py-2 w-full rounded-xl transition-all duration-200 text-xs font-semibold focus-visible:outline-none cursor-pointer hover:translate-x-1 animate-module-in ${
+              location.pathname === '/help'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-400 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <HelpCircle size={16} />
             Help Center
           </button>
 
-          <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2 w-full rounded-xl transition-all duration-200 text-sm font-semibold text-rose-400 hover:bg-rose-500/10 focus-visible:outline-none">
-            <LogOut size={18} />
+          <button 
+            type="button"
+            onClick={handleLogout} 
+            style={{ animationDelay: '300ms' }}
+            className="flex items-center gap-3 px-3 py-2 w-full rounded-xl transition-all duration-200 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 focus-visible:outline-none cursor-pointer hover:translate-x-1 animate-module-in"
+          >
+            <LogOut size={16} />
             Log Out
           </button>
         </div>

@@ -258,7 +258,18 @@ export default function RFQDetail() {
                   <tr key={idx} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-bold text-slate-800 uppercase text-sm tracking-wide">{item.productId?.name}</div>
-                      <div className="text-xs font-mono text-slate-400 mt-0.5">{item.productId?.sku}</div>
+                      {item.variantId ? (
+                        <div className="text-xs font-semibold text-blue-600 mt-0.5">
+                          Variant: {item.variantSku || item.variantId?.sku}
+                          {item.variantId?.attributes && (
+                            <span className="text-slate-500 font-normal ml-1">
+                              ({Object.entries(item.variantId.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-xs font-mono text-slate-400 mt-0.5">{item.productId?.sku}</div>
+                      )}
                       {item.description && <div className="text-xs text-slate-500 mt-1.5 font-medium">{item.description}</div>}
                     </td>
                     <td className="px-6 py-4 text-center">

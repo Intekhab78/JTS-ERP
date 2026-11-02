@@ -85,7 +85,18 @@ import ManufacturingOrders from './pages/manufacturing/ManufacturingOrders';
 import ManufacturingOrderForm from './pages/manufacturing/ManufacturingOrderForm';
 import ManufacturingOrderDetail from './pages/manufacturing/ManufacturingOrderDetail';
 import WebOrders from './pages/ecommerce/WebOrders';
+import EcomOrderProcessing from './pages/ecommerce/EcomOrderProcessing';
+import EcomStatusMaster from './pages/ecommerce/EcomStatusMaster';
+import EcomLogisticsMapping from './pages/ecommerce/EcomLogisticsMapping';
+import EcomSettings from './pages/ecommerce/EcomSettings';
+import EcomBanners from './pages/ecommerce/EcomBanners';
+import EcomReviews from './pages/ecommerce/EcomReviews';
+import EcomProductMedia from './pages/ecommerce/EcomProductMedia';
 import ApiKeys from './pages/ecommerce/ApiKeys';
+import WebOrderInvoicePrint from './pages/ecommerce/WebOrderInvoicePrint';
+import ShippingLabelPrint from './pages/ecommerce/ShippingLabelPrint';
+import RiderDeliveryVerify from './pages/ecommerce/RiderDeliveryVerify';
+import RiderPortal from './pages/ecommerce/RiderPortal';
 import POS from './pages/sales/POS';
 import POSOrders from './pages/sales/POSOrders';
 import POSSessions from './pages/sales/POSSessions';
@@ -117,7 +128,7 @@ import GRN from './pages/purchase/GRN';
 import GRNForm from './pages/purchase/GRNForm';
 import UomMaster from './pages/inventory/UomMaster';
 import UomConversionMaster from './pages/inventory/UomConversionMaster';
-import DepartmentMaster from './pages/hierarchy/DepartmentMaster'; 
+import DepartmentMaster from './pages/hierarchy/DepartmentMaster';
 import CategoryMaster from './pages/hierarchy/CategoryMaster';
 import FamilyMaster from './pages/hierarchy/FamilyMaster';
 import SubFamilyMaster from './pages/hierarchy/SubFamilyMaster';
@@ -130,6 +141,7 @@ import { CurrencyProvider } from './contexts/CurrencyContext';
 
 import TaxMaster from './pages/settings/TaxMaster';
 import AuditLogs from './pages/settings/AuditLogs';
+import HelpCenter from './pages/help/HelpCenter';
 
 // Simple Protected Route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -146,14 +158,20 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        
+
         {/* Public Routes */}
         <Route path="/login" element={<AuthLayout />} />
         <Route path="/register" element={<AuthLayout />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
-        
+
+        {/* Public Rider Doorstep Handover & POD Verification Routes */}
+        <Route path="/rider/verify/:id" element={<RiderDeliveryVerify />} />
+        <Route path="/rider" element={<RiderPortal />} />
+        <Route path="/rider-portal" element={<RiderPortal />} />
+
+
         {/* Protected Application Routes with AppShell */}
-        <Route 
+        <Route
           element={
             <ProtectedRoute>
               <CurrencyProvider>
@@ -213,23 +231,23 @@ function App() {
           <Route path="/leave-balances" element={<LeaveBalances />} />
           <Route path="/leave-requests" element={<LeaveRequests />} />
           <Route path="/leave-requests/new" element={<ProtectedRoute><LeaveRequestForm /></ProtectedRoute>} />
-          
+
           <Route path="/salary-components" element={<ProtectedRoute><SalaryComponents /></ProtectedRoute>} />
           <Route path="/salary-components/new" element={<ProtectedRoute><SalaryComponentForm /></ProtectedRoute>} />
           <Route path="/salary-components/edit/:id" element={<ProtectedRoute><SalaryComponentForm /></ProtectedRoute>} />
-          
+
           <Route path="/salary-structures" element={<ProtectedRoute><SalaryStructures /></ProtectedRoute>} />
           <Route path="/salary-structures/new" element={<ProtectedRoute><SalaryStructureForm /></ProtectedRoute>} />
           <Route path="/salary-structures/edit/:id" element={<ProtectedRoute><SalaryStructureForm /></ProtectedRoute>} />
-          
+
           <Route path="/payroll-periods" element={<ProtectedRoute><PayrollPeriods /></ProtectedRoute>} />
           <Route path="/payroll-periods/new" element={<ProtectedRoute><PayrollPeriodForm /></ProtectedRoute>} />
           <Route path="/payroll-periods/:id" element={<ProtectedRoute><PayrollPeriodDetail /></ProtectedRoute>} />
-          
+
           <Route path="/payroll-rules" element={<ProtectedRoute><PayrollRules /></ProtectedRoute>} />
           <Route path="/payroll-rules/new" element={<ProtectedRoute><PayrollRuleForm /></ProtectedRoute>} />
           <Route path="/payroll-rules/edit/:id" element={<ProtectedRoute><PayrollRuleForm /></ProtectedRoute>} />
-          
+
           <Route path="/payslips" element={<ProtectedRoute><Payslips /></ProtectedRoute>} />
           <Route path="/payslips/:id" element={<ProtectedRoute><PayslipDetail /></ProtectedRoute>} />
           <Route path="/payroll-reports" element={<ProtectedRoute><PayrollReports /></ProtectedRoute>} />
@@ -298,8 +316,22 @@ function App() {
           <Route path="/purchases/consignments/settlements/new" element={<ConsignmentSettlementForm />} />
           <Route path="/purchases/consignments/settlements/:id" element={<ConsignmentSettlementDetail />} />
 
+          {/* E-Commerce Management */}
+          <Route path="/ecommerce/order-processing" element={<EcomOrderProcessing />} />
+          <Route path="/ecommerce/reviews" element={<EcomReviews />} />
+          <Route path="/ecommerce/orders/:id/invoice" element={<WebOrderInvoicePrint />} />
+          <Route path="/ecommerce/orders/:id/shipping-label" element={<ShippingLabelPrint />} />
+          <Route path="/ecommerce/banners" element={<EcomBanners />} />
+          <Route path="/ecommerce/products" element={<EcomProductMedia />} />
+          <Route path="/ecommerce/settings" element={<EcomSettings />} />
+          <Route path="/ecommerce/statuses" element={<EcomStatusMaster />} />
+          <Route path="/ecommerce/logistics" element={<EcomLogisticsMapping />} />
+          <Route path="/web-orders" element={<EcomOrderProcessing />} />
+          <Route path="/api-keys" element={<ApiKeys />} />
+
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/general" element={<Navigate to="/settings/company" replace />} />
+          <Route path="/settings/ecommerce" element={<EcomSettings />} />
           <Route path="/settings/company" element={<CompanySettings />} />
           <Route path="/settings/legal-entities" element={<LegalCompanyManagement />} />
           <Route path="/settings/branches" element={<BranchManagement />} />
@@ -307,6 +339,10 @@ function App() {
           <Route path="/settings/roles" element={<RoleManagement />} />
           <Route path="/settings/taxes" element={<TaxMaster />} />
           <Route path="/settings/audit-logs" element={<AuditLogs />} />
+
+          {/* Help Center & SOP Documentation */}
+          <Route path="/help" element={<HelpCenter />} />
+          <Route path="/help-center" element={<Navigate to="/help" replace />} />
         </Route>
       </Routes>
     </Router>

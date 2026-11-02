@@ -9,13 +9,16 @@ const Stock = require('../../core/models/Stock');
 const StockMovement = require('../../core/models/StockMovement');
 const Counter = require('../../core/models/Counter');
 const Product = require('../../core/models/Product');
+const ProductVariant = require('../../core/models/ProductVariant');
 const TaxInvoice = require('../../core/models/TaxInvoice');
 const Customer = require('../../core/models/Customer');
 const Company = require('../../core/models/Company');
+const { normalizeVariantId, buildCompanyStockFilter } = require('../../core/utils/stockQueryHelper');
 const { getReadFilter } = require('../../core/utils/scopeHelper');
 const { verifyBranchAccess, verifyProductAccess, verifyPOSOverrideToken } = require('../../core/middleware/authMiddleware');
 const auditService = require('../audit/auditService');
 const { getPOSSessionForCashier } = require('./posSessionController');
+const AutoPostingService = require('../../services/autoPostingService');
 
 // @desc    Evaluate promotions for a cart
 // @route   POST /api/v1/pos/promotions/evaluate
@@ -239,7 +242,22 @@ exports.createOrder = async (req, res) => {
         throw err;
       }
 
-      let authPrice = resolvedItem.salesPrice || 0;
+      let resolvedVariant = null;
+      if (item.variantId) {
+        resolvedVariant = await ProductVariant.findOne({
+          _id: item.variantId,
+          productId: product._id,
+          tenantId: req.user.tenantId,
+          isActive: true
+        });
+        if (!resolvedVariant) {
+          throw new Error(`Variant not found or inactive for product ${product.name}`);
+        }
+      }
+
+      let authPrice = (resolvedVariant && resolvedVariant.salesPrice != null && resolvedVariant.salesPrice > 0)
+        ? resolvedVariant.salesPrice
+        : (resolvedItem.salesPrice || 0);
       let finalUnitPrice = authPrice;
       
       if (item.overriddenPrice !== undefined && item.overriddenPrice !== null && Number(item.overriddenPrice) !== authPrice) {
@@ -281,11 +299,15 @@ exports.createOrder = async (req, res) => {
       }
 
       const lineNet = subtotal - lineDiscount;
+      const effectiveSku = resolvedVariant ? resolvedVariant.sku : resolvedItem.companySku;
 
       preCalcItemsForDiscount.push({
         productId: product._id,
+        variantId: resolvedVariant ? resolvedVariant._id : null,
+        variantSku: resolvedVariant ? resolvedVariant.sku : undefined,
+        selectedAttributes: resolvedVariant ? (resolvedVariant.attributes instanceof Map ? Object.fromEntries(resolvedVariant.attributes) : resolvedVariant.attributes) : undefined,
         productName: product.name,
-        sku: resolvedItem.companySku,
+        sku: effectiveSku,
         quantity: item.quantity,
         unitPrice: finalUnitPrice,
         discount: lineDiscount,
@@ -360,6 +382,9 @@ exports.createOrder = async (req, res) => {
 
       validatedItems.push({
         productId: item.productId,
+        variantId: item.variantId || null,
+        variantSku: item.variantSku || undefined,
+        selectedAttributes: item.selectedAttributes || undefined,
         productName: item.productName,
         sku: item.sku,
         quantity: item.quantity,
@@ -520,12 +545,17 @@ exports.createOrder = async (req, res) => {
 
     // 7. Deduct Stock and Create StockMovement
     for (const item of validatedItems) {
-      const stock = await Stock.findOne({
+      const vId = item.variantId ? normalizeVariantId(item.variantId) : null;
+      const stockFilter = buildCompanyStockFilter({
         tenantId: req.user.tenantId,
-      legalCompanyId: posSession.legalCompanyId,
-      branchId,
-        productId: item.productId
-      }).session(session);
+        legalCompanyId: posSession.legalCompanyId,
+        branchId,
+        productId: item.productId,
+        variantId: vId,
+        allowLegacyVariantMatching: vId === null
+      });
+
+      const stock = await Stock.findOne(stockFilter).session(session);
 
       if (!stock || stock.quantity < item.quantity) {
         throw new Error(`Insufficient stock for product ${item.productName} (SKU: ${item.sku}) at this branch`);
@@ -536,9 +566,11 @@ exports.createOrder = async (req, res) => {
 
       await StockMovement.create([{
         tenantId: req.user.tenantId,
-      legalCompanyId: posSession.legalCompanyId,
-      branchId,
+        legalCompanyId: posSession.legalCompanyId,
+        branchId,
         productId: item.productId,
+        variantId: vId,
+        variantSku: item.variantSku || undefined,
         type: 'DELIVERY',
         quantity: item.quantity,
         referenceType: 'POS_ORDER',
@@ -671,6 +703,10 @@ exports.createOrder = async (req, res) => {
     }
 
     await session.commitTransaction();
+
+    // Trigger Double-Entry Auto-Posting (Dr. Cash/Bank / Cr. POS Revenue + Tax)
+    await AutoPostingService.postPOSOrder(order, req.user._id);
+
     res.status(201).json(order);
   } catch (error) {
     await session.abortTransaction();
@@ -880,17 +916,31 @@ exports.createReturn = async (req, res) => {
     let totalRefundAmount = 0;
     const validatedReturnItems = [];
 
+    // Helper for composite product + variant tracking
+    const getItemKey = (productId, variantId) => {
+      const p = String(productId || '');
+      const v = variantId ? String(variantId) : '';
+      return v ? `${p}_${v}` : p;
+    };
+
     // Find previous returns for this order to validate return quantities
     const previousReturns = await POSReturn.find({ originalOrderId: originalOrder._id, ...filter }).session(session);
     const returnedQtys = {};
     for (const pr of previousReturns) {
       for (const item of pr.returnItems) {
-        returnedQtys[item.productId.toString()] = (returnedQtys[item.productId.toString()] || 0) + item.quantity;
+        const k = getItemKey(item.productId, item.variantId);
+        returnedQtys[k] = (returnedQtys[k] || 0) + item.quantity;
       }
     }
 
     for (const rItem of returnItems) {
-      const originalItem = originalOrder.items.find(i => i.productId.toString() === rItem.productId.toString());
+      const originalItem = originalOrder.items.find(i => {
+        if (i.productId.toString() !== rItem.productId.toString()) return false;
+        if (rItem.variantId) {
+          return String(i.variantId || '') === String(rItem.variantId);
+        }
+        return true;
+      });
       if (!originalItem) {
         throw new Error(`Product ${rItem.productId} was not part of the original order`);
       }
@@ -899,7 +949,8 @@ exports.createReturn = async (req, res) => {
         throw new Error('Return quantity must be greater than zero');
       }
 
-      const previouslyReturned = returnedQtys[rItem.productId.toString()] || 0;
+      const itemKey = getItemKey(originalItem.productId, originalItem.variantId);
+      const previouslyReturned = returnedQtys[itemKey] || 0;
       if (rItem.quantity + previouslyReturned > originalItem.quantity) {
         throw new Error(`Cannot return ${rItem.quantity} of product ${originalItem.productName}. Only ${originalItem.quantity - previouslyReturned} remaining for return.`);
       }
@@ -910,6 +961,8 @@ exports.createReturn = async (req, res) => {
 
       validatedReturnItems.push({
         productId: originalItem.productId,
+        variantId: originalItem.variantId || null,
+        variantSku: originalItem.variantSku || undefined,
         quantity: rItem.quantity,
         refundAmount
       });
@@ -998,32 +1051,41 @@ exports.createReturn = async (req, res) => {
 
     // 3. Increase Stock and Create StockMovement
     for (const item of validatedReturnItems) {
-      const stock = await Stock.findOne({
+      const vId = item.variantId ? normalizeVariantId(item.variantId) : null;
+      const stockFilter = buildCompanyStockFilter({
         tenantId: req.user.tenantId,
-      legalCompanyId: originalOrder.legalCompanyId,
-      branchId: originalOrder.branchId,
-        productId: item.productId
-      }).session(session);
+        legalCompanyId: originalOrder.legalCompanyId,
+        branchId: originalOrder.branchId,
+        productId: item.productId,
+        variantId: vId,
+        allowLegacyVariantMatching: vId === null
+      });
+
+      const stock = await Stock.findOne(stockFilter).session(session);
 
       if (stock) {
         stock.quantity += item.quantity;
         await stock.save({ session });
       } else {
-        // If somehow stock doesn't exist, create it
+        // If somehow stock doesn't exist, create it with explicit COMPANY ownership
         await Stock.create([{
           tenantId: req.user.tenantId,
-      legalCompanyId: originalOrder.legalCompanyId,
-      branchId: originalOrder.branchId,
+          legalCompanyId: originalOrder.legalCompanyId,
+          branchId: originalOrder.branchId,
           productId: item.productId,
-          quantity: item.quantity
+          variantId: vId,
+          quantity: item.quantity,
+          ownerType: 'COMPANY'
         }], { session });
       }
 
       await StockMovement.create([{
         tenantId: req.user.tenantId,
-      legalCompanyId: originalOrder.legalCompanyId,
-      branchId: originalOrder.branchId,
+        legalCompanyId: originalOrder.legalCompanyId,
+        branchId: originalOrder.branchId,
         productId: item.productId,
+        variantId: vId,
+        variantSku: item.variantSku || undefined,
         type: 'SALES_RETURN',
         quantity: item.quantity,
         referenceType: 'POS_RETURN',
@@ -1219,11 +1281,17 @@ exports.voidOrder = async (req, res) => {
 
     // Inventory Reversal
     for (const item of order.items) {
-      const stock = await Stock.findOne({
+      const vId = item.variantId ? normalizeVariantId(item.variantId) : null;
+      const stockFilter = buildCompanyStockFilter({
         tenantId: req.user.tenantId,
+        legalCompanyId: order.legalCompanyId,
         branchId: order.branchId,
-        productId: item.productId
-      }).session(session);
+        productId: item.productId,
+        variantId: vId,
+        allowLegacyVariantMatching: vId === null
+      });
+
+      const stock = await Stock.findOne(stockFilter).session(session);
       
       if (stock) {
         stock.quantity += item.quantity;
@@ -1231,8 +1299,11 @@ exports.voidOrder = async (req, res) => {
         
         await StockMovement.create([{
           tenantId: req.user.tenantId,
+          legalCompanyId: order.legalCompanyId,
           branchId: order.branchId,
           productId: item.productId,
+          variantId: vId,
+          variantSku: item.variantSku || undefined,
           quantity: item.quantity,
           type: 'SALES_RETURN',
           referenceId: `VOID-${order.receiptNumber}`,
@@ -1290,6 +1361,10 @@ exports.voidOrder = async (req, res) => {
     }, session);
 
     await session.commitTransaction();
+
+    // Trigger Double-Entry Auto-Reversal
+    await AutoPostingService.reverseSourceEntry(order._id, 'POSOrder', order.tenantId, req.user._id);
+
     res.status(200).json(order);
   } catch (error) {
     await session.abortTransaction();

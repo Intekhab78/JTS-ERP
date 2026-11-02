@@ -3,6 +3,8 @@ import React, { forwardRef, useId } from 'react';
 const Select = forwardRef(({ 
   className = '', 
   children,
+  options,
+  placeholder,
   error,
   label, // Legacy wrapper support
   required,
@@ -26,6 +28,12 @@ const Select = forwardRef(({
       className={`flex h-10 w-full items-center justify-between rounded-md border ${error ? 'border-error focus-visible:ring-error' : 'border-input focus-visible:ring-ring'} bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...props}
     >
+      {placeholder && <option value="">{placeholder}</option>}
+      {Array.isArray(options) && options.map((opt, i) => (
+        <option key={opt.value ?? i} value={opt.value} disabled={opt.disabled}>
+          {opt.label ?? opt.name ?? opt.value}
+        </option>
+      ))}
       {children}
     </select>
   );

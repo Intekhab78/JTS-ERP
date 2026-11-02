@@ -1,6 +1,62 @@
+const mongoose = require('mongoose');
 const Uom = require('../../core/models/Uom');
 const UomConversion = require('../../core/models/UomConversion');
 const Product = require('../../core/models/Product');
+const Company = require('../../core/models/Company');
+
+// Helper to resolve dynamic tenant ID (supports Global Admin workspace selection)
+const getTenantId = async (req) => {
+  if (req.user && (req.user.activeTenantId || req.user.tenantId)) {
+    return req.user.activeTenantId || req.user.tenantId;
+  }
+  const headerTenant = req.headers ? req.headers['x-tenant-id'] : null;
+  if (headerTenant && headerTenant !== 'ALL') {
+    return headerTenant;
+  }
+  const company = await Company.findOne({ name: /JTS middleeast/i }) || await Company.findOne();
+  if (!company) throw new Error('No company/tenant found in the system');
+  return company._id;
+};
+
+// Helper to safely filter by either ObjectId or Code/Name
+const getIdOrNameFilter = (id, tenantId) => {
+  const decoded = decodeURIComponent(id);
+  if (mongoose.isValidObjectId(decoded)) {
+    return { _id: decoded, tenantId };
+  }
+  return {
+    tenantId,
+    $or: [
+      { code: new RegExp(`^${decoded.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      { name: new RegExp(`^${decoded.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    ]
+  };
+};
+
+// Standard ERP UOM templates
+const DEFAULT_UOMS = [
+  { name: 'Piece', code: 'PCS' },
+  { name: 'Box', code: 'BOX' },
+  { name: 'Kilogram', code: 'KG' },
+  { name: 'Gram', code: 'G' },
+  { name: 'Meter', code: 'MTR' },
+  { name: 'Liter', code: 'LTR' },
+  { name: 'Dozen', code: 'DOZ' },
+  { name: 'Pack', code: 'PCK' },
+  { name: 'Carton', code: 'CTN' },
+  { name: 'Set', code: 'SET' },
+  { name: 'Pair', code: 'PR' },
+  { name: 'Roll', code: 'ROL' }
+];
+
+// Standard conversion rules
+const DEFAULT_CONVERSIONS = [
+  { fromUom: 'Dozen', toUom: 'Piece', conversionFactor: 12 },
+  { fromUom: 'Box', toUom: 'Piece', conversionFactor: 10 },
+  { fromUom: 'Carton', toUom: 'Piece', conversionFactor: 24 },
+  { fromUom: 'Kilogram', toUom: 'Gram', conversionFactor: 1000 },
+  { fromUom: 'Set', toUom: 'Piece', conversionFactor: 2 }
+];
 
 // ==========================================
 // UOM Master
@@ -11,15 +67,22 @@ const Product = require('../../core/models/Product');
 // @access  Private
 exports.getUoms = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId;
-    if (!tenantId) tenantId = req.query.tenantId;
+    const tenantId = await getTenantId(req);
 
     const filter = { tenantId };
     if (req.query.includeInactive !== 'true') {
       filter.isActive = { $ne: false };
     }
 
-    const uoms = await Uom.find(filter).sort({ name: 1 });
+    let uoms = await Uom.find(filter).sort({ name: 1 });
+
+    // Auto-seed standard UOMs if tenant currently has none
+    if (uoms.length === 0) {
+      const uomsToInsert = DEFAULT_UOMS.map(u => ({ ...u, tenantId, isActive: true }));
+      await Uom.insertMany(uomsToInsert, { ordered: false }).catch(() => {});
+      uoms = await Uom.find(filter).sort({ name: 1 });
+    }
+
     res.status(200).json(uoms);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -31,20 +94,30 @@ exports.getUoms = async (req, res) => {
 // @access  Private
 exports.createUom = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId || req.body.tenantId;
-    
+    const tenantId = await getTenantId(req);
     const { name, code, isActive } = req.body;
 
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: 'Please provide a UOM name' });
+    }
+    if (!code || !code.trim()) {
+      return res.status(400).json({ message: 'Please provide a UOM code' });
+    }
+
     const uom = await Uom.create({
-      tenantId, name, code, isActive: isActive !== undefined ? isActive : true
+      tenantId,
+      name: name.trim(),
+      code: code.trim().toUpperCase(),
+      isActive: isActive !== undefined ? isActive : true
     });
 
     res.status(201).json(uom);
   } catch (error) {
+    let errorMsg = error.message;
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'UOM with this code already exists.' });
+      errorMsg = 'A UOM with this code already exists.';
     }
-    res.status(500).json({ message: error.message });
+    res.status(400).json({ message: errorMsg || 'Error creating UOM', error: error.message });
   }
 };
 
@@ -53,21 +126,27 @@ exports.createUom = async (req, res) => {
 // @access  Private
 exports.updateUom = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId || req.body.tenantId || req.query.tenantId;
+    const tenantId = await getTenantId(req);
+    const filter = getIdOrNameFilter(req.params.id, tenantId);
     
+    const updateData = { ...req.body };
+    if (updateData.code) updateData.code = updateData.code.trim().toUpperCase();
+    if (updateData.name) updateData.name = updateData.name.trim();
+
     const uom = await Uom.findOneAndUpdate(
-      { _id: req.params.id, tenantId },
-      req.body,
+      filter,
+      updateData,
       { returnDocument: 'after', runValidators: true }
     );
 
     if (!uom) return res.status(404).json({ message: 'UOM not found' });
     res.status(200).json(uom);
   } catch (error) {
+    let errorMsg = error.message;
     if (error.code === 11000) {
-      return res.status(400).json({ message: 'UOM with this code already exists.' });
+      errorMsg = 'A UOM with this code already exists.';
     }
-    res.status(500).json({ message: error.message });
+    res.status(400).json({ message: errorMsg || 'Error updating UOM', error: error.message });
   }
 };
 
@@ -76,9 +155,10 @@ exports.updateUom = async (req, res) => {
 // @access  Private
 exports.deleteUom = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId || req.body.tenantId || req.query.tenantId;
+    const tenantId = await getTenantId(req);
+    const filter = getIdOrNameFilter(req.params.id, tenantId);
     
-    const uom = await Uom.findOne({ _id: req.params.id, tenantId });
+    const uom = await Uom.findOne(filter);
     if (!uom) return res.status(404).json({ message: 'UOM not found' });
 
     // Delete protection check
@@ -96,10 +176,10 @@ exports.deleteUom = async (req, res) => {
       return res.status(400).json({ message: 'UOM cannot be deleted because it is being used by existing products or transactions.' });
     }
 
-    await Uom.findOneAndDelete({ _id: req.params.id, tenantId });
-    res.status(200).json({ message: 'UOM deleted' });
+    await Uom.findOneAndDelete({ _id: uom._id });
+    res.status(200).json({ message: 'UOM deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(400).json({ message: 'Error deleting UOM', error: error.message });
   }
 };
 
@@ -112,15 +192,22 @@ exports.deleteUom = async (req, res) => {
 // @access  Private
 exports.getConversions = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId;
-    if (!tenantId) tenantId = req.query.tenantId;
+    const tenantId = await getTenantId(req);
 
     const filter = { tenantId };
     if (req.query.includeInactive !== 'true') {
       filter.isActive = { $ne: false };
     }
 
-    const conversions = await UomConversion.find(filter).sort({ fromUom: 1, toUom: 1 });
+    let conversions = await UomConversion.find(filter).sort({ fromUom: 1, toUom: 1 });
+
+    // Auto-seed standard conversions if tenant has none
+    if (conversions.length === 0) {
+      const convsToInsert = DEFAULT_CONVERSIONS.map(c => ({ ...c, tenantId, isActive: true }));
+      await UomConversion.insertMany(convsToInsert, { ordered: false }).catch(() => {});
+      conversions = await UomConversion.find(filter).sort({ fromUom: 1, toUom: 1 });
+    }
+
     res.status(200).json(conversions);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -132,11 +219,19 @@ exports.getConversions = async (req, res) => {
 // @access  Private
 exports.createConversion = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId || req.body.tenantId;
+    const tenantId = await getTenantId(req);
     const { fromUom, toUom, conversionFactor, isActive } = req.body;
 
+    if (!fromUom || !toUom || !conversionFactor) {
+      return res.status(400).json({ message: 'Please provide from UOM, to UOM, and conversion factor' });
+    }
+
     const conversion = await UomConversion.create({
-      tenantId, fromUom, toUom, conversionFactor, isActive: isActive !== undefined ? isActive : true
+      tenantId,
+      fromUom: fromUom.trim(),
+      toUom: toUom.trim(),
+      conversionFactor: Number(conversionFactor),
+      isActive: isActive !== undefined ? isActive : true
     });
 
     res.status(201).json(conversion);
@@ -144,7 +239,7 @@ exports.createConversion = async (req, res) => {
     if (error.code === 11000) {
       return res.status(400).json({ message: 'This conversion mapping already exists.' });
     }
-    res.status(500).json({ message: error.message });
+    res.status(400).json({ message: error.message });
   }
 };
 
@@ -153,11 +248,14 @@ exports.createConversion = async (req, res) => {
 // @access  Private
 exports.updateConversion = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId || req.body.tenantId || req.query.tenantId;
+    const tenantId = await getTenantId(req);
     
+    const updateData = { ...req.body };
+    if (updateData.conversionFactor) updateData.conversionFactor = Number(updateData.conversionFactor);
+
     const conversion = await UomConversion.findOneAndUpdate(
       { _id: req.params.id, tenantId },
-      req.body,
+      updateData,
       { returnDocument: 'after', runValidators: true }
     );
 
@@ -167,7 +265,7 @@ exports.updateConversion = async (req, res) => {
     if (error.code === 11000) {
       return res.status(400).json({ message: 'This conversion mapping already exists.' });
     }
-    res.status(500).json({ message: error.message });
+    res.status(400).json({ message: error.message });
   }
 };
 
@@ -176,7 +274,7 @@ exports.updateConversion = async (req, res) => {
 // @access  Private
 exports.deleteConversion = async (req, res) => {
   try {
-    let tenantId = req.user.tenantId || req.body.tenantId || req.query.tenantId;
+    const tenantId = await getTenantId(req);
     
     const conversion = await UomConversion.findOne({ _id: req.params.id, tenantId });
     if (!conversion) return res.status(404).json({ message: 'Conversion not found' });
@@ -195,8 +293,8 @@ exports.deleteConversion = async (req, res) => {
     }
 
     await UomConversion.findOneAndDelete({ _id: req.params.id, tenantId });
-    res.status(200).json({ message: 'Conversion deleted' });
+    res.status(200).json({ message: 'Conversion deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(400).json({ message: error.message });
   }
 };

@@ -30,7 +30,10 @@ import {
   Palette,
   Building,
   Clock,
-  CalendarDays
+  CalendarDays,
+  Image,
+  Sliders,
+  Star
 } from 'lucide-react';
 
 export const ACTIONS = [
@@ -192,7 +195,13 @@ export const ERP_MODULES = [
     icon: <Globe size={18} />,
     isParent: true,
     subModules: [
-      { id: 'WEB_ORDERS', name: 'Web Orders', path: '/web-orders', icon: <Globe size={16} /> },
+      { id: 'ECOM_ORDERS', name: 'Order Processing', path: '/ecommerce/order-processing', icon: <ClipboardList size={16} /> },
+      { id: 'ECOM_REVIEWS', name: 'Product Reviews', path: '/ecommerce/reviews', icon: <Star size={16} /> },
+      { id: 'ECOM_BANNERS', name: 'Banners', path: '/ecommerce/banners', icon: <Image size={16} /> },
+      { id: 'ECOM_PRODUCTS', name: 'Product Media & Catalog', path: '/ecommerce/products', icon: <Package size={16} /> },
+      { id: 'ECOM_SETTINGS_MENU', name: 'Settings & Mapping', path: '/ecommerce/settings', icon: <Sliders size={16} /> },
+      { id: 'ECOM_STATUS_MASTER', name: 'Status Master', path: '/ecommerce/statuses', icon: <Tag size={16} /> },
+      { id: 'ECOM_LOGISTICS', name: 'Logistics Mapping', path: '/ecommerce/logistics', icon: <Truck size={16} /> },
       { id: 'API_KEYS', name: 'API Keys', path: '/api-keys', icon: <Key size={16} /> }
     ]
   },
@@ -216,6 +225,7 @@ export const ERP_MODULES = [
     isParent: true,
     subModules: [
       { id: 'GENERAL_SETTINGS', name: 'General Settings', path: '/settings/general', icon: <Settings size={16} /> },
+      { id: 'ECOM_SETTINGS', name: 'E-Commerce Settings', path: '/settings/ecommerce', icon: <Globe size={16} /> },
       { id: 'COMPANY', name: 'Group Setup', path: '/settings/company', icon: <Building2 size={16} /> },
       { id: 'LEGAL_ENTITIES', name: 'Companies', path: '/settings/legal-entities', icon: <Building size={16} /> },
       { id: 'BRANCHES', name: 'Branches', path: '/settings/branches', icon: <MapPin size={16} /> },

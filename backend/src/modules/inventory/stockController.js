@@ -19,7 +19,7 @@ exports.getBranchStock = async (req, res) => {
     const stock = await Stock.find({
       ...getReadFilter(req),
       branchId: req.params.branchId
-    }).populate('productId');
+    }).populate('productId').populate('variantId');
     
     res.status(200).json(stock);
   } catch (error) {
@@ -39,7 +39,10 @@ exports.getStockMovements = async (req, res) => {
     const movements = await StockMovement.find({
       ...getReadFilter(req),
       branchId: req.params.branchId
-    }).populate('productId', 'name sku').sort({ createdAt: -1 });
+    })
+      .populate('productId', 'name sku')
+      .populate('variantId', 'sku attributes title')
+      .sort({ createdAt: -1 });
 
     res.status(200).json(movements);
   } catch (error) {
@@ -66,6 +69,7 @@ exports.getTransfers = async (req, res) => {
       .populate('sourceBranchId', 'name')
       .populate('destinationBranchId', 'name')
       .populate('items.productId', 'name sku')
+      .populate('items.variantId', 'sku attributes')
       .sort({ createdAt: -1 });
     res.status(200).json(transfers);
   } catch (error) {
@@ -114,13 +118,20 @@ exports.createTransfer = async (req, res) => {
     }
 
     const referenceNumber = `TRF-${Date.now()}`;
+    const formattedItems = (items || []).map(item => ({
+      productId: item.productId,
+      variantId: item.variantId || null,
+      variantSku: item.variantSku || null,
+      quantity: Number(item.quantity)
+    }));
+
     const transfer = await StockTransfer.create({
       tenantId: req.user.tenantId,
       legalCompanyId: sourceBranch.legalCompanyId,
       sourceBranchId,
       destinationBranchId,
       referenceNumber,
-      items,
+      items: formattedItems,
       notes,
       status: 'DRAFT',
       createdBy: req.user._id
@@ -168,17 +179,22 @@ exports.validateTransfer = async (req, res) => {
 
     for (const item of transfer.items) {
       const productId = item.productId;
+      const variantId = item.variantId || null;
+      const variantSku = item.variantSku || null;
       const quantity = item.quantity;
 
       // 1. Deduct from source
+      const sourceFilter = {
+        tenantId: req.user.tenantId, 
+        legalCompanyId: transfer.legalCompanyId,
+        branchId: sourceBranchId, 
+        productId,
+        variantId,
+        quantity: { $gte: quantity } 
+      };
+
       const sourceStock = await Stock.findOneAndUpdate(
-        { 
-          tenantId: req.user.tenantId, 
-          legalCompanyId: transfer.legalCompanyId,
-          branchId: sourceBranchId, 
-          productId, 
-          quantity: { $gte: quantity } 
-        },
+        sourceFilter,
         { $inc: { quantity: -quantity } },
         { session, returnDocument: 'after' }
       );
@@ -192,7 +208,8 @@ exports.validateTransfer = async (req, res) => {
         tenantId: req.user.tenantId, 
         legalCompanyId: destCompanyId,
         branchId: destinationBranchId, 
-        productId 
+        productId,
+        variantId
       }).session(session);
       
       if (!destStock) {
@@ -201,6 +218,7 @@ exports.validateTransfer = async (req, res) => {
           legalCompanyId: destCompanyId,
           branchId: destinationBranchId,
           productId,
+          variantId,
           quantity
         }], { session });
       } else {
@@ -214,6 +232,8 @@ exports.validateTransfer = async (req, res) => {
         legalCompanyId: transfer.legalCompanyId,
         branchId: sourceBranchId,
         productId,
+        variantId,
+        variantSku,
         quantity: -quantity,
         type: 'TRANSFER_OUT',
         referenceId: transfer.referenceNumber,
@@ -227,6 +247,8 @@ exports.validateTransfer = async (req, res) => {
         legalCompanyId: destCompanyId,
         branchId: destinationBranchId,
         productId,
+        variantId,
+        variantSku,
         quantity,
         type: 'TRANSFER_IN',
         referenceId: transfer.referenceNumber,
@@ -266,6 +288,7 @@ exports.getAdjustments = async (req, res) => {
     const adjustments = await StockAdjustment.find(filter)
       .populate('branchId', 'name')
       .populate('items.productId', 'name sku')
+      .populate('items.variantId', 'sku attributes')
       .sort({ createdAt: -1 });
     res.status(200).json(adjustments);
   } catch (error) {
@@ -287,6 +310,8 @@ exports.createAdjustment = async (req, res) => {
     // Calculate difference for each item
     const formattedItems = items.map(item => ({
       productId: item.productId,
+      variantId: item.variantId || null,
+      variantSku: item.variantSku || null,
       expectedQuantity: item.expectedQuantity,
       actualQuantity: item.actualQuantity,
       difference: item.actualQuantity - item.expectedQuantity
@@ -327,13 +352,16 @@ exports.validateAdjustment = async (req, res) => {
       if (item.difference === 0) continue;
 
       const productId = item.productId;
+      const variantId = item.variantId || null;
+      const variantSku = item.variantSku || null;
       const quantity = item.difference;
 
       let stock = await Stock.findOne({ 
         tenantId: req.user.tenantId, 
         legalCompanyId: adjustment.legalCompanyId,
         branchId: adjustment.branchId, 
-        productId 
+        productId,
+        variantId
       }).session(session);
       
       if (!stock) {
@@ -345,6 +373,7 @@ exports.validateAdjustment = async (req, res) => {
           legalCompanyId: adjustment.legalCompanyId,
           branchId: adjustment.branchId,
           productId,
+          variantId,
           quantity: item.actualQuantity
         }], { session });
       } else {
@@ -361,6 +390,8 @@ exports.validateAdjustment = async (req, res) => {
         legalCompanyId: adjustment.legalCompanyId,
         branchId: adjustment.branchId,
         productId,
+        variantId,
+        variantSku,
         quantity,
         type: 'ADJUSTMENT',
         referenceId: adjustment.referenceNumber,

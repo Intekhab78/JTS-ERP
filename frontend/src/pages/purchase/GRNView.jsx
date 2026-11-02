@@ -234,7 +234,14 @@ const GRNView = () => {
                 <tr key={idx} className="hover:bg-slate-50 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="font-bold text-slate-900">{item.itemName}</div>
-                    <div className="text-[10px] font-bold text-slate-400 mt-0.5 font-mono bg-slate-100 inline-block px-1.5 py-0.5 rounded">{item.sku}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] font-bold text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">{item.sku}</span>
+                      {(item.variantSku || item.variantId?.sku) && (
+                        <span className="text-[10px] font-bold text-blue-600 font-mono bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                          Variant: {item.variantSku || item.variantId?.sku}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-center font-bold text-slate-800">{item.orderedQuantity}</td>
                   <td className="px-6 py-4 text-center font-bold text-slate-800">{item.receivedQuantity}</td>

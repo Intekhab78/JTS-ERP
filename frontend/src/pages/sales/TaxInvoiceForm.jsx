@@ -23,6 +23,7 @@ const TaxInvoiceForm = () => {
   const { formatCurrency, currencySymbol } = useCurrency();
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [variantsMap, setVariantsMap] = useState({});
   
   const [formData, setFormData] = useState({
     customerId: '',
@@ -63,6 +64,19 @@ const TaxInvoiceForm = () => {
     }
   };
 
+  const fetchVariantsForProduct = async (productId) => {
+    if (!productId || variantsMap[productId]) return;
+    try {
+      const res = await axios.get(`/api/v1/inventory/products/${productId}/variants`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const list = res.data?.variants || (Array.isArray(res.data) ? res.data : []);
+      setVariantsMap(prev => ({ ...prev, [productId]: list }));
+    } catch (error) {
+      console.error('Failed to fetch variants:', error);
+    }
+  };
+
   const fetchTaxInvoice = async () => {
     try {
       const res = await axios.get(`/api/v1/tax-invoices/${id}`, {
@@ -70,6 +84,14 @@ const TaxInvoiceForm = () => {
       });
       const pf = res.data;
       setRawInvoice(pf);
+      const loadedItems = (pf.items || []).map(i => ({
+        ...i,
+        productId: i.productId?._id || i.productId,
+        variantId: i.variantId?._id || i.variantId || '',
+        variantSku: i.variantSku || i.variantId?.sku || '',
+        attributes: i.attributes || i.variantId?.attributes || {}
+      }));
+
       setFormData({
         customerId: pf.customerId?._id || pf.customerId,
         issueDate: pf.issueDate ? pf.issueDate.split('T')[0] : '',
@@ -82,13 +104,17 @@ const TaxInvoiceForm = () => {
         notes: pf.notes || '',
         termsAndConditions: pf.termsAndConditions || '',
         internalNotes: pf.internalNotes || '',
-        items: pf.items || [],
+        items: loadedItems,
         status: pf.status || 'DRAFT',
         sourceType: pf.sourceType || 'MANUAL',
         invoiceNumber: pf.invoiceNumber || '',
         billingType: pf.billingType || 'ADVANCE',
         paymentRequestPercentage: pf.paymentRequestPercentage || 100,
         paymentRequestAmount: pf.paymentRequestAmount || (pf.grandTotal || 0)
+      });
+
+      loadedItems.forEach(i => {
+        if (i.productId) fetchVariantsForProduct(i.productId);
       });
     } catch (error) {
       console.error('Failed to fetch Tax invoice', error);
@@ -104,12 +130,43 @@ const TaxInvoiceForm = () => {
       const product = products.find(p => p._id === value);
       if (product) {
         item.productId = product._id;
+        item.variantId = '';
+        item.variantSku = '';
+        item.attributes = {};
         item.itemName = product.name;
         item.sku = product.sku;
         item.unitPrice = product.salesPrice || 0;
         item.taxRate = product.taxRate || 0;
         item.quantity = 1;
         item.discount = 0;
+        fetchVariantsForProduct(product._id);
+      } else {
+        item.productId = '';
+        item.variantId = '';
+        item.variantSku = '';
+        item.attributes = {};
+        item.itemName = '';
+        item.sku = '';
+        item.unitPrice = 0;
+        item.taxRate = 0;
+        item.quantity = 1;
+        item.discount = 0;
+      }
+    } else if (field === 'variantId') {
+      item.variantId = value;
+      const productVars = variantsMap[item.productId] || [];
+      const selectedVar = productVars.find(v => v._id === value);
+      if (selectedVar) {
+        item.variantSku = selectedVar.sku || '';
+        item.attributes = selectedVar.attributes || {};
+        if (selectedVar.salesPrice !== undefined && selectedVar.salesPrice !== null && selectedVar.salesPrice !== '') {
+          item.unitPrice = Number(selectedVar.salesPrice) || 0;
+        }
+      } else {
+        item.variantSku = '';
+        item.attributes = {};
+        const prod = products.find(p => p._id === item.productId);
+        if (prod) item.unitPrice = prod.salesPrice || 0;
       }
     } else {
       item[field] = Number(value) || value;
@@ -127,10 +184,45 @@ const TaxInvoiceForm = () => {
     setFormData({ ...formData, items: newItems });
   };
 
+  const handlePopulateAllVariants = (productId, currentIndex) => {
+    const vars = variantsMap[productId] || [];
+    if (vars.length === 0) return;
+
+    const prod = products.find(p => p._id === productId);
+    const basePrice = prod?.salesPrice || 0;
+    const taxRate = prod?.taxRate || 0;
+
+    const newRows = vars.map(v => {
+      const unitPrice = (v.salesPrice !== undefined && v.salesPrice !== null && v.salesPrice !== '')
+        ? Number(v.salesPrice)
+        : basePrice;
+      const taxable = unitPrice;
+      const taxAmount = (taxable * taxRate) / 100;
+      return {
+        productId,
+        variantId: v._id,
+        variantSku: v.sku || '',
+        attributes: v.attributes || {},
+        itemName: prod?.name || '',
+        sku: v.sku || prod?.sku || '',
+        quantity: 1,
+        unitPrice,
+        discount: 0,
+        taxRate,
+        taxAmount,
+        lineTotal: taxable + taxAmount
+      };
+    });
+
+    const updated = [...formData.items];
+    updated.splice(currentIndex, 1, ...newRows);
+    setFormData(prev => ({ ...prev, items: updated }));
+  };
+
   const addItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', itemName: '', sku: '', quantity: 1, unitPrice: 0, discount: 0, taxRate: 0, taxAmount: 0, lineTotal: 0 }]
+      items: [...formData.items, { productId: '', variantId: '', variantSku: '', attributes: {}, itemName: '', sku: '', quantity: 1, unitPrice: 0, discount: 0, taxRate: 0, taxAmount: 0, lineTotal: 0 }]
     });
   };
 
@@ -154,12 +246,34 @@ const TaxInvoiceForm = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const subtotal = formData.items.reduce((sum, item) => sum + ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)), 0);
-      const discountTotal = formData.items.reduce((sum, item) => sum + (Number(item.discount) || 0), 0);
-      const taxTotal = formData.items.reduce((sum, item) => sum + (Number(item.taxAmount) || 0), 0);
+      const validItems = formData.items.filter(i => i.productId);
+      if (validItems.length === 0) {
+        alert('Please select at least one product item for the invoice.');
+        setLoading(false);
+        return;
+      }
+
+      const subtotal = validItems.reduce((sum, item) => sum + ((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)), 0);
+      const discountTotal = validItems.reduce((sum, item) => sum + (Number(item.discount) || 0), 0);
+      const taxTotal = validItems.reduce((sum, item) => sum + (Number(item.taxAmount) || 0), 0);
       const grandTotal = calculateGrandTotal();
+
+      const selectedCustomer = customers.find(c => c._id === formData.customerId);
+      const customerSnapshot = selectedCustomer ? {
+        name: selectedCustomer.name || 'Customer',
+        email: selectedCustomer.email || '',
+        phone: selectedCustomer.phone || '',
+        billingAddress: typeof selectedCustomer.billingAddress === 'string'
+          ? selectedCustomer.billingAddress
+          : (selectedCustomer.billingAddress?.street || selectedCustomer.billingAddress?.city || ''),
+        taxRegistrationNumber: selectedCustomer.taxRegistrationNumber || ''
+      } : undefined;
+
       const payload = {
         ...formData,
+        items: validItems,
+        customerSnapshot,
+        branchId: formData.branchId || authUser.branchId || authUser.branches?.[0]?._id || authUser.branches?.[0] || undefined,
         subtotal,
         discountTotal,
         taxTotal,
@@ -303,19 +417,62 @@ const TaxInvoiceForm = () => {
               <tbody className="divide-y divide-slate-100">
                 {formData.items.map((item, index) => (
                   <tr key={index}>
-                    <td className="py-3 pr-2">
+                    <td className="py-3 pr-2 min-w-[280px]">
                       <select
                         required
                         disabled={formData.sourceType === 'QUOTE'}
                         value={item.productId}
                         onChange={e => handleItemChange(index, 'productId', e.target.value)}
-                        className="w-full h-9 px-2 bg-slate-50 border border-slate-200 rounded text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full h-9 px-2 bg-slate-50 border border-slate-200 rounded text-sm disabled:opacity-60 disabled:cursor-not-allowed font-medium text-slate-800"
                       >
                         <option value="">Select Product...</option>
                         {products.map(p => (
                           <option key={p._id} value={p._id}>{p.name} - {p.sku}</option>
                         ))}
                       </select>
+                      {/* Show variant badge if from quote */}
+                      {formData.sourceType === 'QUOTE' && item.variantSku && (
+                        <div className="mt-1 flex items-center gap-1">
+                          <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">
+                            Variant: {item.variantSku}
+                          </span>
+                          {item.attributes && Object.keys(item.attributes).length > 0 && (
+                            <span className="text-[10px] text-slate-500">
+                              ({Object.entries(item.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {/* If manual and product has variants */}
+                      {formData.sourceType !== 'QUOTE' && variantsMap[item.productId]?.length > 0 && (
+                        <div className="flex items-center gap-1.5 pt-1.5">
+                          <div className="flex-1">
+                            <select
+                              value={item.variantId || ''}
+                              onChange={(e) => handleItemChange(index, 'variantId', e.target.value)}
+                              disabled={isReadOnly}
+                              className="w-full text-xs font-semibold bg-white border border-slate-200 rounded px-2 py-1 focus:border-blue-600 focus:outline-none"
+                            >
+                              <option value="">-- Base Product --</option>
+                              {variantsMap[item.productId].map(v => {
+                                const attrStr = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
+                                const label = v.title ? `${v.title} (${v.sku})` : (attrStr ? `${attrStr} (${v.sku})` : v.sku);
+                                return <option key={v._id} value={v._id}>{label}</option>;
+                              })}
+                            </select>
+                          </div>
+                          {!isReadOnly && (
+                            <button
+                              type="button"
+                              onClick={() => handlePopulateAllVariants(item.productId, index)}
+                              className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+                              title="Populate rows for all variants of this product"
+                            >
+                              ⚡ All Variants
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td className="py-3 pr-2">
                       <input

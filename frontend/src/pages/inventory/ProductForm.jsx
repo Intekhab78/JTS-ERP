@@ -371,18 +371,30 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
                 <label className="text-sm font-medium">Category <span className="text-error">*</span></label>
               </div>
               <Select required value={formData.categoryId} onChange={e => {
+                const val = e.target.value;
+                const selCat = categories.find(c => c._id === val);
+                let autoDept = formData.department;
+                if (selCat && selCat.itemDepartmentId) {
+                  const catDeptId = selCat.itemDepartmentId?._id || selCat.itemDepartmentId;
+                  const foundDept = departments.find(d => d._id === catDeptId);
+                  if (foundDept) autoDept = foundDept.name;
+                }
                 setFormData({
                   ...formData, 
-                  categoryId: e.target.value,
+                  categoryId: val,
+                  department: autoDept,
                   family: '',
                   subFamily: ''
                 });
-              }} disabled={!formData.department}>
+              }}>
                 <option value="">Select a category</option>
                 {categories
                   .filter(cat => {
+                    if (!formData.department) return true;
                     const selDept = departments.find(d => d.name === formData.department);
-                    return selDept && (cat.itemDepartmentId === selDept._id || cat.itemDepartmentId?._id === selDept._id);
+                    if (!selDept) return true;
+                    const deptId = cat.itemDepartmentId?._id || cat.itemDepartmentId;
+                    return !deptId || deptId === selDept._id;
                   })
                   .map(cat => <option key={cat._id} value={cat._id}>{cat.name}</option>)}
               </Select>
@@ -408,7 +420,11 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
               }} disabled={!formData.categoryId}>
                 <option value="">Select Family</option>
                 {families
-                  .filter(f => f.categoryId === formData.categoryId || f.categoryId?._id === formData.categoryId)
+                  .filter(f => {
+                    if (!formData.categoryId) return true;
+                    const catId = f.categoryId?._id || f.categoryId;
+                    return !catId || catId === formData.categoryId;
+                  })
                   .map(f => <option key={f._id} value={f.name}>{f.name}</option>)}
               </Select>
             </FormField>
@@ -417,7 +433,13 @@ const AddProductModal = ({ onClose, categories, refresh, productToEdit }) => {
               <Select value={formData.subFamily} onChange={e => setFormData({...formData, subFamily: e.target.value})} disabled={!formData.family}>
                 <option value="">Select Sub Family</option>
                 {subFamilies
-                  .filter(sf => sf.familyId?.name === formData.family)
+                  .filter(sf => {
+                    if (!formData.family) return true;
+                    const famObj = families.find(f => f.name === formData.family);
+                    const famId = famObj?._id;
+                    const sfFamId = sf.familyId?._id || sf.familyId;
+                    return sf.familyId?.name === formData.family || (famId && sfFamId === famId);
+                  })
                   .map(sf => <option key={sf._id} value={sf.name}>{sf.name}</option>)}
               </Select>
             </FormField>

@@ -69,7 +69,9 @@ exports.getPurchaseOrderById = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
-    const items = await PurchaseOrderItem.find({ purchaseOrderId: po._id }).populate('productId', 'name sku');
+    const items = await PurchaseOrderItem.find({ purchaseOrderId: po._id })
+      .populate('productId', 'name sku')
+      .populate('variantId', 'sku attributes salesPrice purchasePrice');
 
     // Fetch related GRNs
     const grns = await GRN.find({ purchaseOrderId: po._id, isActive: true })
@@ -181,6 +183,8 @@ exports.createPurchaseOrder = async (req, res) => {
         tenantId: req.user.tenantId,
         purchaseOrderId: po[0]._id,
         productId: item.productId,
+        variantId: item.variantId || null,
+        variantSku: item.variantSku || null,
         quantity: item.quantity,
         description: item.description || '',
         uom: item.uom || 'PCS',
@@ -253,6 +257,8 @@ exports.updatePurchaseOrder = async (req, res) => {
           tenantId: req.user.tenantId,
           purchaseOrderId: po._id,
           productId: item.productId,
+          variantId: item.variantId || null,
+          variantSku: item.variantSku || null,
           quantity: item.quantity,
           description: item.description || '',
           uom: item.uom || 'PCS',

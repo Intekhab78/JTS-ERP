@@ -20,6 +20,15 @@ const stockMovementSchema = new mongoose.Schema({
     ref: 'Product',
     required: true
   },
+  variantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ProductVariant',
+    default: null
+  },
+  variantSku: {
+    type: String,
+    default: null
+  },
   quantity: {
     type: Number,
     required: true
@@ -71,6 +80,7 @@ const stockMovementSchema = new mongoose.Schema({
 });
 
 stockMovementSchema.index({ tenantId: 1, branchId: 1, productId: 1 });
+stockMovementSchema.index({ tenantId: 1, branchId: 1, productId: 1, variantId: 1 });
 stockMovementSchema.index({ tenantId: 1, type: 1 });
 stockMovementSchema.index({ tenantId: 1, referenceId: 1 });
 

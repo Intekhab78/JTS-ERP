@@ -153,18 +153,24 @@ const GRNForm = () => {
             const productObj = item.productId || {};
             const pId = productObj._id || productObj;
             const productFromState = products.find(p => p._id === pId);
+            const varObj = item.variantId || {};
+            const varId = varObj._id || item.variantId || null;
+            const varSku = item.variantSku || varObj.sku || '';
+            const variantLabel = varSku ? ` [Variant: ${varSku}]` : '';
             
             return {
               productId: pId,
-              itemName: productObj.name || (productFromState ? productFromState.name : 'Unknown'),
-              sku: productObj.sku || (productFromState ? (productFromState.sku || 'N/A') : 'UNK'),
+              variantId: varId,
+              variantSku: varSku,
+              itemName: (productObj.name || (productFromState ? productFromState.name : 'Unknown')) + variantLabel,
+              sku: varSku || productObj.sku || (productFromState ? (productFromState.sku || 'N/A') : 'UNK'),
               orderedQuantity: item.quantity || 1,
               alreadyReceivedQuantity: item.receivedQuantity || 0,
               remainingQuantity: Math.max(0, (item.quantity || 1) - (item.receivedQuantity || 0)),
               receivedQuantity: '',
               acceptedQuantity: '',
               rejectedQuantity: '',
-              purchaseUnitPrice: item.unitPrice || productObj.purchasePrice || (productFromState?.purchasePrice) || 0,
+              purchaseUnitPrice: item.unitPrice || item.unitCost || productObj.purchasePrice || (productFromState?.purchasePrice) || 0,
               conversionFactor: item.conversionFactor || productObj.uomDetails?.purchaseConversionFactor || productFromState?.uomDetails?.purchaseConversionFactor || 1,
               isFromPO: true
             };

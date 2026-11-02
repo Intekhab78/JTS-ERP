@@ -78,8 +78,11 @@ exports.generateFromOrder = async (req, res) => {
       const remaining = item.quantity - previouslyDelivered;
       return {
         productId: item.productId._id,
-        itemName: item.productId.name,
-        sku: item.productId.sku,
+        variantId: item.variantId || null,
+        variantSku: item.variantSku || item.productId.sku,
+        attributes: item.selectedAttributes ? (item.selectedAttributes instanceof Map ? Object.fromEntries(item.selectedAttributes) : item.selectedAttributes) : undefined,
+        itemName: item.variantSku ? `${item.productId.name} (${item.variantSku})` : item.productId.name,
+        sku: item.variantSku || item.productId.sku,
         uom: item.productId.uomDetails?.salesUnit || item.productId.uom || 'PCS',
         orderedQuantity: item.quantity,
         previouslyDeliveredQuantity: previouslyDelivered,
@@ -235,7 +238,8 @@ exports.getDeliveryNoteById = async (req, res) => {
       isActive: true 
     })
     .populate('salesOrderId')
-    .populate('customerId');
+    .populate('customerId')
+    .populate('items.variantId', 'sku title attributes salesPrice purchasePrice uploadImage');
 
     if (!dn) return res.status(404).json({ message: 'Delivery Note not found' });
 
@@ -431,13 +435,17 @@ exports.dispatchDeliveryNote = async (req, res) => {
         const movementsToCreate = [];
 
         // Try COMPANY stock first
-        const companyStock = await Stock.findOne({
+        const stockQuery = {
           tenantId: dn.tenantId,
-          legalCompanyId: dn.legalCompanyId,
           branchId: dn.branchId,
           productId: item.productId,
           ownerType: 'COMPANY'
-        }).session(session);
+        };
+        if (item.variantId) stockQuery.variantId = item.variantId;
+        else stockQuery.variantId = null;
+        if (dn.legalCompanyId) stockQuery.legalCompanyId = dn.legalCompanyId;
+
+        const companyStock = await Stock.findOne(stockQuery).session(session);
 
         if (companyStock && companyStock.quantity > 0) {
           const deductQty = Math.min(companyStock.quantity, remainingToDeduct);
@@ -450,6 +458,8 @@ exports.dispatchDeliveryNote = async (req, res) => {
             legalCompanyId: dn.legalCompanyId,
             branchId: dn.branchId,
             productId: item.productId,
+            variantId: item.variantId || null,
+            variantSku: item.variantSku || '',
             quantity: -deductQty,
             documentQuantity: (deductQty / baseDeliveryQty) * item.deliveryQuantity,
             documentUom: item.uom,
@@ -465,14 +475,18 @@ exports.dispatchDeliveryNote = async (req, res) => {
 
         // If still remaining, try SUPPLIER stock
         if (remainingToDeduct > 0) {
-          const supplierStocks = await Stock.find({
+          const supplierQuery = {
             tenantId: dn.tenantId,
-            legalCompanyId: dn.legalCompanyId,
             branchId: dn.branchId,
             productId: item.productId,
             ownerType: 'SUPPLIER',
             quantity: { $gt: 0 }
-          }).session(session);
+          };
+          if (item.variantId) supplierQuery.variantId = item.variantId;
+          else supplierQuery.variantId = null;
+          if (dn.legalCompanyId) supplierQuery.legalCompanyId = dn.legalCompanyId;
+
+          const supplierStocks = await Stock.find(supplierQuery).session(session);
 
           for (const sStock of supplierStocks) {
             if (remainingToDeduct <= 0) break;
@@ -486,6 +500,8 @@ exports.dispatchDeliveryNote = async (req, res) => {
               legalCompanyId: dn.legalCompanyId,
               branchId: dn.branchId,
               productId: item.productId,
+              variantId: item.variantId || null,
+              variantSku: item.variantSku || '',
               quantity: -deductQty,
               documentQuantity: (deductQty / baseDeliveryQty) * item.deliveryQuantity,
               documentUom: item.uom,

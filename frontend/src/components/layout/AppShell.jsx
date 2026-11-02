@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import { ProductTourGuide } from '../common/ProductTourGuide';
 
 import { WorkspaceSelector } from './WorkspaceSelector';
 
@@ -76,18 +77,18 @@ const AppShell = () => {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden text-foreground font-sans">
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-20 lg:hidden transition-opacity"
-          aria-hidden="true"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-      
+      {/* Mobile Sidebar Overlay with smooth fade animation */}
+      <div
+        className={`fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-20 lg:hidden transition-opacity duration-300 ease-in-out ${
+          isSidebarOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        aria-hidden="true"
+        onClick={() => setIsSidebarOpen(false)}
+      />
+
       <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative">
+
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
         <Header toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} isSidebarOpen={isSidebarOpen} />
         <main className={`flex-1 overflow-x-hidden overflow-y-auto print:overflow-visible bg-background custom-scrollbar ${isFullBleedRoute ? 'print:p-0' : 'p-4 md:p-8 print:p-0'}`}>
           <div className={isFullBleedRoute ? '' : 'max-w-7xl mx-auto'}>
@@ -95,6 +96,8 @@ const AppShell = () => {
           </div>
         </main>
       </div>
+
+      <ProductTourGuide />
     </div>
   );
 };

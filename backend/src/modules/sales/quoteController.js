@@ -56,8 +56,21 @@ const calculateTotals = async (items, req, branchId) => {
       throw err;
     }
 
+    let variant = null;
+    if (item.variantId && mongoose.isValidObjectId(item.variantId)) {
+      variant = await mongoose.model('ProductVariant').findOne({
+        _id: item.variantId,
+        productId: product._id,
+        tenantId: tenantContext
+      }).lean();
+    }
+
     const quantity = Number(item.quantity) || 1;
-    const unitPrice = Number(item.unitPrice) >= 0 ? Number(item.unitPrice) : resolvedItem.salesPrice;
+    let defaultPrice = resolvedItem.salesPrice;
+    if (variant && variant.salesPrice != null && variant.salesPrice > 0) {
+      defaultPrice = variant.salesPrice;
+    }
+    const unitPrice = Number(item.unitPrice) >= 0 ? Number(item.unitPrice) : defaultPrice;
     const discount = Number(item.discount) || 0;
     const taxRate = Number(item.taxRate) || resolvedItem.taxRate || 0;
 
@@ -67,10 +80,20 @@ const calculateTotals = async (items, req, branchId) => {
     const taxAmount = (taxableAmount * taxRate) / 100;
     const lineTotal = taxableAmount + taxAmount;
 
+    let plainAttrs = {};
+    if (variant?.attributes instanceof Map) {
+      plainAttrs = Object.fromEntries(variant.attributes);
+    } else if (variant?.attributes && typeof variant.attributes === 'object') {
+      plainAttrs = { ...variant.attributes };
+    }
+
     processedItems.push({
       productId: product._id,
-      itemName: product.name,
-      sku: resolvedItem.companySku,
+      variantId: variant ? variant._id : null,
+      variantSku: variant ? variant.sku : (item.variantSku || ''),
+      attributes: variant ? plainAttrs : undefined,
+      itemName: variant?.title ? `${product.name} - ${variant.title}` : product.name,
+      sku: variant ? variant.sku : resolvedItem.companySku,
       uom: product.uom,
       quantity,
       unitPrice,
@@ -198,7 +221,8 @@ exports.getQuoteById = async (req, res) => {
     const quote = await Quote.findOne({ _id: req.params.id, ...filter, isActive: true })
       .populate('branchId', 'name')
       .populate('customerId', 'name email phone')
-      .populate('salespersonId', 'firstName lastName');
+      .populate('salespersonId', 'firstName lastName')
+      .populate('items.variantId', 'sku title attributes salesPrice purchasePrice uploadImage');
 
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
 
@@ -403,6 +427,9 @@ exports.convertQuote = async (req, res) => {
         legalCompanyId: quote.legalCompanyId,
         orderId: newOrderId,
         productId: item.productId,
+        variantId: item.variantId || null,
+        variantSku: item.variantSku || '',
+        selectedAttributes: item.attributes || {},
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         subTotal: item.lineTotal,

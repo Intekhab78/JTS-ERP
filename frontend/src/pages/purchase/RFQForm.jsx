@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Plus, Trash2, ArrowLeft, Save, FileText, Settings, Zap } from 'lucide-react';
@@ -11,6 +11,7 @@ export default function RFQForm() {
   const [suppliers, setSuppliers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [products, setProducts] = useState([]);
+  const [variantsMap, setVariantsMap] = useState({});
   
   const [formData, setFormData] = useState({
     supplierId: '',
@@ -22,6 +23,11 @@ export default function RFQForm() {
     items: []
   });
 
+  const availableProducts = useMemo(() => {
+    // In Procurement / RFQ, allow requesting quotes for any product in the inventory catalog
+    return products;
+  }, [products]);
+
   const [loading, setLoading] = useState(false);
   const [rfqStatus, setRfqStatus] = useState('DRAFT');
 
@@ -29,6 +35,18 @@ export default function RFQForm() {
     fetchFormData();
     if (isEditing) fetchRFQ();
   }, [id]);
+
+  const fetchVariantsForProduct = async (productId) => {
+    if (!productId || variantsMap[productId]) return;
+    try {
+      const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
+      const res = await axios.get(`/api/v1/inventory/products/${productId}/variants`, { headers });
+      const list = res.data?.variants || (Array.isArray(res.data) ? res.data : []);
+      setVariantsMap(prev => ({ ...prev, [productId]: list }));
+    } catch (error) {
+      console.error('Error fetching variants:', error);
+    }
+  };
 
   const fetchFormData = async () => {
     try {
@@ -41,6 +59,11 @@ export default function RFQForm() {
       setSuppliers(supRes.data.data || supRes.data);
       setBranches(brRes.data);
       setProducts(prodRes.data);
+      (prodRes.data || []).forEach(p => {
+        if (p.hasVariants) {
+          fetchVariantsForProduct(p._id);
+        }
+      });
     } catch (error) {
       console.error(error);
       alert('Failed to load form data');
@@ -69,14 +92,20 @@ export default function RFQForm() {
         currency: rfq.currency || 'AED',
         paymentTerms: rfq.paymentTerms || '',
         notes: rfq.notes || '',
-        items: items.map(i => ({
-          productId: i.productId?._id || i.productId,
-          description: i.description || '',
-          quantity: i.quantity,
-          uom: i.uom,
-          unitCost: i.unitCost,
-          subTotal: i.subTotal
-        }))
+        items: items.map(i => {
+          const prodId = i.productId?._id || i.productId;
+          if (prodId) fetchVariantsForProduct(prodId);
+          return {
+            productId: prodId,
+            variantId: i.variantId?._id || i.variantId || '',
+            variantSku: i.variantSku || i.variantId?.sku || '',
+            description: i.description || '',
+            quantity: i.quantity,
+            uom: i.uom,
+            unitCost: i.unitCost,
+            subTotal: i.subTotal
+          };
+        })
       });
     } catch (error) {
       console.error(error);
@@ -94,16 +123,28 @@ export default function RFQForm() {
 
     if (field === 'productId') {
       const product = products.find(p => p._id === value);
+      item.variantId = '';
+      item.variantSku = '';
       if (product) {
         item.description = product.description || product.name;
         item.uom = product.unitOfMeasure || product.uom || 'PCS';
         item.unitCost = product.costPrice || product.purchasePrice || 0;
+        fetchVariantsForProduct(value);
+      }
+    }
+
+    if (field === 'variantId') {
+      const selectedVariant = variantsMap[item.productId]?.find(v => v._id === value);
+      item.variantId = value;
+      item.variantSku = selectedVariant ? selectedVariant.sku : '';
+      if (selectedVariant && selectedVariant.purchasePrice) {
+        item.unitCost = selectedVariant.purchasePrice;
       }
     }
 
     if (field === 'quantity' || field === 'unitCost') {
       item[field] = value === '' ? '' : Number(value).toString() === 'NaN' ? '' : Number(value);
-    } else {
+    } else if (field !== 'productId' && field !== 'variantId') {
       item[field] = value;
     }
 
@@ -116,7 +157,7 @@ export default function RFQForm() {
     if (rfqStatus !== 'DRAFT') return;
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', description: '', quantity: 1, uom: 'PCS', unitCost: 0, subTotal: 0 }]
+      items: [...formData.items, { productId: '', variantId: '', variantSku: '', description: '', quantity: 1, uom: 'PCS', unitCost: 0, subTotal: 0 }]
     });
   };
 
@@ -124,6 +165,34 @@ export default function RFQForm() {
     if (rfqStatus !== 'DRAFT') return;
     const newItems = formData.items.filter((_, idx) => idx !== index);
     setFormData({ ...formData, items: newItems });
+  };
+
+  const handlePopulateAllVariants = (productId, currentIndex) => {
+    if (rfqStatus !== 'DRAFT') return;
+    const vars = variantsMap[productId] || [];
+    if (vars.length === 0) return;
+
+    const prod = availableProducts.find(p => p._id === productId);
+    const uom = prod?.uom || 'PCS';
+    const cost = prod?.costPrice || 0;
+
+    const newRows = vars.map(v => {
+      const attrStr = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
+      return {
+        productId,
+        variantId: v._id,
+        variantSku: v.sku,
+        description: attrStr || v.sku || '',
+        quantity: 1,
+        uom,
+        unitCost: v.costPrice != null ? v.costPrice : cost,
+        subTotal: (v.costPrice != null ? v.costPrice : cost) * 1
+      };
+    });
+
+    const updated = [...formData.items];
+    updated.splice(currentIndex, 1, ...newRows);
+    setFormData({ ...formData, items: updated });
   };
 
   const handleSubmit = async (e) => {
@@ -258,8 +327,9 @@ export default function RFQForm() {
             <table className="w-full text-left whitespace-nowrap">
               <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white border-b-2 border-slate-100">
                 <tr>
-                  <th className="px-6 py-4 min-w-[250px]">Product / Designation *</th>
-                  <th className="px-6 py-4 min-w-[200px]">Description</th>
+                  <th className="px-6 py-4 min-w-[220px]">Product / Designation *</th>
+                  <th className="px-6 py-4 min-w-[180px]">Variant / Spec</th>
+                  <th className="px-6 py-4 min-w-[180px]">Description</th>
                   <th className="px-6 py-4 w-28">Quantity *</th>
                   <th className="px-6 py-4 w-24">UOM</th>
                   <th className="px-6 py-4 w-36">Unit Price *</th>
@@ -271,10 +341,51 @@ export default function RFQForm() {
                 {formData.items.map((item, idx) => (
                   <tr key={idx} className="hover:bg-slate-50 group/row">
                     <td className="p-2 pl-4">
-                      <select required disabled={rfqStatus !== 'DRAFT'} value={item.productId} onChange={e => handleItemChange(idx, 'productId', e.target.value)} className="w-full h-10 px-2 border-2 border-slate-200 bg-white rounded text-sm font-bold text-slate-800 focus:border-blue-500 outline-none disabled:opacity-50 hover:border-slate-300">
-                        <option value="">-- ITEM --</option>
-                        {products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                      <select required disabled={rfqStatus !== 'DRAFT' || !formData.branchId} value={item.productId} onChange={e => handleItemChange(idx, 'productId', e.target.value)} className="w-full h-10 px-2 border-2 border-slate-200 bg-white rounded text-sm font-bold text-slate-800 focus:border-blue-500 outline-none disabled:opacity-50 hover:border-slate-300">
+                        <option value="">{formData.branchId ? '-- SELECT PRODUCT --' : '-- SELECT RECEIVING BRANCH FIRST --'}</option>
+                        {availableProducts.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
                       </select>
+                    </td>
+                    <td className="p-2">
+                      {!item.productId ? (
+                        <span className="text-xs text-slate-400 italic px-2">Select product first</span>
+                      ) : variantsMap[item.productId]?.length > 0 ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Variant</span>
+                            {rfqStatus === 'DRAFT' && (
+                              <button
+                                type="button"
+                                onClick={() => handlePopulateAllVariants(item.productId, idx)}
+                                className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
+                                title="Populate rows for all variants of this product"
+                              >
+                                ⚡ All Variants
+                              </button>
+                            )}
+                          </div>
+                          <select
+                            disabled={rfqStatus !== 'DRAFT'}
+                            value={item.variantId || ''}
+                            onChange={e => handleItemChange(idx, 'variantId', e.target.value)}
+                            className="w-full h-10 px-2 border-2 border-slate-200 bg-white rounded text-xs font-bold text-slate-800 focus:border-blue-500 outline-none disabled:opacity-50 hover:border-slate-300"
+                          >
+                            <option value="">-- BASE PRODUCT --</option>
+                            {variantsMap[item.productId].map(v => {
+                              const attrStr = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
+                              const label = v.title ? `${v.title} (${v.sku})` : (attrStr ? `${attrStr} (${v.sku})` : v.sku);
+                              return <option key={v._id} value={v._id}>{label}</option>;
+                            })}
+                          </select>
+                        </div>
+                      ) : products.find(p => p._id === item.productId)?.hasVariants ? (
+                        <div className="flex items-center gap-1.5 px-2 text-xs text-blue-600 font-medium">
+                          <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+                          <span>Loading variants...</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 font-mono px-2">No variants</span>
+                      )}
                     </td>
                     <td className="p-2">
                       <input type="text" disabled={rfqStatus !== 'DRAFT'} value={item.description} onChange={e => handleItemChange(idx, 'description', e.target.value)} className="w-full h-10 px-2 border-2 border-slate-200 bg-white rounded text-sm text-slate-700 focus:border-blue-500 outline-none disabled:opacity-50 hover:border-slate-300" placeholder="Variant/Specs" />
@@ -303,7 +414,7 @@ export default function RFQForm() {
                 ))}
                 {formData.items.length === 0 && (
                   <tr>
-                    <td colSpan="7" className="p-12 text-center text-slate-400 border-2 border-dashed border-slate-200 bg-slate-50 m-2 rounded-lg">
+                    <td colSpan="8" className="p-12 text-center text-slate-400 border-2 border-dashed border-slate-200 bg-slate-50 m-2 rounded-lg">
                        <div className="flex flex-col items-center justify-center gap-2">
                          <Zap size={32} className="text-slate-300 mb-2" />
                          <p className="text-xs font-bold tracking-widest uppercase">Matrix Empty</p>

@@ -6,6 +6,13 @@ const quoteItemSchema = new mongoose.Schema({
     ref: 'Product',
     required: true
   },
+  variantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ProductVariant',
+    default: null
+  },
+  variantSku: { type: String, trim: true },
+  attributes: { type: Map, of: String },
   itemName: { type: String, required: true },
   sku: { type: String, required: true },
   uom: { type: String, default: 'PCS' },

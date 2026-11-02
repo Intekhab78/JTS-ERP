@@ -35,6 +35,15 @@ const stockTransferSchema = new mongoose.Schema({
       ref: 'Product',
       required: true
     },
+    variantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ProductVariant',
+      default: null
+    },
+    variantSku: {
+      type: String,
+      default: null
+    },
     quantity: {
       type: Number,
       required: true,

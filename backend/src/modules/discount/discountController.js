@@ -63,7 +63,7 @@ exports.updateDiscount = async (req, res) => {
     const discount = await Discount.findOneAndUpdate(
       { _id: req.params.id, tenantId },
       { ...req.body, updatedBy: req.user._id },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!discount) return res.status(404).json({ message: 'Discount not found' });
@@ -85,7 +85,7 @@ exports.deleteDiscount = async (req, res) => {
     const discount = await Discount.findOneAndUpdate(
       { _id: req.params.id, tenantId },
       { isActive: false, updatedBy: req.user._id },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!discount) return res.status(404).json({ message: 'Discount not found' });

@@ -229,7 +229,8 @@ exports.getProFormaInvoices = async (req, res) => {
 exports.getProFormaInvoiceById = async (req, res) => {
   try {
     const filter = getReadFilter(req);
-    const proForma = await ProFormaInvoice.findOne({ _id: req.params.id, ...filter, isActive: true });
+    const proForma = await ProFormaInvoice.findOne({ _id: req.params.id, ...filter, isActive: true })
+      .populate('items.variantId', 'sku title attributes salesPrice purchasePrice uploadImage');
     if (!proForma) return res.status(404).json({ message: 'Pro-Forma Invoice not found' });
 
     const hasWildcard = req.user.roleId?.permissions?.includes('*') || req.user.roleId?.name === 'TENANT ADMIN';

@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const grnItemSchema = new mongoose.Schema({
   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+  variantId: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductVariant', default: null },
+  variantSku: { type: String, default: null },
   purchaseOrderScheduleId: { type: mongoose.Schema.Types.ObjectId, ref: 'PurchaseOrderSchedule' },
   itemName: { type: String, required: true },
   sku: { type: String, required: true },

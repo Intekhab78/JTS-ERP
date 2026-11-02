@@ -13,7 +13,9 @@ exports.getBranches = async (req, res) => {
       query.tenantId = tenantId;
     }
 
-    if (req.query.legalCompanyId) {
+    if (req.query.all === 'true' || req.headers['x-company-id'] === 'ALL') {
+      // Do not restrict by legalCompanyId when all branches are requested
+    } else if (req.query.legalCompanyId) {
       query.legalCompanyId = req.query.legalCompanyId;
     } else {
       const activeCompanyId = req.headers['x-company-id'];

@@ -180,8 +180,22 @@ export default function SalesReturnDetail() {
           <tbody className="divide-y divide-slate-200">
             {returnDoc.items.map((item, idx) => (
               <tr key={idx} className="hover:bg-slate-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">{item.itemName}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{item.sku}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">
+                  <div>{item.itemName}</div>
+                  {item.variantSku && (
+                    <div className="text-xs text-blue-600 font-medium mt-0.5 flex items-center gap-1">
+                      <span className="bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                        Variant: {item.variantSku}
+                      </span>
+                      {item.attributes && Object.keys(item.attributes).length > 0 && (
+                        <span className="text-slate-500 text-[11px]">
+                          ({Object.entries(item.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-slate-500">{item.variantSku || item.sku}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-slate-800">{item.returnQuantity} {item.uom}</td>
               </tr>
             ))}

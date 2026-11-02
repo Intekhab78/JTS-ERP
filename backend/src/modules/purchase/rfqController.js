@@ -73,7 +73,8 @@ exports.getRFQById = async (req, res) => {
     }
 
     const items = await RFQItem.find({ rfqId: rfq._id, tenantId: req.user.tenantId })
-      .populate('productId', 'name sku uom');
+      .populate('productId', 'name sku uom')
+      .populate('variantId', 'sku attributes salesPrice purchasePrice');
 
     // Check if PO exists
     const po = await PurchaseOrder.findOne({ rfqId: rfq._id, tenantId: req.user.tenantId })
@@ -106,6 +107,8 @@ exports.createRFQ = async (req, res) => {
       totalAmount += subTotal;
       return {
         ...item,
+        variantId: item.variantId || null,
+        variantSku: item.variantSku || null,
         tenantId,
         subTotal
       };
@@ -247,6 +250,8 @@ exports.convertToPO = async (req, res) => {
       tenantId,
       purchaseOrderId: newPoId,
       productId: item.productId,
+      variantId: item.variantId || null,
+      variantSku: item.variantSku || null,
       description: item.description,
       uom: item.uom,
       quantity: item.quantity,

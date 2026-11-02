@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Plus, Edit, Trash2, Server, Play, CheckCircle, XCircle, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, Server, Play, CheckCircle, XCircle, Zap, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { SearchInput } from '../../components/ui/SearchInput';
+import { generateCodeFromName } from '../../components/common/MasterSelect';
 
 export default function SubFamilyMaster() {
   const [subFamilies, setSubFamilies] = useState([]);
@@ -89,11 +90,17 @@ export default function SubFamilyMaster() {
     try {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
+      const payload = {
+        familyId: formData.familyId,
+        name: formData.name,
+        code: formData.code,
+        isActive: formData.isActive
+      };
       
       if (editingId) {
-        await axios.put(`/api/v1/hierarchy/subfamilies/${editingId}`, formData, { headers });
+        await axios.put(`/api/v1/hierarchy/subfamilies/${editingId}`, payload, { headers });
       } else {
-        await axios.post('/api/v1/hierarchy/subfamilies', formData, { headers });
+        await axios.post('/api/v1/hierarchy/subfamilies', payload, { headers });
       }
       setIsModalOpen(false);
       fetchData();
@@ -384,14 +391,13 @@ export default function SubFamilyMaster() {
               )}
 
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Department <span className="text-rose-500">*</span></label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Department</label>
                 <select
                   value={formData.departmentId}
                   onChange={(e) => setFormData({ ...formData, departmentId: e.target.value, categoryId: '', familyId: '' })}
-                  required
                   className="flex h-12 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
                 >
-                  <option value="">-- SELECT DEPARTMENT --</option>
+                  <option value="">-- ALL / SELECT DEPARTMENT (OPTIONAL) --</option>
                   {departments.map(dept => (
                     <option key={dept._id} value={dept._id}>{dept.name}</option>
                   ))}
@@ -402,14 +408,25 @@ export default function SubFamilyMaster() {
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Category <span className="text-rose-500">*</span></label>
                 <select
                   value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value, familyId: '' })}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const selCat = categories.find(c => c._id === val);
+                    let autoDept = formData.departmentId;
+                    if (selCat && selCat.itemDepartmentId) {
+                      autoDept = selCat.itemDepartmentId?._id || selCat.itemDepartmentId;
+                    }
+                    setFormData({ ...formData, categoryId: val, departmentId: autoDept, familyId: '' });
+                  }}
                   required
-                  disabled={!formData.departmentId}
-                  className="flex h-12 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex h-12 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
                 >
                   <option value="">-- SELECT CATEGORY --</option>
                   {categories
-                    .filter(cat => cat.itemDepartmentId === formData.departmentId || cat.itemDepartmentId?._id === formData.departmentId)
+                    .filter(cat => {
+                      if (!formData.departmentId) return true;
+                      const dId = cat.itemDepartmentId?._id || cat.itemDepartmentId;
+                      return !dId || dId === formData.departmentId;
+                    })
                     .map(cat => (
                     <option key={cat._id} value={cat._id}>{cat.name}</option>
                   ))}
@@ -427,7 +444,11 @@ export default function SubFamilyMaster() {
                 >
                   <option value="">-- SELECT FAMILY --</option>
                   {families
-                    .filter(f => f.categoryId === formData.categoryId || f.categoryId?._id === formData.categoryId)
+                    .filter(f => {
+                      if (!formData.categoryId) return true;
+                      const cId = f.categoryId?._id || f.categoryId;
+                      return !cId || cId === formData.categoryId;
+                    })
                     .map(fam => (
                     <option key={fam._id} value={fam._id}>{fam.name}</option>
                   ))}
@@ -439,7 +460,14 @@ export default function SubFamilyMaster() {
                 <input 
                   type="text"
                   value={formData.name} 
-                  onChange={e => setFormData({...formData, name: e.target.value})} 
+                  onChange={e => {
+                    const newName = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      name: newName,
+                      code: (!prev.code || prev._codeAuto !== false) ? generateCodeFromName(newName) : prev.code
+                    }));
+                  }} 
                   required 
                   autoFocus
                   placeholder="ENTER SUB FAMILY NAME"
@@ -448,11 +476,21 @@ export default function SubFamilyMaster() {
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Code</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Code</label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, code: generateCodeFromName(prev.name), _codeAuto: true }))}
+                    className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 uppercase tracking-wider transition-colors"
+                    title="Auto-generate code from name"
+                  >
+                    <Sparkles size={11} className="text-blue-500" /> Auto Generate
+                  </button>
+                </div>
                 <input 
                   type="text"
                   value={formData.code} 
-                  onChange={e => setFormData({...formData, code: e.target.value})} 
+                  onChange={e => setFormData({ ...formData, code: e.target.value, _codeAuto: e.target.value.trim() === '' })} 
                   placeholder="ENTER CODE"
                   className="flex h-12 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 font-mono shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors outline-none placeholder:text-slate-400 uppercase"
                 />

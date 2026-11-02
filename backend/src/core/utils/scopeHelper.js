@@ -1,5 +1,16 @@
 const mongoose = require('mongoose');
 
+const checkIsAdmin = (req) => {
+    if (!req.user) return false;
+    // Global admin without tenantId is superadmin
+    if (!req.user.tenantId) return true;
+    // Role checks
+    if (req.user.role && ['SUPER_ADMIN', 'ADMIN', 'TENANT ADMIN', 'SUPERADMIN'].includes(req.user.role.toUpperCase())) return true;
+    if (req.user.roleId && req.user.roleId.name && ['SUPER_ADMIN', 'ADMIN', 'TENANT ADMIN', 'SUPERADMIN'].includes(req.user.roleId.name.toUpperCase())) return true;
+    if (!req.user.roleId) return true; // Legacy unassigned role
+    return false;
+};
+
 /**
  * Returns the base query filter for transactional READ operations.
  * Enforces tenantId and accessibleCompanyIds.
@@ -15,35 +26,54 @@ const getReadFilter = (req, options = { allowLegacy: true }) => {
         tenantId
     };
 
-    const xCompanyId = req.headers['x-company-id'];
+    const isAdmin = checkIsAdmin(req);
+    const xCompanyId = req.headers ? req.headers['x-company-id'] : null;
     const accessibleCompanyIds = req.user.accessibleCompanyIds || [];
 
     if (xCompanyId && xCompanyId !== 'ALL' && xCompanyId !== 'null' && xCompanyId !== 'undefined') {
-        if (!accessibleCompanyIds.includes(xCompanyId.toString())) {
-            throw { status: 403, message: 'Forbidden: You do not have access to the specified Legal Company context.' };
-        }
-        if (options.allowLegacy) {
-            filter.$or = [
-                { legalCompanyId: xCompanyId },
-                { legalCompanyId: { $exists: false } },
-                { legalCompanyId: null }
-            ];
+        const canAccess = isAdmin || accessibleCompanyIds.includes(xCompanyId.toString());
+        if (!canAccess) {
+            if (accessibleCompanyIds.length > 0) {
+                // If header has a stale company ID that the user doesn't have access to,
+                // fall back to their accessible companies rather than crashing the dashboard with 403!
+                if (options.allowLegacy) {
+                    filter.$or = [
+                        { legalCompanyId: { $in: accessibleCompanyIds } },
+                        { legalCompanyId: { $exists: false } },
+                        { legalCompanyId: null }
+                    ];
+                } else {
+                    filter.legalCompanyId = { $in: accessibleCompanyIds };
+                }
+            } else {
+                throw { status: 403, message: 'Forbidden: You do not have access to the specified Legal Company context.' };
+            }
         } else {
-            filter.legalCompanyId = xCompanyId;
+            if (options.allowLegacy) {
+                filter.$or = [
+                    { legalCompanyId: xCompanyId },
+                    { legalCompanyId: { $exists: false } },
+                    { legalCompanyId: null }
+                ];
+            } else {
+                filter.legalCompanyId = xCompanyId;
+            }
         }
     } else {
-        if (options.allowLegacy) {
-            filter.$or = [
-                { legalCompanyId: { $in: accessibleCompanyIds } },
-                { legalCompanyId: { $exists: false } },
-                { legalCompanyId: null }
-            ];
-        } else {
-            filter.legalCompanyId = { $in: accessibleCompanyIds };
+        if (!isAdmin && accessibleCompanyIds.length > 0) {
+            if (options.allowLegacy) {
+                filter.$or = [
+                    { legalCompanyId: { $in: accessibleCompanyIds } },
+                    { legalCompanyId: { $exists: false } },
+                    { legalCompanyId: null }
+                ];
+            } else {
+                filter.legalCompanyId = { $in: accessibleCompanyIds };
+            }
         }
     }
 
-    if (req.user.accessibleBranchIds && req.user.accessibleBranchIds.length > 0) {
+    if (!isAdmin && req.user.accessibleBranchIds && req.user.accessibleBranchIds.length > 0) {
         filter.branchId = { $in: req.user.accessibleBranchIds };
     }
 
@@ -62,12 +92,8 @@ const validateCreateScope = (req, body) => {
         throw { status: 403, message: 'Forbidden: Missing tenant context' };
     }
 
+    const isAdmin = checkIsAdmin(req);
     const accessibleCompanyIds = req.user.accessibleCompanyIds || [];
-    
-    if (accessibleCompanyIds.length === 0) {
-        throw { status: 403, message: 'Forbidden: You have zero accessible Legal Companies.' };
-    }
-
     const activeCompanyId = req.headers ? req.headers['x-company-id'] : null;
 
     if (!body.legalCompanyId) {
@@ -75,12 +101,16 @@ const validateCreateScope = (req, body) => {
             body.legalCompanyId = activeCompanyId;
         } else if (accessibleCompanyIds.length === 1) {
             body.legalCompanyId = accessibleCompanyIds[0];
+        } else if (isAdmin) {
+            if (accessibleCompanyIds.length > 0) {
+                body.legalCompanyId = accessibleCompanyIds[0];
+            }
         } else {
             throw { status: 400, message: 'Bad Request: Multiple accessible companies found. You must explicitly provide a legalCompanyId.' };
         }
     }
 
-    if (!accessibleCompanyIds.includes(body.legalCompanyId.toString())) {
+    if (body.legalCompanyId && !isAdmin && accessibleCompanyIds.length > 0 && !accessibleCompanyIds.includes(body.legalCompanyId.toString())) {
         throw { status: 403, message: 'Forbidden: You do not have access to the specified Legal Company.' };
     }
 
@@ -95,6 +125,8 @@ const validateCompanyId = (req, legalCompanyId) => {
     if (!tenantId) {
         throw { status: 403, message: 'Forbidden: Missing tenant context' };
     }
+    const isAdmin = checkIsAdmin(req);
+    if (isAdmin) return true;
     const accessibleCompanyIds = req.user.accessibleCompanyIds || [];
     
     if (!legalCompanyId || !accessibleCompanyIds.includes(legalCompanyId.toString())) {
@@ -114,6 +146,7 @@ const validateBranchScope = async (req, branchId) => {
     }
     if (!branchId) return true; // Let caller decide if branchId is required
 
+    const isAdmin = checkIsAdmin(req);
     const Branch = mongoose.model('Branch');
     const branch = await Branch.findById(branchId);
     
@@ -125,12 +158,12 @@ const validateBranchScope = async (req, branchId) => {
         throw { status: 403, message: 'Forbidden: Branch belongs to a different tenant.' };
     }
 
-    if (branch.legalCompanyId && !(req.user.accessibleCompanyIds || []).includes(branch.legalCompanyId.toString())) {
+    if (!isAdmin && branch.legalCompanyId && !(req.user.accessibleCompanyIds || []).includes(branch.legalCompanyId.toString())) {
         throw { status: 403, message: 'Forbidden: Branch belongs to a Legal Company you cannot access.' };
     }
 
     const isBranchRestricted = req.user.branches && req.user.branches.length > 0;
-    if (isBranchRestricted) {
+    if (!isAdmin && isBranchRestricted) {
         if (!(req.user.accessibleBranchIds || []).includes(branchId.toString())) {
             throw { status: 403, message: 'Forbidden: You are not authorized for this specific branch.' };
         }
@@ -145,3 +178,4 @@ module.exports = {
     validateCompanyId,
     validateBranchScope
 };
+
