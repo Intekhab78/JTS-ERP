@@ -12,9 +12,9 @@ const FormField = ({
   const inputId = children?.props?.id || children?.props?.name || generatedId;
 
   return (
-    <div className={`flex flex-col mb-5 w-full ${className}`}>
+    <div className={`flex flex-col w-full ${className.includes('mb-') ? '' : 'mb-2.5'} ${className}`}>
       {label && (
-        <label className="text-sm font-medium text-foreground mb-1.5" htmlFor={inputId}>
+        <label className="text-xs font-semibold text-slate-700 mb-1" htmlFor={inputId}>
           {label} {required && <span className="text-error" aria-hidden="true">*</span>}
         </label>
       )}

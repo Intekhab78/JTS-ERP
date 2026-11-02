@@ -6,6 +6,7 @@ const GRN = require('../../core/models/GRN');
 const Counter = require('../../core/models/Counter');
 const { verifyBranchAccess } = require('../../core/middleware/authMiddleware');
 const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
+const AutoPostingService = require('../../services/autoPostingService');
 
 const generateBillNumber = async (tenantId, session) => {
   const currentYear = new Date().getFullYear();
@@ -230,6 +231,10 @@ exports.postVendorBill = async (req, res) => {
 
     bill.status = 'POSTED';
     await bill.save();
+
+    // Trigger Double-Entry Auto-Posting (Dr. GR/IR Clearing + Tax / Cr. Accounts Payable)
+    await AutoPostingService.postVendorBill(bill, req.user._id);
+
     res.status(200).json(bill);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -241,10 +246,14 @@ exports.cancelVendorBill = async (req, res) => {
     const filter = getReadFilter(req);
     const bill = await VendorBill.findOne({ _id: req.params.id, ...filter });
     if (!bill) return res.status(404).json({ message: 'Vendor Bill not found' });
-    if (bill.status !== 'DRAFT') return res.status(400).json({ message: 'Only DRAFT bills can be cancelled' });
+    if (bill.status !== 'DRAFT' && bill.status !== 'POSTED') return res.status(400).json({ message: 'Cannot cancel bill in current status' });
 
     bill.status = 'CANCELLED';
     await bill.save();
+
+    // If it was posted, reverse its journal entry
+    await AutoPostingService.reverseSourceEntry(bill._id, 'VendorBill', bill.tenantId, req.user._id);
+
     res.status(200).json(bill);
   } catch (error) {
     res.status(500).json({ message: error.message });

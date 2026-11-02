@@ -747,7 +747,18 @@ const PurchaseOrderDetail = () => {
                   <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
                     <td className="p-4">
                       <div className="font-bold text-slate-900 dark:text-white">{item.productId?.name}</div>
-                      <div className="text-xs text-slate-400">SKU: {item.productId?.sku}</div>
+                      {item.variantId ? (
+                        <div className="text-xs font-semibold text-blue-600">
+                          Variant: {item.variantSku || item.variantId?.sku}
+                          {item.variantId?.attributes && (
+                            <span className="text-slate-400 font-normal ml-1">
+                              ({Object.entries(item.variantId.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-400">SKU: {item.productId?.sku}</div>
+                      )}
                       {item.description && <div className="text-xs text-slate-400 mt-1 italic">{item.description}</div>}
                     </td>
                     <td className="p-4 text-center text-slate-600 dark:text-slate-300">{item.uom || 'PCS'}</td>

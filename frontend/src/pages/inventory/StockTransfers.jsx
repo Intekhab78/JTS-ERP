@@ -264,6 +264,11 @@ const StockTransfers = () => {
                        <div className="font-mono text-[10px] text-slate-400 uppercase tracking-widest mt-1">
                          {new Date(t.createdAt).toLocaleDateString()}
                        </div>
+                       {t.items && t.items.length > 0 && (
+                         <div className="text-[10px] text-blue-600 font-mono mt-1 truncate max-w-xs" title={t.items.map(it => `${it.productId?.name || 'Item'}${it.variantSku ? ` (${it.variantSku})` : ''} x${it.quantity}`).join(', ')}>
+                           {t.items.map(it => `${it.productId?.name || 'Item'}${it.variantSku ? ` (${it.variantSku})` : ''} x${it.quantity}`).join(', ')}
+                         </div>
+                       )}
                     </td>
                     <td className="px-6 py-4 font-bold text-slate-700 text-sm uppercase tracking-tight font-sans">
                       {t.sourceBranchId?.name || 'Unknown'}

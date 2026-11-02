@@ -180,6 +180,7 @@ export const setupAxios = () => {
       }
 
       // Auto-attach x-tenant-id for Global Admin workspace context
+
       const activeWorkspace = localStorage.getItem('active_workspace_id');
       if (activeWorkspace) {
         config.headers['x-tenant-id'] = activeWorkspace;
@@ -187,7 +188,7 @@ export const setupAxios = () => {
 
       // Auto-attach x-company-id for Legal Company context
       const activeCompany = localStorage.getItem('active_company_id');
-      if (activeCompany) {
+      if (activeCompany && activeCompany !== 'ALL' && activeCompany !== 'null' && activeCompany !== 'undefined') {
         config.headers['x-company-id'] = activeCompany;
       }
 
@@ -224,7 +225,7 @@ export const initializeApiMode = async () => {
     const isAlive = await pingLocalBackend();
     const target = isAlive ? 'local' : 'online';
     const currentTarget = localStorage.getItem('jts_auto_resolved_target');
-    
+
     if (target !== currentTarget) {
       setAutoResolvedTarget(target);
       // Reload the page silently to apply the correct URL across all modules

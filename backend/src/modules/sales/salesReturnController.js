@@ -48,7 +48,8 @@ exports.getSalesReturnById = async (req, res) => {
       .populate('salesOrderId', 'orderNumber')
       .populate('branchId', 'name')
       .populate('createdBy', 'name')
-      .populate('updatedBy', 'name');
+      .populate('updatedBy', 'name')
+      .populate('items.variantId');
 
     if (!sr) return res.status(404).json({ message: 'Sales Return not found' });
 
@@ -56,6 +57,12 @@ exports.getSalesReturnById = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+const getItemKey = (productId, variantId) => {
+  const p = (productId?._id || productId)?.toString();
+  const v = (variantId?._id || variantId)?.toString();
+  return v ? `${p}_${v}` : p;
 };
 
 // Helper function to calculate returnable quantities
@@ -73,18 +80,24 @@ const getReturnableQuantities = async (deliveryNoteId, req, session) => {
   const returnableQuantities = {};
   
   deliveryNote.items.forEach(item => {
-    returnableQuantities[item.productId.toString()] = {
+    const key = getItemKey(item.productId, item.variantId);
+    returnableQuantities[key] = {
       deliveredQuantity: item.deliveryQuantity,
       alreadyReturned: 0,
       returnable: item.deliveryQuantity
     };
+    if (!returnableQuantities[item.productId.toString()]) {
+      returnableQuantities[item.productId.toString()] = returnableQuantities[key];
+    }
   });
 
   existingReturns.forEach(sr => {
     sr.items.forEach(srItem => {
-      if (returnableQuantities[srItem.productId.toString()]) {
-        returnableQuantities[srItem.productId.toString()].alreadyReturned += srItem.returnQuantity;
-        returnableQuantities[srItem.productId.toString()].returnable -= srItem.returnQuantity;
+      const key = getItemKey(srItem.productId, srItem.variantId);
+      const target = returnableQuantities[key] || returnableQuantities[srItem.productId.toString()];
+      if (target) {
+        target.alreadyReturned += srItem.returnQuantity;
+        target.returnable -= srItem.returnQuantity;
       }
     });
   });
@@ -113,7 +126,8 @@ exports.createSalesReturn = async (req, res) => {
 
     // Validate return quantities
     for (const item of body.items) {
-      const rq = returnableQuantities[item.productId.toString()];
+      const key = getItemKey(item.productId, item.variantId);
+      const rq = returnableQuantities[key] || returnableQuantities[item.productId.toString()];
       if (!rq) {
         throw new Error(`Product ${item.productId} is not part of this Delivery Note`);
       }
@@ -121,10 +135,11 @@ exports.createSalesReturn = async (req, res) => {
         throw new Error('Return quantity must be greater than zero');
       }
       if (item.returnQuantity > rq.returnable) {
-        throw new Error(`Cannot return more than returnable quantity (${rq.returnable}) for product ${item.productId}`);
+        throw new Error(`Cannot return more than returnable quantity (${rq.returnable}) for item`);
       }
       item.deliveredQuantity = rq.deliveredQuantity;
       item.previouslyReturnedQuantity = rq.alreadyReturned;
+      rq.returnable -= item.returnQuantity;
     }
 
     // Snapshot UOM details from Product Master
@@ -289,13 +304,17 @@ exports.validateSalesReturn = async (req, res) => {
       if (product.type !== 'SERVICE') {
         const baseReturnQty = uomService.convertToBase(item.returnQuantity, item.conversionFactor);
 
+        const stockQuery = {
+          tenantId,
+          branchId: sr.branchId,
+          productId: item.productId,
+          variantId: item.variantId || null,
+          ownerType: 'COMPANY'
+        };
+        if (sr.legalCompanyId) stockQuery.legalCompanyId = sr.legalCompanyId;
+
         const stockUpdate = await Stock.findOneAndUpdate(
-          {
-            tenantId,
-            legalCompanyId: sr.legalCompanyId,
-            branchId: sr.branchId,
-            productId: item.productId
-          },
+          stockQuery,
           { $inc: { quantity: baseReturnQty } }, // Increase stock
           { session, returnDocument: 'after', upsert: true }
         );
@@ -305,6 +324,8 @@ exports.validateSalesReturn = async (req, res) => {
           legalCompanyId: sr.legalCompanyId,
           branchId: sr.branchId,
           productId: item.productId,
+          variantId: item.variantId || null,
+          variantSku: item.variantSku || '',
           quantity: baseReturnQty, // Positive quantity
           documentQuantity: item.returnQuantity,
           documentUom: item.uom,

@@ -44,6 +44,28 @@ router.route('/products/:id/images')
 router.route('/products/:id/images/:imageName')
   .delete(protect, deleteProductImage);
 
+// Product Variant Master Routes
+const {
+  getProductVariants,
+  getProductVariantById,
+  createProductVariant,
+  bulkSaveProductVariants,
+  updateProductVariant,
+  deleteProductVariant
+} = require('./productVariantController');
+
+router.route('/products/:productId/variants')
+  .get(protect, getProductVariants)
+  .post(protect, createProductVariant);
+
+router.route('/products/:productId/variants/bulk')
+  .post(protect, bulkSaveProductVariants);
+
+router.route('/variants/:variantId')
+  .get(protect, getProductVariantById)
+  .put(protect, updateProductVariant)
+  .delete(protect, deleteProductVariant);
+
 
 router.route('/categories')
   .get(protect, getCategories)

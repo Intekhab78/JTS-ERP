@@ -33,6 +33,10 @@ export const CompanySelector = () => {
                  setActiveCompanyId(singleId);
                  window.location.reload();
              }
+          } else if (activeCompanyId && activeCompanyId !== 'ALL' && !res.data.some(c => c._id === activeCompanyId)) {
+             // Stale ID from prior database/session does not exist in accessible companies
+             localStorage.setItem('active_company_id', 'ALL');
+             setActiveCompanyId('ALL');
           }
         }
       })
@@ -84,14 +88,16 @@ export const CompanySelector = () => {
       items={dropdownItems}
       trigger={
         <button 
-          className="flex items-center gap-2 px-3 py-1.5 bg-card hover:bg-muted border border-border rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 h-9 px-2.5 bg-card/60 hover:bg-muted/80 border border-border/60 hover:border-border rounded-xl text-xs font-bold tracking-tight text-foreground transition-all duration-200 shadow-2xs hover:shadow-xs cursor-pointer group select-none"
           title="Select Legal Company context"
         >
-          <Building size={16} className="text-primary" />
-          <span className="max-w-[150px] truncate">
+          <div className="w-5 h-5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <Building size={12} />
+          </div>
+          <span className="max-w-[140px] truncate">
             {displayLabel}
           </span>
-          <ChevronDown size={14} className="text-muted-foreground opacity-70" />
+          <ChevronDown size={13} className="text-muted-foreground/70 group-hover:text-foreground transition-colors shrink-0" />
         </button>
       }
     />

@@ -66,7 +66,8 @@ const ProFormaForm = () => {
   const { formatCurrency, currencySymbol } = useCurrency();
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
-  
+  const [variantsMap, setVariantsMap] = useState({});
+
   const [formData, setFormData] = useState({
     customerId: '',
     issueDate: new Date().toISOString().split('T')[0],
@@ -111,6 +112,19 @@ const ProFormaForm = () => {
     }
   };
 
+  const fetchVariantsForProduct = async (productId) => {
+    if (!productId || variantsMap[productId]) return;
+    try {
+      const res = await axios.get(`/api/v1/inventory/products/${productId}/variants`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const list = res.data?.variants || (Array.isArray(res.data) ? res.data : []);
+      setVariantsMap(prev => ({ ...prev, [productId]: list }));
+    } catch (error) {
+      console.error('Failed to fetch variants:', error);
+    }
+  };
+
   const fetchProForma = async () => {
     try {
       const res = await axios.get(`/api/v1/proforma/${id}`, {
@@ -118,6 +132,14 @@ const ProFormaForm = () => {
       });
       const pf = res.data;
       setRawPf(pf);
+      const loadedItems = (pf.items || []).map(i => ({
+        ...i,
+        productId: i.productId?._id || i.productId,
+        variantId: i.variantId?._id || i.variantId || '',
+        variantSku: i.variantSku || i.variantId?.sku || '',
+        attributes: i.attributes || i.variantId?.attributes || {}
+      }));
+
       setFormData({
         customerId: pf.customerId?._id || pf.customerId,
         issueDate: pf.issueDate ? pf.issueDate.split('T')[0] : '',
@@ -130,13 +152,17 @@ const ProFormaForm = () => {
         notes: pf.notes || '',
         termsAndConditions: pf.termsAndConditions || '',
         internalNotes: pf.internalNotes || '',
-        items: pf.items || [],
+        items: loadedItems,
         status: pf.status || 'DRAFT',
         sourceType: pf.sourceType || 'MANUAL',
         pfNumber: pf.pfNumber || '',
         billingType: pf.billingType || 'ADVANCE',
         paymentRequestPercentage: pf.paymentRequestPercentage || 100,
         paymentRequestAmount: pf.paymentRequestAmount || (pf.grandTotal || 0)
+      });
+
+      loadedItems.forEach(i => {
+        if (i.productId) fetchVariantsForProduct(i.productId);
       });
     } catch (error) {
       console.error('Failed to fetch Pro-Forma invoice', error);
@@ -152,20 +178,43 @@ const ProFormaForm = () => {
       const product = products.find(p => p._id === value);
       if (product) {
         item.productId = product._id;
+        item.variantId = '';
+        item.variantSku = '';
+        item.attributes = {};
         item.itemName = product.name;
         item.sku = product.sku;
         item.unitPrice = product.salesPrice || 0;
         item.taxRate = product.taxRate || 0;
         item.quantity = 1;
         item.discount = 0;
+        fetchVariantsForProduct(product._id);
       } else {
         item.productId = '';
+        item.variantId = '';
+        item.variantSku = '';
+        item.attributes = {};
         item.itemName = '';
         item.sku = '';
         item.unitPrice = 0;
         item.taxRate = 0;
         item.quantity = 1;
         item.discount = 0;
+      }
+    } else if (field === 'variantId') {
+      item.variantId = value;
+      const productVars = variantsMap[item.productId] || [];
+      const selectedVar = productVars.find(v => v._id === value);
+      if (selectedVar) {
+        item.variantSku = selectedVar.sku || '';
+        item.attributes = selectedVar.attributes || {};
+        if (selectedVar.salesPrice !== undefined && selectedVar.salesPrice !== null && selectedVar.salesPrice !== '') {
+          item.unitPrice = Number(selectedVar.salesPrice) || 0;
+        }
+      } else {
+        item.variantSku = '';
+        item.attributes = {};
+        const prod = products.find(p => p._id === item.productId);
+        if (prod) item.unitPrice = prod.salesPrice || 0;
       }
     } else {
       item[field] = Number(value) || value;
@@ -175,7 +224,7 @@ const ProFormaForm = () => {
     const price = Number(item.unitPrice) || 0;
     const disc = Number(item.discount) || 0;
     const taxR = Number(item.taxRate) || 0;
-    
+
     const taxable = Math.max(0, (qty * price) - disc);
     item.taxAmount = (taxable * taxR) / 100;
     item.lineTotal = taxable + item.taxAmount;
@@ -183,10 +232,45 @@ const ProFormaForm = () => {
     setFormData({ ...formData, items: newItems });
   };
 
+  const handlePopulateAllVariants = (productId, currentIndex) => {
+    const vars = variantsMap[productId] || [];
+    if (vars.length === 0) return;
+
+    const prod = products.find(p => p._id === productId);
+    const basePrice = prod?.salesPrice || 0;
+    const taxRate = prod?.taxRate || 0;
+
+    const newRows = vars.map(v => {
+      const unitPrice = (v.salesPrice !== undefined && v.salesPrice !== null && v.salesPrice !== '')
+        ? Number(v.salesPrice)
+        : basePrice;
+      const taxable = unitPrice;
+      const taxAmount = (taxable * taxRate) / 100;
+      return {
+        productId,
+        variantId: v._id,
+        variantSku: v.sku || '',
+        attributes: v.attributes || {},
+        itemName: prod?.name || '',
+        sku: v.sku || prod?.sku || '',
+        quantity: 1,
+        unitPrice,
+        discount: 0,
+        taxRate,
+        taxAmount,
+        lineTotal: taxable + taxAmount
+      };
+    });
+
+    const updated = [...formData.items];
+    updated.splice(currentIndex, 1, ...newRows);
+    setFormData(prev => ({ ...prev, items: updated }));
+  };
+
   const addItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', itemName: '', sku: '', quantity: 1, unitPrice: 0, discount: 0, taxRate: 0, taxAmount: 0, lineTotal: 0 }]
+      items: [...formData.items, { productId: '', variantId: '', variantSku: '', attributes: {}, itemName: '', sku: '', quantity: 1, unitPrice: 0, discount: 0, taxRate: 0, taxAmount: 0, lineTotal: 0 }]
     });
   };
 
@@ -201,7 +285,7 @@ const ProFormaForm = () => {
     const tax = formData.items.reduce((sum, item) => sum + (Number(item.taxAmount) || 0), 0);
     const shipping = Number(formData.shippingCharges) || 0;
     const other = Number(formData.otherCharges) || 0;
-    
+
     return subtotal - discount + tax + shipping + other;
   };
 
@@ -214,10 +298,10 @@ const ProFormaForm = () => {
     let percentage = Number(val);
     if (percentage < 0) percentage = 0;
     if (percentage > 100) percentage = 100;
-    
+
     const gt = calculateGrandTotal();
     const amount = gt > 0 ? Number((gt * (percentage / 100)).toFixed(2)) : 0;
-    
+
     setFormData({ ...formData, paymentRequestPercentage: percentage.toString(), paymentRequestAmount: amount });
   };
 
@@ -254,14 +338,14 @@ const ProFormaForm = () => {
     }
   };
 
-  const isReadOnly = (isEditing && formData.status && formData.status !== 'DRAFT') || 
-                     (isEditing && !hasPermission('EDIT_PROFORMA')) || 
-                     (!isEditing && !hasPermission('CREATE_PROFORMA'));
+  const isReadOnly = (isEditing && formData.status && formData.status !== 'DRAFT') ||
+    (isEditing && !hasPermission('EDIT_PROFORMA')) ||
+    (!isEditing && !hasPermission('CREATE_PROFORMA'));
 
   const activeCustomerOption = customers.find(c => c._id === formData.customerId)
     ? { value: formData.customerId, label: customers.find(c => c._id === formData.customerId).name }
     : null;
-    
+
   const productOptions = products.map(p => ({ value: p._id, label: `${p.name} - ${p.sku}` }));
 
   const billingTypeOptions = [
@@ -281,17 +365,17 @@ const ProFormaForm = () => {
 
   return (
     <div className="animate-in fade-in zoom-in-95 duration-500 space-y-6 max-w-[1400px] mx-auto pb-10 bg-[#f8fafc] min-h-screen">
-      
+
       {/* Aggressive Tech Header */}
       <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
-        
+
         <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               type="button"
-              onClick={() => navigate('/sales/proforma')} 
+              onClick={() => navigate('/sales/proforma')}
               className="p-2 bg-slate-800/50 border border-slate-700 rounded hover:bg-blue-600 transition-colors"
             >
               <ArrowLeft size={20} className="text-white" />
@@ -315,11 +399,11 @@ const ProFormaForm = () => {
               </p>
             </div>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-3 items-end sm:items-center">
             {isEditing && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setIsEmailModalOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-widest rounded transition-colors shadow-sm"
               >
@@ -327,8 +411,8 @@ const ProFormaForm = () => {
               </button>
             )}
             {isEditing && hasPermission('PRINT_PROFORMA') && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => navigate(`/sales/proforma/print/${id}`)}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold uppercase tracking-widest rounded transition-colors border border-slate-700"
               >
@@ -336,9 +420,9 @@ const ProFormaForm = () => {
               </button>
             )}
             {!isReadOnly && (
-              <button 
-                type="button" 
-                onClick={handleSubmit} 
+              <button
+                type="button"
+                onClick={handleSubmit}
                 disabled={loading}
                 className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-widest rounded transition-colors shadow-[0_0_15px_rgba(37,99,235,0.4)] disabled:opacity-50"
               >
@@ -360,7 +444,7 @@ const ProFormaForm = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <fieldset disabled={isReadOnly} className="space-y-6">
-          
+
           {/* Main Parameters Panel */}
           <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden">
             <div className="bg-slate-50 border-b border-slate-200 px-5 py-3 flex items-center gap-2">
@@ -416,8 +500,8 @@ const ProFormaForm = () => {
               <div className="flex items-center gap-4">
                 <span className="text-xs font-bold text-slate-500 font-mono px-2 py-1 bg-slate-200 rounded">ROWS: {formData.items.length}</span>
                 {!isReadOnly && formData.sourceType !== 'QUOTE' && (
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={addItem}
                     className="flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-500 hover:text-white border border-emerald-200 hover:border-emerald-500 transition-colors rounded text-xs font-bold uppercase tracking-widest"
                   >
@@ -426,7 +510,7 @@ const ProFormaForm = () => {
                 )}
               </div>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left whitespace-nowrap">
                 <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white border-b-2 border-slate-100">
@@ -443,7 +527,7 @@ const ProFormaForm = () => {
                 <tbody className="divide-y divide-slate-100">
                   {formData.items.map((item, index) => (
                     <tr key={index} className="hover:bg-slate-50 transition-colors group">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 min-w-[280px]">
                         <Select
                           options={productOptions}
                           value={productOptions.find(p => p.value === item.productId) || null}
@@ -457,6 +541,49 @@ const ProFormaForm = () => {
                           isClearable
                           menuPortalTarget={document.body}
                         />
+                        {/* Show variant badge if from quote */}
+                        {formData.sourceType === 'QUOTE' && item.variantSku && (
+                          <div className="mt-1 flex items-center gap-1">
+                            <span className="text-[10px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">
+                              Variant: {item.variantSku}
+                            </span>
+                            {item.attributes && Object.keys(item.attributes).length > 0 && (
+                              <span className="text-[10px] text-slate-500">
+                                ({Object.entries(item.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {/* If manual and product has variants */}
+                        {formData.sourceType !== 'QUOTE' && variantsMap[item.productId]?.length > 0 && (
+                          <div className="flex items-center gap-1.5 pt-1.5">
+                            <div className="flex-1">
+                              <select
+                                value={item.variantId || ''}
+                                onChange={(e) => handleItemChange(index, 'variantId', e.target.value)}
+                                disabled={isReadOnly}
+                                className="w-full text-xs font-semibold bg-white border border-slate-200 rounded px-2 py-1 focus:border-blue-600 focus:outline-none"
+                              >
+                                <option value="">-- Base Product --</option>
+                                {variantsMap[item.productId].map(v => {
+                                  const attrStr = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
+                                  const label = v.title ? `${v.title} (${v.sku})` : (attrStr ? `${attrStr} (${v.sku})` : v.sku);
+                                  return <option key={v._id} value={v._id}>{label}</option>;
+                                })}
+                              </select>
+                            </div>
+                            {!isReadOnly && (
+                              <button
+                                type="button"
+                                onClick={() => handlePopulateAllVariants(item.productId, index)}
+                                className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+                                title="Populate rows for all variants of this product"
+                              >
+                                ⚡ All Variants
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-2 py-3">
                         <input
@@ -540,7 +667,7 @@ const ProFormaForm = () => {
             <div className="lg:col-span-7 space-y-6">
               <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-6 space-y-5">
                 <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest border-b-2 border-slate-100 pb-3 mb-4">Metadata & Instructions</h3>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Payment Terms</label>
@@ -595,7 +722,7 @@ const ProFormaForm = () => {
             <div className="lg:col-span-5 space-y-6">
               <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-6">
                 <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest border-b-2 border-slate-100 pb-3 mb-6">Financial Matrix</h3>
-                
+
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Base Value</span>
@@ -603,21 +730,21 @@ const ProFormaForm = () => {
                       {currencySymbol}{formData.items.reduce((sum, i) => sum + ((Number(i.quantity) || 0) * (Number(i.unitPrice) || 0)), 0).toFixed(2)}
                     </span>
                   </div>
-                  
+
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Deficit (Discount)</span>
                     <span className="font-mono font-bold text-rose-600 text-base">
                       -{currencySymbol}{formData.items.reduce((sum, i) => sum + (Number(i.discount) || 0), 0).toFixed(2)}
                     </span>
                   </div>
-                  
+
                   <div className="flex justify-between items-center pb-4 border-b-2 border-slate-100">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Taxation</span>
                     <span className="font-mono font-bold text-slate-800 text-base">
                       {currencySymbol}{formData.items.reduce((sum, i) => sum + (Number(i.taxAmount) || 0), 0).toFixed(2)}
                     </span>
                   </div>
-                  
+
                   <div className="pt-2 space-y-4 pb-6 border-b-2 border-slate-100">
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest w-24">Freight</span>
@@ -632,7 +759,7 @@ const ProFormaForm = () => {
                         />
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center justify-between gap-4">
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest w-24">Misc</span>
                       <div className="relative w-32">
@@ -665,7 +792,7 @@ const ProFormaForm = () => {
                     <h4 className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
                       <Zap size={14} /> Execution Protocol (Billing)
                     </h4>
-                    
+
                     <div className="space-y-4">
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Mode</label>
@@ -681,7 +808,7 @@ const ProFormaForm = () => {
                           }}
                         />
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Split (%)</label>
@@ -696,7 +823,7 @@ const ProFormaForm = () => {
                             className="w-full h-10 px-3 bg-slate-50 border-2 border-slate-200 rounded-md focus:border-blue-600 text-sm font-mono font-bold text-slate-900 outline-none"
                           />
                         </div>
-                        
+
                         <div>
                           <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Req. Vol</label>
                           <input
@@ -716,7 +843,7 @@ const ProFormaForm = () => {
               </div>
             </div>
           </div>
-          
+
         </fieldset>
       </form>
 

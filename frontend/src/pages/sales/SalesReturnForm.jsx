@@ -71,8 +71,11 @@ export default function SalesReturnForm() {
       await fetchReturnableInfo(dnId);
       const initialItems = dn.items.map(item => ({
         productId: item.productId._id || item.productId,
+        variantId: item.variantId?._id || item.variantId || null,
+        variantSku: item.variantSku || '',
+        attributes: item.attributes || {},
         itemName: item.itemName,
-        sku: item.sku,
+        sku: item.variantSku || item.sku,
         uom: item.uom,
         returnQuantity: 0,
         returnReason: ''
@@ -83,7 +86,9 @@ export default function SalesReturnForm() {
 
   const handleQuantityChange = (index, val) => {
     const items = [...formData.items];
-    const max = returnableInfo[items[index].productId]?.returnable || 0;
+    const item = items[index];
+    const key = item.variantId ? `${item.productId}_${item.variantId}` : item.productId;
+    const max = (returnableInfo[key] || returnableInfo[item.productId])?.returnable || 0;
     
     let qty = Number(val);
     if (qty > max) qty = max;
@@ -185,7 +190,8 @@ export default function SalesReturnForm() {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {formData.items.map((item, idx) => {
-                  const info = returnableInfo[item.productId] || { deliveredQuantity: 0, alreadyReturned: 0, returnable: 0 };
+                  const key = item.variantId ? `${item.productId}_${item.variantId}` : item.productId;
+                  const info = returnableInfo[key] || returnableInfo[item.productId] || { deliveredQuantity: 0, alreadyReturned: 0, returnable: 0 };
                   
                   // Adjust returnable logic for Edit mode (we add current item.returnQuantity to returnable so user can scale it down/up)
                   const currentItemReturnQtyInEdit = isEdit ? (formData.items[idx].returnQuantity || 0) : 0;
@@ -194,7 +200,19 @@ export default function SalesReturnForm() {
                   return (
                     <tr key={idx} className="hover:bg-slate-50">
                       <td className="px-6 py-4 text-sm font-medium text-slate-800">
-                        {item.itemName} <span className="text-slate-500 font-normal">({item.sku})</span>
+                        <div>{item.itemName} <span className="text-slate-500 font-normal">({item.sku})</span></div>
+                        {item.variantSku && (
+                          <div className="text-xs text-blue-600 font-medium mt-0.5 flex items-center gap-1">
+                            <span className="bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                              Variant: {item.variantSku}
+                            </span>
+                            {item.attributes && Object.keys(item.attributes).length > 0 && (
+                              <span className="text-slate-500 text-[11px]">
+                                ({Object.entries(item.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right text-sm text-slate-600">
                         {info.deliveredQuantity}

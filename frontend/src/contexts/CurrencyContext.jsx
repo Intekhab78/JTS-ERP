@@ -1,21 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { CURRENCY_SYMBOLS } from '../config/currencies';
 
 const CurrencyContext = createContext();
 
 export const useCurrency = () => useContext(CurrencyContext);
-
-const CURRENCY_SYMBOLS = {
-  USD: '$',
-  EUR: '€',
-  GBP: '£',
-  AED: 'AED',
-  INR: '₹',
-  CAD: 'C$',
-  AUD: 'A$',
-  JPY: '¥',
-  CNY: '¥'
-};
 
 export const CurrencyProvider = ({ children }) => {
   const [currency, setCurrency] = useState('USD');
@@ -41,7 +30,7 @@ export const CurrencyProvider = ({ children }) => {
 
       // 2. Fetch Active Legal Company Currency (if selected)
       const activeCompanyId = localStorage.getItem('active_company_id');
-      if (activeCompanyId && activeCompanyId !== 'ALL') {
+      if (activeCompanyId && activeCompanyId !== 'ALL' && activeCompanyId !== 'null' && activeCompanyId !== 'undefined') {
         try {
           const legalRes = await axios.get(`/api/v1/legal-company/${activeCompanyId}`, {
             headers: { Authorization: `Bearer ${token}` }
@@ -51,6 +40,10 @@ export const CurrencyProvider = ({ children }) => {
           }
         } catch (err) {
           console.warn('Could not fetch active legal company currency, falling back to group currency.');
+          // If the stored company ID does not exist in the database (404/400/403), reset to 'ALL' to avoid repeating 404 requests
+          if (err.response && (err.response.status === 404 || err.response.status === 400 || err.response.status === 403)) {
+            localStorage.setItem('active_company_id', 'ALL');
+          }
         }
       }
 

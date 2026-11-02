@@ -41,24 +41,55 @@ const WebOrders = () => {
       });
       fetchOrders();
     } catch (error) {
-      alert('Failed to update status');
+      alert(error.response?.data?.message || 'Failed to update status');
     }
   };
 
-  const filteredOrders = orders.filter(o => 
-    o.customerName?.toLowerCase().includes(search.toLowerCase()) || 
-    o._id.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredOrders = orders.filter(order => {
+    const q = (search || '').trim().toLowerCase();
+    if (!q) return true;
+
+    const formattedWebId = `web-${(order._id || '').slice(-6)}`.toLowerCase();
+    const shortWebId = (order._id || '').slice(-6).toLowerCase();
+    const rawOrderNo = (order.orderNumber || '').toLowerCase();
+    const orderId = (order._id || '').toLowerCase();
+    const matchesOrderNumber = formattedWebId.includes(q) || shortWebId.includes(q) || rawOrderNo.includes(q) || orderId.includes(q);
+
+    const matchesCustomerName = (order.customerName || '').toLowerCase().includes(q) ||
+      (order.shippingAddressObj?.fullName || '').toLowerCase().includes(q) ||
+      (typeof order.shippingAddress === 'string' && order.shippingAddress.toLowerCase().includes(q));
+
+    const matchesEmail = (order.customerEmail || '').toLowerCase().includes(q) ||
+      (order.shippingAddressObj?.email || '').toLowerCase().includes(q);
+
+    const digitsOnlyQ = q.replace(/\D/g, '');
+    const cleanCustomerPhone = (order.customerPhone || '').replace(/\D/g, '');
+    const cleanShippingPhone = (order.shippingAddressObj?.phone || '').replace(/\D/g, '');
+    const matchesPhone = (order.customerPhone || '').toLowerCase().includes(q) ||
+      (order.shippingAddressObj?.phone || '').toLowerCase().includes(q) ||
+      (digitsOnlyQ.length >= 3 && (cleanCustomerPhone.includes(digitsOnlyQ) || cleanShippingPhone.includes(digitsOnlyQ)));
+
+    const matchesItem = (order.items || []).some(item => {
+      const pName = (item.productId?.name || item.name || '').toLowerCase();
+      const pSku = (item.productId?.sku || item.sku || '').toLowerCase();
+      return pName.includes(q) || pSku.includes(q);
+    });
+
+    return matchesOrderNumber || matchesCustomerName || matchesEmail || matchesPhone || matchesItem;
+  });
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'CANCELLED':
+        return <Badge variant="danger">CANCELLED</Badge>;
+      case 'DELIVERED':
       case 'COMPLETED':
-        return <Badge variant="success">COMPLETED</Badge>;
+        return <Badge variant="success">{status}</Badge>;
       case 'SHIPPED':
         return <Badge variant="info">SHIPPED</Badge>;
       case 'PENDING':
       default:
-        return <Badge variant="warning" className="animate-pulse">PENDING</Badge>;
+        return <Badge variant="warning" className="animate-pulse">{status || 'PENDING'}</Badge>;
     }
   };
 
@@ -73,11 +104,23 @@ const WebOrders = () => {
       <Card className="overflow-hidden">
         <div className="p-4 border-b border-border flex gap-4 bg-muted/30">
           <div className="flex-1">
-            <SearchInput 
-              placeholder="Search by customer name or Order ID..." 
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+            <div className="relative">
+              <SearchInput 
+                placeholder="Search by order #, customer, email, phone, item..." 
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs font-bold px-1.5 py-0.5 rounded-full hover:bg-muted"
+                  title="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -149,7 +192,12 @@ const WebOrders = () => {
                     <span className="text-xs font-medium text-center text-slate-500">SHIPPED</span>
                   )
                 )}
-                {order.status === 'COMPLETED' && (
+                {order.status === 'CANCELLED' && (
+                  <div className="w-full py-2 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 text-xs font-bold rounded-xl text-center border border-rose-200 dark:border-rose-900">
+                    Order Cancelled
+                  </div>
+                )}
+                {['COMPLETED', 'DELIVERED'].includes(order.status) && (
                   <div className="w-full py-2 bg-muted text-muted-foreground text-xs font-bold rounded-xl text-center border border-border">
                     Order Closed
                   </div>

@@ -44,17 +44,17 @@ const DropdownMenu = ({
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsOpen(!isOpen); }}
       >
         {trigger || (
-          <button className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring">
+          <button className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer">
             <MoreVertical className="h-4 w-4" />
           </button>
         )}
       </div>
 
       {isOpen && (
-        <div className={`absolute z-50 mt-2 w-56 rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in fade-in zoom-in-95 ${alignments[align]}`} role="menu">
+        <div className={`absolute z-50 mt-2 w-56 rounded-2xl border border-border/80 bg-card/95 backdrop-blur-xl p-1.5 text-card-foreground shadow-xl shadow-black/8 ring-1 ring-black/5 animate-in fade-in zoom-in-95 duration-150 ${alignments[align]}`} role="menu">
           {items.map((item, index) => {
-            if (item.separator) {
-              return <div key={`sep-${index}`} className="-mx-1 my-1 h-px bg-muted" role="separator" />;
+            if (item.separator || item.type === 'divider') {
+              return <div key={`sep-${index}`} className="-mx-1 my-1.5 h-px bg-border/60" role="separator" />;
             }
             return (
               <button
@@ -67,10 +67,12 @@ const DropdownMenu = ({
                     setIsOpen(false);
                   }
                 }}
-                className={`relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-muted ${item.danger ? 'text-error hover:bg-error/10' : ''} ${item.disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : 'cursor-pointer'}`}
+                className={`relative flex w-full cursor-pointer select-none items-center rounded-xl px-2.5 py-2 text-xs font-semibold tracking-tight outline-none transition-all duration-150 focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-primary/10 hover:text-primary ${
+                  item.danger ? '!text-rose-600 dark:!text-rose-400 !hover:bg-rose-500/10' : 'text-foreground'
+                } ${item.disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`}
               >
-                {item.icon && <span className="mr-2 h-4 w-4">{item.icon}</span>}
-                {item.label}
+                {item.icon && <span className="mr-2 h-4 w-4 shrink-0 flex items-center justify-center text-current">{item.icon}</span>}
+                <span className="flex-1 text-left">{item.label}</span>
               </button>
             );
           })}

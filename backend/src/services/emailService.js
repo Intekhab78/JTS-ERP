@@ -28,7 +28,11 @@ const sendEmail = async ({ to, subject, html, text, attachments = [] }) => {
   }
 
   const transporter = getTransporter();
-  const from = process.env.SMTP_FROM || `"JTS ERP System" <noreply@erp.local>`;
+  let from = process.env.SMTP_FROM || `"JTS Store" <noreply@erp.local>`;
+  if (from && !from.includes('<') && (process.env.SMTP_USER || from.includes('@'))) {
+    const rawEmail = from.replace(/"/g, '').trim();
+    from = `"JTS Store" <${rawEmail}>`;
+  }
 
   if (!transporter) {
     console.log(`\n================= [SIMULATED EMAIL DISPATCH] =================`);
@@ -58,6 +62,7 @@ const sendEmail = async ({ to, subject, html, text, attachments = [] }) => {
   };
 
   const info = await transporter.sendMail(mailOptions);
+  console.log(`[EMAIL DISPATCH SUCCESS] Sent email to: "${to}" | Subject: "${subject}" | MessageId: ${info.messageId}`);
   return {
     success: true,
     simulated: false,
@@ -66,7 +71,7 @@ const sendEmail = async ({ to, subject, html, text, attachments = [] }) => {
   };
 };
 
-// Reusable Responsive HTML Layout Wrapper
+// Reusable Responsive HTML Layout Wrapper (100% Inline styles for bulletproof Gmail/Outlook compatibility)
 const wrapEmailTemplate = ({ title, preheader = '', contentHtml, companyName = 'JTS ERP' }) => {
   return `
 <!DOCTYPE html>
@@ -75,51 +80,39 @@ const wrapEmailTemplate = ({ title, preheader = '', contentHtml, companyName = '
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title}</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px; color: #1e293b; }
-    .container { max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
-    .header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; padding: 28px 32px; }
-    .header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
-    .header p { margin: 6px 0 0; font-size: 13px; color: #94a3b8; }
-    .content { padding: 32px; line-height: 1.6; font-size: 14px; }
-    .table-container { margin: 24px 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { background: #f8fafc; padding: 10px 14px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; }
-    td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
-    tr:last-child td { border-bottom: none; }
-    .text-right { text-align: right; }
-    .font-bold { font-weight: 700; }
-    .totals-box { margin-top: 16px; margin-left: auto; width: 260px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; }
-    .total-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
-    .total-grand { font-size: 15px; font-weight: 800; color: #0f172a; border-top: 2px dashed #cbd5e1; padding-top: 8px; margin-top: 6px; }
-    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-    .badge-blue { background: #e0e7ff; color: #3730a3; }
-    .badge-green { background: #dcfce7; color: #166534; }
-    .custom-note { background: #f8fafc; border-left: 4px solid #3b82f6; padding: 14px 18px; border-radius: 4px; margin: 20px 0; font-size: 13px; color: #334155; }
-    .footer { background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center; font-size: 12px; color: #64748b; }
-  </style>
 </head>
-<body>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f1f5f9; margin: 0; padding: 24px; color: #1e293b;">
   <div style="display:none;font-size:1px;color:#f1f5f9;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
     ${preheader || title}
   </div>
-  <div class="container">
-    <div class="header">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div>
-          <h1>${companyName}</h1>
-          <p>${title}</p>
-        </div>
-      </div>
-    </div>
-    <div class="content">
-      ${contentHtml}
-    </div>
-    <div class="footer">
-      <p style="margin:0 0 6px;">This is an automated notification from <strong>${companyName}</strong> Enterprise System.</p>
-      <p style="margin:0;">Please do not reply directly to this email unless specified.</p>
-    </div>
-  </div>
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 20px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #1e293b; padding: 28px 32px; color: #ffffff;">
+              <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -0.02em;">${companyName}</h1>
+              <p style="margin: 6px 0 0; font-size: 13px; color: #94a3b8;">${title}</p>
+            </td>
+          </tr>
+          <!-- Content Body -->
+          <tr>
+            <td style="padding: 32px; line-height: 1.6; font-size: 14px; color: #1e293b; background-color: #ffffff;">
+              ${contentHtml}
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center; font-size: 12px; color: #64748b;">
+              <p style="margin: 0 0 6px;">This is an automated notification from <strong>${companyName}</strong> Enterprise System.</p>
+              <p style="margin: 0;">Please do not reply directly to this email unless specified.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
   `;
@@ -551,6 +544,222 @@ const sendPasswordResetEmail = async ({ user, resetUrl, resetToken, companyName 
   });
 };
 
+// 10. E-Commerce Customer Registration OTP Email
+const sendCustomerOtpEmail = async ({ to, otp, customerName = 'Customer', companyName = 'JTS Store' }) => {
+  if (!to) throw new Error('Recipient email is required');
+
+  const contentHtml = `
+    <p style="font-size:15px; color:#1e293b; margin-bottom:16px;">Hello <strong>${customerName}</strong>,</p>
+    <p style="font-size:14px; color:#475569; line-height:1.6; margin-bottom:20px;">
+      Thank you for registering with <strong>${companyName}</strong>! Please use the following 6-digit verification code to complete your registration:
+    </p>
+
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0;">
+      <tr>
+        <td align="center">
+          <div style="display: inline-block; background-color: #eff6ff; border: 2px dashed #3b82f6; border-radius: 12px; padding: 20px 40px; text-align: center;">
+            <div style="font-size: 12px; font-weight: 700; color: #1d4ed8; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;">
+              Verification Code (OTP)
+            </div>
+            <div style="font-size: 42px; font-weight: 900; letter-spacing: 12px; color: #1e40af; font-family: Consolas, 'Courier New', monospace; line-height: 1;">
+              ${otp}
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 10px;">
+              Valid for 10 minutes &bull; Do not share with anyone
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size:13px; color:#64748b; line-height:1.5;">
+      If you did not request this code, no further action is required and you can safely ignore this email.
+    </p>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Your Verification Code: ${otp} - ${companyName}`,
+    html: wrapEmailTemplate({ title: 'Verify Your Email Address', preheader: `Your verification code is ${otp}`, contentHtml, companyName }),
+    text: `Hello ${customerName},\n\nYour verification OTP code for ${companyName} is: ${otp}\n\nIt is valid for 10 minutes. Please enter this code to complete your registration.\n\nThank you,\n${companyName}`
+  });
+};
+
+// 11. E-Commerce Customer Order Confirmation Email
+const sendOrderConfirmationEmail = async ({ to, order, items = [], customerName = 'Customer', trackingUrl, companyName = 'JTS Store' }) => {
+  if (!to) throw new Error('Recipient email is required');
+
+  const itemsHtml = items.map(item => `
+    <tr>
+      <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #1e293b;">
+        <strong>${item.name || item.productName || 'Item'}</strong>
+        ${item.sku ? `<div style="font-size: 12px; color: #64748b;">SKU: ${item.sku}</div>` : ''}
+      </td>
+      <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; text-align: center; color: #475569;">
+        ${item.quantity}
+      </td>
+      <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; text-align: right; font-weight: 600; color: #1e293b;">
+        $${Number(item.subTotal || (item.unitPrice * item.quantity) || 0).toFixed(2)}
+      </td>
+    </tr>
+  `).join('');
+
+  const contentHtml = `
+    <p style="font-size:15px; color:#1e293b; margin-bottom:16px;">Hello <strong>${customerName}</strong>,</p>
+    <p style="font-size:14px; color:#475569; line-height:1.6; margin-bottom:20px;">
+      Thank you for shopping with <strong>${companyName}</strong>! Your order <strong>#${order._id.toString().slice(-6).toUpperCase()}</strong> has been booked successfully.
+    </p>
+
+    <div style="background: #f1f5f9; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+      <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Order Summary</div>
+      <div style="font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 4px;">Total Amount: $${Number(order.totalAmount || 0).toFixed(2)}</div>
+      <div style="font-size: 13px; color: #475569; margin-top: 4px;">Payment Method: ${order.paymentMethod || 'Online'} | Status: Booked</div>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+      <thead>
+        <tr style="background: #f8fafc; text-align: left;">
+          <th style="padding: 8px 10px; border-bottom: 2px solid #e2e8f0; font-size: 12px; color: #64748b;">Item</th>
+          <th style="padding: 8px 10px; border-bottom: 2px solid #e2e8f0; font-size: 12px; text-align: center; color: #64748b;">Qty</th>
+          <th style="padding: 8px 10px; border-bottom: 2px solid #e2e8f0; font-size: 12px; text-align: right; color: #64748b;">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemsHtml}
+      </tbody>
+    </table>
+
+    ${order.shippingAddress ? `
+      <div style="background: #fafafa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-bottom: 24px;">
+        <strong style="font-size: 13px; color: #334155;">Shipping Address:</strong>
+        <p style="font-size: 13px; color: #64748b; margin: 4px 0 0 0; line-height: 1.5;">${order.shippingAddress}</p>
+      </div>
+    ` : ''}
+
+    ${trackingUrl ? `
+      <div style="text-align: center; margin: 28px 0;">
+        <a href="${trackingUrl}" style="background: #2563eb; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 14px; display: inline-block;">
+          Track Your Order Live
+        </a>
+      </div>
+    ` : ''}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Order Confirmation #${order._id.toString().slice(-6).toUpperCase()} - ${companyName}`,
+    html: wrapEmailTemplate({ title: 'Order Confirmed!', preheader: `Your order #${order._id.toString().slice(-6).toUpperCase()} has been placed`, contentHtml, companyName }),
+    text: `Your order #${order._id.toString().slice(-6).toUpperCase()} for $${order.totalAmount} has been placed at ${companyName}.`
+  });
+};
+
+// 12. E-Commerce Order Status Update Email (with tracking link)
+const sendOrderStatusUpdateEmail = async ({ to, order, statusName, statusNote, trackingUrl, carrierName, trackingNumber, companyName = 'JTS Store' }) => {
+  if (!to) throw new Error('Recipient email is required');
+
+  const contentHtml = `
+    <p style="font-size:15px; color:#1e293b; margin-bottom:16px;">Hello <strong>${order.customerName || 'Customer'}</strong>,</p>
+    <p style="font-size:14px; color:#475569; line-height:1.6; margin-bottom:20px;">
+      There is an update on your order <strong>#${order._id.toString().slice(-6).toUpperCase()}</strong>.
+    </p>
+
+    <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 18px; margin: 24px 0;">
+      <div style="font-size: 12px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.5px;">Current Status</div>
+      <div style="font-size: 22px; font-weight: 800; color: #1e3a8a; margin-top: 4px;">${statusName}</div>
+      ${statusNote ? `<p style="font-size: 13px; color: #3b82f6; margin: 8px 0 0 0;">${statusNote}</p>` : ''}
+    </div>
+
+    ${trackingNumber || trackingUrl ? `
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+        <strong style="font-size: 13px; color: #1e293b;">Logistics & Tracking Information:</strong>
+        <div style="font-size: 13px; color: #475569; margin-top: 6px;">
+          ${carrierName ? `<strong>Carrier:</strong> ${carrierName}<br>` : ''}
+          ${trackingNumber ? `<strong>Tracking Number:</strong> <span style="font-family: monospace; font-weight: 700; color: #0f172a;">${trackingNumber}</span><br>` : ''}
+        </div>
+        ${trackingUrl ? `
+          <div style="margin-top: 14px;">
+            <a href="${trackingUrl}" style="background: #10b981; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: 700; font-size: 13px; display: inline-block;">
+              Click Here to Track Shipment
+            </a>
+          </div>
+        ` : ''}
+      </div>
+    ` : ''}
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Order #${order._id.toString().slice(-6).toUpperCase()} Status Update: ${statusName} - ${companyName}`,
+    html: wrapEmailTemplate({ title: `Order Status: ${statusName}`, preheader: `Status updated to ${statusName}`, contentHtml, companyName }),
+    text: `Your order #${order._id.toString().slice(-6).toUpperCase()} status is now: ${statusName}.`
+  });
+};
+
+// 13. Send Return / Exchange Pickup Verification OTP Email to Customer
+const sendReturnPickupOtpEmail = async ({
+  to,
+  customerName,
+  orderRef,
+  pickupOtp,
+  returnType = 'RETURN', // 'RETURN' | 'EXCHANGE'
+  itemName,
+  riderName,
+  riderPhone,
+  companyName = 'JTS Store'
+}) => {
+  if (!to) throw new Error('Recipient email is required');
+
+  const actionText = returnType === 'EXCHANGE' ? 'Product Exchange' : 'Return & Refund';
+
+  const contentHtml = `
+    <p style="font-size:15px; color:#1e293b; margin-bottom:16px;">Hello <strong>${customerName || 'Customer'}</strong>,</p>
+    <p style="font-size:14px; color:#475569; line-height:1.6; margin-bottom:20px;">
+      Your request for <strong>${actionText}</strong> on Order <strong>${orderRef}</strong> has been scheduled for doorstep pickup.
+    </p>
+
+    <!-- HIGHLIGHTED OTP BOX -->
+    <div style="background: #fffbeb; border: 2px dashed #f59e0b; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
+      <div style="font-size: 13px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 1px;">
+        Your Doorstep Pickup Verification Code (OTP)
+      </div>
+      <div style="font-size: 38px; font-weight: 900; letter-spacing: 8px; color: #d97706; font-family: monospace; margin: 12px 0;">
+        ${pickupOtp}
+      </div>
+      <p style="font-size: 12px; color: #92400e; margin: 0; line-height: 1.5;">
+        ⚠️ <strong>Security Notice:</strong> Please share this 6-digit verification code with the pickup agent <strong>ONLY</strong> after handing over the return package at your doorstep.
+      </p>
+    </div>
+
+    ${itemName ? `
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 13px;">
+        <strong>Item to Handover:</strong> ${itemName}
+      </div>
+    ` : ''}
+
+    ${riderName ? `
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 20px; font-size: 13px;">
+        <strong>Assigned Pickup Rider:</strong> ${riderName} ${riderPhone ? `(Tel: ${riderPhone})` : ''}
+      </div>
+    ` : ''}
+
+    <p style="font-size:13px; color:#64748b; line-height:1.6;">
+      Once the agent enters this OTP, your return will be officially verified and confirmed.
+    </p>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `🔑 Doorstep Pickup Verification Code: ${pickupOtp} for Order ${orderRef} - ${companyName}`,
+    html: wrapEmailTemplate({
+      title: `${actionText} Pickup Verification Code`,
+      preheader: `Your pickup OTP is ${pickupOtp}`,
+      contentHtml,
+      companyName
+    }),
+    text: `Your ${actionText} pickup verification code is ${pickupOtp} for order ${orderRef}. Please share this with the delivery agent only upon package handover.`
+  });
+};
+
 module.exports = {
   sendEmail,
   sendTaxInvoiceEmail,
@@ -561,6 +770,11 @@ module.exports = {
   sendRFQEmail,
   sendPayslipEmail,
   sendLeadEmail,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  sendCustomerOtpEmail,
+  sendOrderConfirmationEmail,
+  sendOrderStatusUpdateEmail,
+  sendReturnPickupOtpEmail
 };
+
 

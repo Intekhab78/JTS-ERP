@@ -375,8 +375,22 @@ const DeliveryNoteForm = () => {
                 <tbody className="divide-y divide-slate-100">
                   {formData.items.map((item, index) => (
                     <tr key={index} className={item.remainingQuantity === 0 ? 'bg-slate-50/50 opacity-60' : ''}>
-                      <td className="p-3 font-medium text-slate-800">{item.itemName}</td>
-                      <td className="p-3 text-slate-600 text-sm">{item.sku}</td>
+                      <td className="p-3 font-medium text-slate-800">
+                        <div>{item.itemName}</div>
+                        {item.variantSku && (
+                          <div className="text-xs text-blue-600 font-medium mt-0.5 flex items-center gap-1">
+                            <span className="bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                              Variant: {item.variantSku}
+                            </span>
+                            {item.attributes && Object.keys(item.attributes).length > 0 && (
+                              <span className="text-slate-500 text-[11px]">
+                                ({Object.entries(item.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-3 text-slate-600 text-sm font-mono">{item.variantSku || item.sku}</td>
                       <td className="p-3 text-center text-slate-600 text-sm">{item.uom}</td>
                       <td className="p-3 text-center font-semibold text-slate-700">{item.orderedQuantity}</td>
                       <td className="p-3 text-center text-emerald-600 font-semibold">{item.previouslyDeliveredQuantity}</td>

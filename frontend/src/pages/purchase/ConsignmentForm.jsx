@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Plus, Trash2, ArrowLeft, Building, Zap, Save, Archive } from 'lucide-react';
@@ -21,6 +21,14 @@ export default function ConsignmentForm() {
   const [branches, setBranches] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  const availableProducts = useMemo(() => {
+    if (!formData.defaultBranchId) return products;
+    return products.filter(p => {
+      if (!p.branchIds || p.branchIds.length === 0) return true;
+      return p.branchIds.some(b => (b._id || b).toString() === formData.defaultBranchId.toString());
+    });
+  }, [products, formData.defaultBranchId]);
 
   useEffect(() => {
     fetchLookups();
@@ -249,7 +257,7 @@ export default function ConsignmentForm() {
                          className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 shadow-sm focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none"
                        >
                          <option value="">-- SELECT PRODUCT --</option>
-                         {products.map(p => (
+                         {availableProducts.map(p => (
                            <option key={p._id} value={p._id}>{p.name} ({p.sku})</option>
                          ))}
                        </select>

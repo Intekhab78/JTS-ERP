@@ -8,17 +8,33 @@ const StockTransferForm = () => {
   const [branches, setBranches] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [variantsMap, setVariantsMap] = useState({});
 
   const [formData, setFormData] = useState({
     sourceBranchId: '',
     destinationBranchId: '',
-    items: [{ productId: '', quantity: 1 }]
+    items: [{ productId: '', variantId: '', variantSku: '', quantity: 1 }]
   });
 
   useEffect(() => {
     fetchBranches();
-    fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (formData.sourceBranchId) {
+      fetchProducts(formData.sourceBranchId);
+    } else {
+      setProducts([]);
+    }
+  }, [formData.sourceBranchId]);
+
+  useEffect(() => {
+    formData.items.forEach(it => {
+      if (it.productId && !variantsMap[it.productId]) {
+        fetchVariantsForProduct(it.productId);
+      }
+    });
+  }, [formData.items, variantsMap]);
 
   const fetchBranches = async () => {
     try {
@@ -32,16 +48,52 @@ const StockTransferForm = () => {
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (branchId) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('/api/v1/inventory/products', {
+      const url = branchId 
+        ? `/api/v1/inventory/products?branchId=${branchId}`
+        : '/api/v1/inventory/products';
+      const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setProducts(res.data);
+      const branchProds = res.data.filter(p => {
+        if (!p.isActive && p.isActive !== undefined) return false;
+        if (!branchId) return true;
+        if (!p.branchIds || p.branchIds.length === 0) return true;
+        return p.branchIds.some(b => (b._id || b).toString() === branchId.toString());
+      });
+      setProducts(branchProds);
+      branchProds.forEach(p => {
+        if (p.hasVariants) {
+          fetchVariantsForProduct(p._id);
+        }
+      });
     } catch (error) {
       console.error(error);
     }
+  };
+
+  const fetchVariantsForProduct = async (productId) => {
+    if (!productId || variantsMap[productId]) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`/api/v1/inventory/products/${productId}/variants`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const list = res.data?.variants || (Array.isArray(res.data) ? res.data : []);
+      setVariantsMap(prev => ({ ...prev, [productId]: list }));
+    } catch (error) {
+      console.error('Error fetching variants:', error);
+    }
+  };
+
+  const handleSourceBranchChange = (newBranchId) => {
+    setFormData({
+      ...formData,
+      sourceBranchId: newBranchId,
+      items: [{ productId: '', variantId: '', variantSku: '', quantity: 1 }]
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -63,7 +115,7 @@ const StockTransferForm = () => {
   const addRow = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', quantity: 1 }]
+      items: [...formData.items, { productId: '', variantId: '', variantSku: '', quantity: 1 }]
     });
   };
 
@@ -72,6 +124,22 @@ const StockTransferForm = () => {
     const newItems = [...formData.items];
     newItems.splice(index, 1);
     setFormData({ ...formData, items: newItems });
+  };
+
+  const handlePopulateAllVariants = (productId, currentIndex) => {
+    const vars = variantsMap[productId] || [];
+    if (vars.length === 0) return;
+
+    const newRows = vars.map(v => ({
+      productId,
+      variantId: v._id,
+      variantSku: v.sku,
+      quantity: 1
+    }));
+
+    const updated = [...formData.items];
+    updated.splice(currentIndex, 1, ...newRows);
+    setFormData({ ...formData, items: updated });
   };
 
   return (
@@ -132,7 +200,7 @@ const StockTransferForm = () => {
                 required
                 className="flex h-12 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
                 value={formData.sourceBranchId}
-                onChange={e => setFormData({...formData, sourceBranchId: e.target.value})}
+                onChange={e => handleSourceBranchChange(e.target.value)}
               >
                 <option value="">-- SELECT SOURCE BRANCH --</option>
                 {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
@@ -182,18 +250,65 @@ const StockTransferForm = () => {
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Product</label>
                   <select 
                     required
-                    className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
+                    disabled={!formData.sourceBranchId}
+                    className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase disabled:bg-slate-100 disabled:cursor-not-allowed"
                     value={item.productId}
                     onChange={e => {
+                      const newProdId = e.target.value;
                       const newItems = [...formData.items];
-                      newItems[index].productId = e.target.value;
+                      newItems[index].productId = newProdId;
+                      newItems[index].variantId = '';
+                      newItems[index].variantSku = '';
                       setFormData({...formData, items: newItems});
+                      if (newProdId) {
+                        fetchVariantsForProduct(newProdId);
+                      }
                     }}
                   >
-                    <option value="">-- SELECT PRODUCT --</option>
+                    <option value="">
+                      {!formData.sourceBranchId ? '-- FIRST SELECT SOURCE BRANCH ABOVE --' : '-- SELECT PRODUCT --'}
+                    </option>
                     {products.map(p => <option key={p._id} value={p._id}>{p.name} (SKU: {p.sku})</option>)}
                   </select>
                 </div>
+
+                {variantsMap[item.productId]?.length > 0 && (
+                  <div className="w-64 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Variant / Spec</label>
+                      <button
+                        type="button"
+                        onClick={() => handlePopulateAllVariants(item.productId, index)}
+                        className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
+                        title="Populate rows for all variants of this product"
+                      >
+                        ⚡ All Variants
+                      </button>
+                    </div>
+                    <select
+                      className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 outline-none"
+                      value={item.variantId || ''}
+                      onChange={e => {
+                        const vId = e.target.value;
+                        const selectedVariant = variantsMap[item.productId]?.find(v => v._id === vId);
+                        const newItems = [...formData.items];
+                        newItems[index].variantId = vId;
+                        newItems[index].variantSku = selectedVariant ? selectedVariant.sku : '';
+                        setFormData({ ...formData, items: newItems });
+                      }}
+                    >
+                      <option value="">-- BASE PRODUCT (NO VARIANT) --</option>
+                      {variantsMap[item.productId].map(v => {
+                        const attrStr = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
+                        const label = v.title ? `${v.title} (${v.sku})` : (attrStr ? `${attrStr} (${v.sku})` : v.sku);
+                        return (
+                          <option key={v._id} value={v._id}>{label}</option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
+
                 <div className="w-32 space-y-2">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Transfer Qty</label>
                   <input 

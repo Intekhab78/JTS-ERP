@@ -88,7 +88,10 @@
     background-color: white !important;
   }
 
-  .no-print {
+  .no-print,
+  aside,
+  header,
+  nav {
     display: none !important;
   }
 
@@ -134,4 +137,20 @@
 .custom-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(150, 150, 150, 0.3) transparent;
+}
+
+/* Staggered entrance animation for sidebar modules */
+@keyframes moduleSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-module-in {
+  animation: moduleSlideIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
 }

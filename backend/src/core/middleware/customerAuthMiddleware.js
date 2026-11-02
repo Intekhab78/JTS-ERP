@@ -9,7 +9,8 @@ const protectCustomer = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
 
       // Decode token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const secret = process.env.JWT_SECRET || 'fallback_secret';
+      const decoded = jwt.verify(token, secret);
 
       // Get customer from token
       req.customer = await Customer.findById(decoded.id).select('-password');

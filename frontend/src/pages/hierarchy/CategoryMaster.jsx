@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Plus, Edit, Trash2, Server, Play, CheckCircle, XCircle, Zap, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, Server, Play, CheckCircle, XCircle, Zap, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { SearchInput } from '../../components/ui/SearchInput';
+import { generateCodeFromName } from '../../components/common/MasterSelect';
 
 export default function CategoryMaster() {
   const [categories, setCategories] = useState([]);
@@ -383,7 +384,14 @@ export default function CategoryMaster() {
                 <input 
                   type="text"
                   value={formData.name} 
-                  onChange={e => setFormData({...formData, name: e.target.value})} 
+                  onChange={e => {
+                    const newName = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      name: newName,
+                      code: (!prev.code || prev._codeAuto !== false) ? generateCodeFromName(newName) : prev.code
+                    }));
+                  }} 
                   required 
                   autoFocus
                   placeholder="ENTER CATEGORY NAME"
@@ -392,11 +400,21 @@ export default function CategoryMaster() {
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Code</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Code</label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, code: generateCodeFromName(prev.name), _codeAuto: true }))}
+                    className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 uppercase tracking-wider transition-colors"
+                    title="Auto-generate code from name"
+                  >
+                    <Sparkles size={11} className="text-blue-500" /> Auto Generate
+                  </button>
+                </div>
                 <input 
                   type="text"
                   value={formData.code} 
-                  onChange={e => setFormData({...formData, code: e.target.value})} 
+                  onChange={e => setFormData({ ...formData, code: e.target.value, _codeAuto: e.target.value.trim() === '' })} 
                   placeholder="ENTER CODE"
                   className="flex h-12 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 font-mono shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors outline-none placeholder:text-slate-400 uppercase"
                 />

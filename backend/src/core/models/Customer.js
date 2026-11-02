@@ -70,6 +70,36 @@ const customerSchema = new mongoose.Schema({
     type: String,
     select: false
   },
+  firstName: {
+    type: String,
+    trim: true
+  },
+  lastName: {
+    type: String,
+    trim: true
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  otpCode: {
+    type: String
+  },
+  otpExpiresAt: {
+    type: Date
+  },
+  addresses: [{
+    label: { type: String, default: 'Home' },
+    fullName: { type: String },
+    phone: { type: String },
+    street: { type: String },
+    street2: { type: String },
+    city: { type: String },
+    state: { type: String },
+    zip: { type: String },
+    country: { type: String, default: 'India' },
+    isDefault: { type: Boolean, default: false }
+  }],
   wishlist: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product'
@@ -80,8 +110,11 @@ const customerSchema = new mongoose.Schema({
 
 const bcrypt = require('bcrypt');
 
-// Encrypt password using bcrypt
+// Pre-save hook: Ensure name is populated and encrypt password
 customerSchema.pre('save', async function() {
+  if (!this.name) {
+    this.name = `${this.firstName || ''} ${this.lastName || ''}`.trim() || 'Valued Customer';
+  }
   if (!this.isModified('password') || !this.password) {
     return;
   } else {

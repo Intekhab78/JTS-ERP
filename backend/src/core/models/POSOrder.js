@@ -47,6 +47,13 @@ const posOrderSchema = new mongoose.Schema({
       ref: 'Product',
       required: true
     },
+    variantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ProductVariant',
+      default: null
+    },
+    variantSku: { type: String, trim: true },
+    selectedAttributes: { type: Map, of: String },
     productName: { type: String, required: true },
     sku: { type: String, required: true },
     quantity: { type: Number, required: true },

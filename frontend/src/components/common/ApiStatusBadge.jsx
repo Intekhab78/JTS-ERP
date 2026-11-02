@@ -30,10 +30,10 @@ export const ApiStatusBadge = () => {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all shadow-sm ${activeConfig.isOnline
-            ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
-            : 'bg-indigo-50 text-indigo-800 border-indigo-300 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800'
-          } hover:opacity-90`}
+        className={`flex items-center gap-2 h-9 px-2.5 rounded-xl text-xs font-bold tracking-tight border transition-all duration-200 shadow-2xs hover:shadow-xs cursor-pointer select-none ${activeConfig.isOnline
+            ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/25 hover:bg-emerald-500/15 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+            : 'bg-indigo-500/10 text-indigo-700 border-indigo-500/25 hover:bg-indigo-500/15 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800'
+          }`}
         title={`Backend: ${activeConfig.isOnline ? 'Online Cloud API' : 'Local Machine API'}`}
       >
         <span className="relative flex h-2 w-2">
@@ -46,13 +46,13 @@ export const ApiStatusBadge = () => {
         <span className="hidden sm:inline">
           {activeConfig.isOnline ? 'Online API' : 'Local API'}
         </span>
-        <ChevronDown size={13} className="text-muted-foreground opacity-70" />
+        <ChevronDown size={13} className="text-muted-foreground/70 opacity-80" />
       </button>
 
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 mt-2 w-72 origin-top-right rounded-xl bg-card border shadow-xl ring-1 ring-black/5 focus:outline-none z-50 p-3 animate-in fade-in zoom-in-95 duration-150">
+          <div className="absolute right-0 mt-2 w-72 origin-top-right rounded-2xl bg-card/95 backdrop-blur-xl border border-border/80 shadow-xl shadow-black/8 ring-1 ring-black/5 focus:outline-none z-50 p-3 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-2 mb-2 border-b">
               <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
                 <Server size={14} className="text-primary" />

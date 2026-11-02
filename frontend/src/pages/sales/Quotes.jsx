@@ -216,60 +216,81 @@ const Quotes = () => {
   ];
 
   return (
-    <div className="animate-in fade-in zoom-in-95 duration-500 space-y-6 max-w-[1720px] mx-auto pb-10 bg-[#f8fafc] min-h-screen">
+    <div className="animate-in fade-in zoom-in-95 duration-500 space-y-4 sm:space-y-6 w-full max-w-[1400px] mx-auto pb-10 bg-[#f8fafc] min-h-screen px-2 sm:px-4 lg:px-6 pt-2 sm:pt-4">
 
       {/* Aggressive Tech Header */}
-      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl mt-4 sm:mx-4 lg:mx-8">
+      <div className="relative overflow-hidden rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-4 sm:p-6 text-white shadow-xl">
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
 
-        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
+        <div className="relative z-10 space-y-3 sm:space-y-4">
+          {/* Top Row: Title & Status Badge */}
+          <div className="flex flex-row justify-between items-center gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+              <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded shadow-inner flex-shrink-0">
                 <FileText size={18} className="text-white" />
               </div>
-              <h1 className="text-3xl font-black tracking-tight text-white uppercase">Quotations</h1>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl lg:text-2xl font-black tracking-tight text-white uppercase font-mono truncate">
+                  Quotations
+                </h1>
+              </div>
             </div>
-            <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl">
-              COMMERCIAL OFFERS • SALES PIPELINE & QUOTES
-            </p>
+
+            {/* Status Pill on mobile */}
+            <div className="flex sm:hidden items-center gap-1.5 bg-[#111827] border border-slate-800 px-2.5 py-1 rounded-md flex-shrink-0">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+                ONLINE
+              </span>
+            </div>
+
+            {/* Status Pill on Desktop */}
+            <div className="hidden sm:flex items-center gap-2 bg-[#111827] border border-slate-800 px-3 py-1.5 rounded-lg shadow-inner flex-shrink-0">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                SYSTEM ONLINE
+              </span>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="flex items-center gap-3 bg-[#111827] border border-slate-800 p-2 rounded-lg shadow-inner">
-              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">System Online</span>
+          {/* Bottom Row / Actions Bar */}
+          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5 pt-2.5 border-t border-slate-800/80">
+            <p className="text-slate-400 text-xs font-medium tracking-wide hidden sm:block truncate">
+              COMMERCIAL OFFERS • SALES PIPELINE & QUOTES
+            </p>
+
+            <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto sm:justify-end">
+              {hasPermission('CREATE_QUOTES') && (
+                <button
+                  onClick={() => navigate('/sales/quotes/new')}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-[0_0_15px_rgba(37,99,235,0.4)] whitespace-nowrap"
+                >
+                  <Plus size={14} /> Create Quote
+                </button>
+              )}
             </div>
-            {hasPermission('CREATE_QUOTES') && (
-              <button
-                onClick={() => navigate('/sales/quotes/new')}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md font-bold text-sm tracking-wider uppercase transition-colors shadow-lg border border-blue-400 flex items-center gap-2"
-              >
-                <Plus size={16} strokeWidth={3} /> Create Quote
-              </button>
-            )}
           </div>
         </div>
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-8 space-y-6">
-        <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-4 flex flex-col xl:flex-row gap-4 items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 items-center w-full xl:max-w-5xl">
-            <div className="relative w-full sm:flex-1">
+      <div className="space-y-4 sm:space-y-6">
+        <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-3.5 sm:p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 sm:gap-4 items-end">
+            <div className="sm:col-span-2 lg:col-span-5">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Search Quotes</label>
               <SearchInput
                 placeholder="SCAN BY QUOTE #, CUSTOMER, OR BRANCH..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="h-10 rounded-md border-2 border-slate-200 bg-slate-50 shadow-sm font-mono text-sm placeholder:text-slate-400 focus:border-blue-600 focus:ring-0 transition-colors uppercase w-full"
+                className="h-10 rounded-md border-2 border-slate-200 bg-slate-50 shadow-sm font-mono text-xs sm:text-sm placeholder:text-slate-400 focus:border-blue-600 focus:ring-0 transition-colors uppercase w-full"
               />
             </div>
 
-            <div className="relative w-full sm:w-48 shrink-0">
+            <div className="sm:col-span-1 lg:col-span-3">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Branch</label>
               <select
-                className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
+                className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-xs sm:text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
                 value={selectedBranchFilter}
                 onChange={e => setSelectedBranchFilter(e.target.value)}
               >
@@ -280,10 +301,10 @@ const Quotes = () => {
               </select>
             </div>
 
-            <div className="relative w-full sm:w-40 shrink-0">
+            <div className="sm:col-span-1 lg:col-span-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Time Range</label>
               <select
-                className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
+                className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-xs sm:text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
                 value={dateFilter}
                 onChange={e => setDateFilter(e.target.value)}
               >
@@ -294,10 +315,10 @@ const Quotes = () => {
               </select>
             </div>
             
-            <div className="relative w-full sm:w-40 shrink-0">
+            <div className="sm:col-span-2 lg:col-span-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Status</label>
               <select
-                className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
+                className="flex h-10 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-xs sm:text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors cursor-pointer outline-none uppercase"
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
               >
@@ -315,41 +336,41 @@ const Quotes = () => {
         </div>
 
         {/* Aggressive KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-5">
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm group hover:shadow-lg hover:border-slate-300 transition-all">
-            <div className="p-5 flex justify-between items-start">
+            <div className="p-3.5 sm:p-5 flex justify-between items-start">
               <div>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Quotes</p>
-                <h3 className="text-3xl font-black text-slate-800 font-mono tracking-tighter">{kpis.total}</h3>
+                <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Quotes</p>
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-800 font-mono tracking-tighter">{kpis.total}</h3>
               </div>
-              <div className="p-2.5 bg-slate-100 text-slate-600 rounded-lg group-hover:bg-slate-800 group-hover:text-white transition-colors">
-                <FileText size={22} strokeWidth={2.5} />
+              <div className="p-2 sm:p-2.5 bg-slate-100 text-slate-600 rounded-lg group-hover:bg-slate-800 group-hover:text-white transition-colors">
+                <FileText size={20} className="sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
               </div>
             </div>
             <div className="h-1.5 w-full bg-slate-200"><div className="h-full bg-slate-800 w-full"></div></div>
           </div>
 
           <div className="bg-white border border-emerald-200 rounded-xl overflow-hidden shadow-sm group hover:shadow-lg hover:border-emerald-400 transition-all">
-            <div className="p-5 flex justify-between items-start">
+            <div className="p-3.5 sm:p-5 flex justify-between items-start">
               <div>
-                <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Converted</p>
-                <h3 className="text-3xl font-black text-slate-800 font-mono tracking-tighter">{kpis.converted}</h3>
+                <p className="text-[10px] sm:text-[11px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Converted</p>
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-800 font-mono tracking-tighter">{kpis.converted}</h3>
               </div>
-              <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-                <CheckCircle2 size={22} strokeWidth={2.5} />
+              <div className="p-2 sm:p-2.5 bg-emerald-50 text-emerald-600 rounded-lg group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                <CheckCircle2 size={20} className="sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
               </div>
             </div>
             <div className="h-1.5 w-full bg-emerald-100"><div className="h-full bg-emerald-500 w-[70%]"></div></div>
           </div>
 
           <div className="bg-white border border-amber-200 rounded-xl overflow-hidden shadow-sm group hover:shadow-lg hover:border-amber-400 transition-all">
-            <div className="p-5 flex justify-between items-start">
+            <div className="p-3.5 sm:p-5 flex justify-between items-start">
               <div>
-                <p className="text-[11px] font-bold text-amber-600 uppercase tracking-widest mb-1">Pending / Draft</p>
-                <h3 className="text-3xl font-black text-slate-800 font-mono tracking-tighter">{kpis.pending}</h3>
+                <p className="text-[10px] sm:text-[11px] font-bold text-amber-600 uppercase tracking-widest mb-1">Pending / Draft</p>
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-800 font-mono tracking-tighter">{kpis.pending}</h3>
               </div>
-              <div className="p-2.5 bg-amber-50 text-amber-600 rounded-lg group-hover:bg-amber-500 group-hover:text-white transition-colors">
-                <Clock size={22} strokeWidth={2.5} />
+              <div className="p-2 sm:p-2.5 bg-amber-50 text-amber-600 rounded-lg group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                <Clock size={20} className="sm:w-[22px] sm:h-[22px]" strokeWidth={2.5} />
               </div>
             </div>
             <div className="h-1.5 w-full bg-amber-100"><div className="h-full bg-amber-500 w-[30%]"></div></div>

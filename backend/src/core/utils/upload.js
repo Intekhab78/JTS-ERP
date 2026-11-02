@@ -18,13 +18,17 @@ if (!fs.existsSync(baseProductUploadDir)) {
   fs.mkdirSync(baseProductUploadDir, { recursive: true });
 }
 
+const resolveTenantForUpload = (req) => {
+  return req.user?.activeTenantId || req.user?.tenantId || req.headers?.['x-tenant-id'] || 'default';
+};
+
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const tenantId = req.user?.tenantId;
+    const tenantId = resolveTenantForUpload(req);
     const supplierId = req.params.id;
     
-    if (!tenantId || !supplierId) {
-      return cb(new Error('Missing tenantId or supplierId for file upload.'));
+    if (!supplierId) {
+      return cb(new Error('Missing supplierId for file upload.'));
     }
     
     const dir = path.join(baseSupplierUploadDir, tenantId.toString(), supplierId.toString());
@@ -43,18 +47,18 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (allowedMimeTypes.includes(file.mimetype)) {
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml', 'image/avif'];
+  if (allowedMimeTypes.includes(file.mimetype) || file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, and WebP are allowed.'));
+    cb(new Error('Invalid file type. Only JPEG, PNG, WebP, GIF, and SVG images are allowed.'));
   }
 };
 
 const uploadSupplierPhoto = multer({ 
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5 MB
+    fileSize: 10 * 1024 * 1024 // 10 MB
   },
   fileFilter: fileFilter
 });
@@ -198,11 +202,11 @@ const uploadFamilyDocument = multer({
 
 const productPhotoStorage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const tenantId = req.user?.tenantId;
+    const tenantId = resolveTenantForUpload(req);
     const productId = req.params.id;
     
-    if (!tenantId || !productId) {
-      return cb(new Error('Missing tenantId or productId for file upload.'));
+    if (!productId) {
+      return cb(new Error('Missing productId for file upload.'));
     }
     
     const dir = path.join(baseProductUploadDir, tenantId.toString(), productId.toString());
@@ -223,7 +227,7 @@ const productPhotoStorage = multer.diskStorage({
 const uploadProductImages = multer({
   storage: productPhotoStorage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5 MB
+    fileSize: 10 * 1024 * 1024 // 10 MB
   },
   fileFilter: fileFilter
 });

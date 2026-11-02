@@ -69,7 +69,10 @@ const StockMovements = () => {
     }
     if (searchQuery) {
       const sq = searchQuery.toLowerCase();
-      if (!m.referenceId?.toLowerCase().includes(sq) && !m.productId?.name?.toLowerCase().includes(sq)) {
+      const matchRef = m.referenceId?.toLowerCase().includes(sq);
+      const matchProd = m.productId?.name?.toLowerCase().includes(sq);
+      const matchVar = (m.variantSku || m.variantId?.sku || '').toLowerCase().includes(sq);
+      if (!matchRef && !matchProd && !matchVar) {
         match = false;
       }
     }
@@ -239,8 +242,13 @@ const StockMovements = () => {
                          {m.referenceId}
                        </span>
                     </td>
-                    <td className="px-6 py-4 font-bold text-slate-700 text-sm uppercase tracking-tight">
-                       {m.productId?.name || 'Unknown Product'}
+                    <td className="px-6 py-4 font-bold text-slate-700 text-sm tracking-tight">
+                       <div>{m.productId?.name || 'Unknown Product'}</div>
+                       {(m.variantSku || m.variantId?.sku) && (
+                         <span className="text-[10px] font-bold text-blue-600 font-mono bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded inline-block mt-0.5">
+                           Variant: {m.variantSku || m.variantId?.sku}
+                         </span>
+                       )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex px-2 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest ${getTypeColor(m.type)}`}>

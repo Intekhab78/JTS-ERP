@@ -12,6 +12,7 @@ const uomService = require('../../utils/uomService');
 const landedCostService = require('../../services/landedCostService');
 const { verifyBranchAccess } = require('../../core/middleware/authMiddleware');
 const { getReadFilter, validateCreateScope } = require('../../core/utils/scopeHelper');
+const AutoPostingService = require('../../services/autoPostingService');
 
 const generateGRNNumber = async (tenantId, session) => {
   const currentYear = new Date().getFullYear();
@@ -48,6 +49,8 @@ exports.getGRNById = async (req, res) => {
       .populate('branchId', 'name')
       .populate('supplierId', 'name email phone')
       .populate('purchaseOrderId', '_id')
+      .populate('items.productId', 'name sku')
+      .populate('items.variantId', 'sku attributes salesPrice purchasePrice')
       .populate('createdBy', 'name')
       .populate('validatedBy', 'name');
     if (!grn) return res.status(404).json({ message: 'GRN not found' });
@@ -85,7 +88,14 @@ exports.createGRN = async (req, res) => {
       const schedules = await PurchaseOrderSchedule.find({ purchaseOrderId: body.purchaseOrderId, tenantId }).session(session);
 
       for (const item of body.items) {
-        const poItem = poItems.find(pi => pi.productId.toString() === item.productId.toString());
+        const poItem = poItems.find(pi => {
+          const matchProd = pi.productId.toString() === item.productId.toString();
+          if (!matchProd) return false;
+          if (item.variantId && pi.variantId) {
+            return pi.variantId.toString() === item.variantId.toString();
+          }
+          return true;
+        });
         if (!poItem) {
           throw new Error(`Product ${item.productId} is not part of this Purchase Order`);
         }
@@ -261,6 +271,7 @@ exports.validateGRN = async (req, res) => {
           legalCompanyId: grn.legalCompanyId,
           branchId: grn.branchId,
           productId: item.productId,
+          variantId: item.variantId || null,
           ownerType: item.ownerType || 'COMPANY',
           ownerId: item.ownerId || null
         }).session(session);
@@ -274,6 +285,7 @@ exports.validateGRN = async (req, res) => {
             legalCompanyId: grn.legalCompanyId,
             branchId: grn.branchId,
             productId: item.productId,
+            variantId: item.variantId || null,
             quantity: baseAcceptedQty,
             ownerType: item.ownerType || 'COMPANY',
             ownerId: item.ownerId || null
@@ -286,6 +298,8 @@ exports.validateGRN = async (req, res) => {
           legalCompanyId: grn.legalCompanyId,
           branchId: grn.branchId,
           productId: item.productId,
+          variantId: item.variantId || null,
+          variantSku: item.variantSku || null,
           quantity: baseAcceptedQty,
           documentQuantity: item.acceptedQuantity,
           documentUom: item.uom,
@@ -385,6 +399,10 @@ exports.validateGRN = async (req, res) => {
     await grn.save({ session });
 
     await session.commitTransaction();
+
+    // Trigger Double-Entry Auto-Posting (Dr. Inventory / Cr. GR/IR Clearing)
+    await AutoPostingService.postGRN(grn, req.user._id);
+
     res.status(200).json(grn);
   } catch (error) {
     await session.abortTransaction();

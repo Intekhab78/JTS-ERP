@@ -58,9 +58,12 @@ const StockOverview = () => {
   const filteredStock = useMemo(() => {
     return stock.filter(s => {
       const p = s.productId || {};
+      const v = s.variantId || {};
       const searchStr = searchQuery.toLowerCase();
       return (p.name || '').toLowerCase().includes(searchStr) || 
-             (p.sku || '').toLowerCase().includes(searchStr);
+             (p.sku || '').toLowerCase().includes(searchStr) ||
+             (v.sku || '').toLowerCase().includes(searchStr) ||
+             (v.title || '').toLowerCase().includes(searchStr);
     });
   }, [stock, searchQuery]);
 
@@ -226,6 +229,7 @@ const StockOverview = () => {
               ) : (
                 filteredStock.map(s => {
                   const product = s.productId || {};
+                  const variant = s.variantId;
                   const isOutOfStock = s.quantity <= 0;
                   const isLowStock = s.quantity > 0 && s.quantity <= 10;
                   
@@ -236,7 +240,21 @@ const StockOverview = () => {
                           <div className={`h-2 w-2 rounded-full ${isOutOfStock ? 'bg-rose-500' : isLowStock ? 'bg-amber-500' : 'bg-emerald-500'}`}></div>
                           <div>
                             <p className="font-bold text-slate-900 text-sm tracking-tight">{product.name || 'UNKNOWN_ITEM'}</p>
-                            <p className="text-[11px] font-bold text-slate-400 mt-0.5 font-mono bg-slate-100 inline-block px-1.5 py-0.5 rounded">ID: {product.sku || 'N/A'}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[11px] font-bold text-slate-400 font-mono bg-slate-100 inline-block px-1.5 py-0.5 rounded">
+                                ID: {variant?.sku || product.sku || 'N/A'}
+                              </span>
+                              {variant && (
+                                <span className="text-[10px] font-bold text-blue-600 font-mono bg-blue-50 border border-blue-200 inline-block px-1.5 py-0.5 rounded">
+                                  Variant: {variant.title || variant.sku || 'Variant'}
+                                  {variant.attributes && Object.keys(variant.attributes).length > 0 && (
+                                    <span className="text-slate-500 font-normal ml-1">
+                                      ({Object.entries(variant.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>

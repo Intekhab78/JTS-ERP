@@ -16,6 +16,19 @@ const orderItemSchema = new mongoose.Schema({
     ref: 'Product',
     required: true
   },
+  variantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ProductVariant',
+    default: null
+  },
+  variantSku: {
+    type: String,
+    trim: true
+  },
+  selectedAttributes: {
+    type: Map,
+    of: String
+  },
   quantity: {
     type: Number,
     required: true,
@@ -38,6 +51,16 @@ const orderItemSchema = new mongoose.Schema({
   subTotal: {
     type: Number,
     required: true
+  },
+  taxRate: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  taxAmount: {
+    type: Number,
+    default: 0,
+    min: 0
   }
 }, {
   timestamps: true,

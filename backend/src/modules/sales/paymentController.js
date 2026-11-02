@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const PaymentReceipt = require('../../core/models/PaymentReceipt');
 const TaxInvoice = require('../../core/models/TaxInvoice');
 const Counter = require('../../core/models/Counter');
+const AutoPostingService = require('../../services/autoPostingService');
 
 const generateReceiptNumber = async (tenantId, session) => {
   const currentYear = new Date().getFullYear();
@@ -65,6 +66,10 @@ exports.createPayment = async (req, res) => {
     await invoice.save({ session });
 
     await session.commitTransaction();
+
+    // Trigger Double-Entry Auto-Posting
+    await AutoPostingService.postSalesPayment(payment, req.user._id);
+
     res.status(201).json(payment);
   } catch (error) {
     await session.abortTransaction();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
@@ -94,6 +94,7 @@ const QuoteForm = () => {
   const [branches, setBranches] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
+  const [variantsMap, setVariantsMap] = useState({});
   const [revisions, setRevisions] = useState([]);
   const [originalItemsString, setOriginalItemsString] = useState('');
   const [showReviseModal, setShowReviseModal] = useState(false);
@@ -245,12 +246,41 @@ const QuoteForm = () => {
     }
   };
 
+  const availableProducts = useMemo(() => {
+    if (!formData.branchId) return products;
+    return products.filter(p => {
+      if (!p.branchIds || p.branchIds.length === 0) return true;
+      return p.branchIds.some(b => (b._id || b).toString() === formData.branchId.toString());
+    });
+  }, [products, formData.branchId]);
+
+  const fetchVariantsForProduct = async (productId) => {
+    if (!productId || variantsMap[productId]) return;
+    try {
+      const res = await axios.get(`/api/v1/inventory/products/${productId}/variants`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const list = res.data?.variants || (Array.isArray(res.data) ? res.data : []);
+      setVariantsMap(prev => ({ ...prev, [productId]: list }));
+    } catch (error) {
+      console.error('Failed to fetch variants:', error);
+    }
+  };
+
   const fetchQuote = async () => {
     try {
       const res = await axios.get(`/api/v1/quotes/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       const q = res.data;
+      const loadedItems = (q.items || []).map(i => ({
+        ...i,
+        productId: i.productId?._id || i.productId,
+        variantId: i.variantId?._id || i.variantId || '',
+        variantSku: i.variantSku || i.variantId?.sku || '',
+        attributes: i.attributes || i.variantId?.attributes || {}
+      }));
+
       setFormData({
         branchId: q.branchId?._id || q.branchId,
         customerId: q.customerId?._id || q.customerId,
@@ -264,7 +294,7 @@ const QuoteForm = () => {
         notes: q.notes || '',
         termsAndConditions: q.termsAndConditions || '',
         internalNotes: q.internalNotes || '',
-        items: q.items || [],
+        items: loadedItems,
         status: q.status || 'DRAFT',
         convertedToOrderId: q.convertedToOrderId || null,
         quoteNumber: q.quoteNumber || '',
@@ -272,8 +302,13 @@ const QuoteForm = () => {
         isCurrentRevision: q.isCurrentRevision !== false
       });
 
-      setOriginalItemsString(JSON.stringify((q.items || []).map(i => ({
+      loadedItems.forEach(i => {
+        if (i.productId) fetchVariantsForProduct(i.productId);
+      });
+
+      setOriginalItemsString(JSON.stringify(loadedItems.map(i => ({
         productId: typeof i.productId === 'object' ? i.productId._id : i.productId,
+        variantId: typeof i.variantId === 'object' ? i.variantId?._id : (i.variantId || ''),
         quantity: Number(i.quantity),
         unitPrice: Number(i.unitPrice),
         discount: Number(i.discount),
@@ -303,10 +338,39 @@ const QuoteForm = () => {
       const product = products.find(p => p._id === value);
       if (product) {
         item.productId = product._id;
+        item.variantId = '';
+        item.variantSku = '';
+        item.attributes = {};
         item.unitPrice = product.salesPrice || 0;
         item.taxRate = product.taxRate || 0;
         item.quantity = 1;
         item.discount = 0;
+        fetchVariantsForProduct(product._id);
+      } else {
+        item.productId = '';
+        item.variantId = '';
+        item.variantSku = '';
+        item.attributes = {};
+        item.unitPrice = 0;
+        item.taxRate = 0;
+        item.quantity = 1;
+        item.discount = 0;
+      }
+    } else if (field === 'variantId') {
+      item.variantId = value;
+      const productVars = variantsMap[item.productId] || [];
+      const selectedVar = productVars.find(v => v._id === value);
+      if (selectedVar) {
+        item.variantSku = selectedVar.sku || '';
+        item.attributes = selectedVar.attributes || {};
+        if (selectedVar.salesPrice !== undefined && selectedVar.salesPrice !== null && selectedVar.salesPrice !== '') {
+          item.unitPrice = Number(selectedVar.salesPrice) || 0;
+        }
+      } else {
+        item.variantSku = '';
+        item.attributes = {};
+        const prod = products.find(p => p._id === item.productId);
+        if (prod) item.unitPrice = prod.salesPrice || 0;
       }
     } else {
       item[field] = Number(value) || value;
@@ -324,10 +388,43 @@ const QuoteForm = () => {
     setFormData({ ...formData, items: newItems });
   };
 
+  const handlePopulateAllVariants = (productId, currentIndex) => {
+    const vars = variantsMap[productId] || [];
+    if (vars.length === 0) return;
+
+    const prod = products.find(p => p._id === productId);
+    const basePrice = prod?.salesPrice || 0;
+    const taxRate = prod?.taxRate || 0;
+
+    const newRows = vars.map(v => {
+      const unitPrice = (v.salesPrice !== undefined && v.salesPrice !== null && v.salesPrice !== '')
+        ? Number(v.salesPrice)
+        : basePrice;
+      const taxable = unitPrice;
+      const taxAmount = (taxable * taxRate) / 100;
+      return {
+        productId,
+        variantId: v._id,
+        variantSku: v.sku || '',
+        attributes: v.attributes || {},
+        quantity: 1,
+        unitPrice,
+        discount: 0,
+        taxRate,
+        taxAmount,
+        lineTotal: taxable + taxAmount
+      };
+    });
+
+    const updated = [...formData.items];
+    updated.splice(currentIndex, 1, ...newRows);
+    setFormData(prev => ({ ...prev, items: updated }));
+  };
+
   const addItem = () => {
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', quantity: 1, unitPrice: 0, discount: 0, taxRate: 0, taxAmount: 0, lineTotal: 0 }]
+      items: [...formData.items, { productId: '', variantId: '', variantSku: '', attributes: {}, quantity: 1, unitPrice: 0, discount: 0, taxRate: 0, taxAmount: 0, lineTotal: 0 }]
     });
   };
 
@@ -352,6 +449,7 @@ const QuoteForm = () => {
     if (isEditing && formData.status !== 'DRAFT' && formData.isCurrentRevision && !bypassReviseCheck && hasPermission('REVISE_QUOTATION')) {
       const currentItemsString = JSON.stringify(formData.items.map(i => ({
         productId: typeof i.productId === 'object' ? i.productId._id : i.productId,
+        variantId: typeof i.variantId === 'object' ? i.variantId?._id : (i.variantId || ''),
         quantity: Number(i.quantity),
         unitPrice: Number(i.unitPrice),
         discount: Number(i.discount),
@@ -486,145 +584,182 @@ const QuoteForm = () => {
   }
 
   return (
-    <div className="animate-in fade-in zoom-in-95 duration-500 space-y-6 max-w-[1400px] mx-auto pb-10 bg-[#f8fafc] min-h-screen print:bg-white print:p-0">
+    <div className="animate-in fade-in zoom-in-95 duration-500 space-y-4 sm:space-y-6 w-full max-w-[1400px] mx-auto pb-10 bg-[#f8fafc] min-h-screen px-2 sm:px-4 lg:px-6 pt-2 sm:pt-4 print:bg-white print:p-0 print:m-0 print:max-w-none">
       
       {/* Screen View */}
       <div className="flex flex-col print:hidden">
         
         {/* Aggressive Tech Header */}
-        <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl">
+        <div className="relative overflow-hidden rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-4 sm:p-6 text-white shadow-xl">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
           
-          <div className="relative z-10 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
+          <div className="relative z-10 space-y-3 sm:space-y-4">
+            {/* Top Row: Back Button, Icon, Title, Badges & Status */}
+            <div className="flex flex-row justify-between items-center gap-3">
+              <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
                 <button
+                  type="button"
                   onClick={() => navigate('/sales/quotes')}
-                  className="p-2 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 group"
+                  className="p-2 sm:p-2.5 bg-slate-800/80 border border-slate-700 rounded-lg hover:bg-blue-600 text-slate-300 hover:text-white transition-all shadow-sm flex-shrink-0"
+                  title="Back to Quotes"
                 >
-                  <ArrowLeft className="h-5 w-5 text-slate-400 group-hover:text-white" />
+                  <ArrowLeft size={17} />
                 </button>
-                <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
-                  <FileText size={18} className="text-white" />
+                <div className="h-7 w-7 sm:h-8 sm:w-8 bg-blue-600 flex items-center justify-center rounded shadow-inner flex-shrink-0">
+                  <FileText size={16} className="text-white" />
                 </div>
-                <h1 className="text-3xl font-black tracking-tight text-white uppercase">
-                  {isEditing ? formData.quoteNumber : 'New Quotation'}
-                </h1>
-                
-                <div className="ml-4 flex items-center gap-3 bg-[#111827] border border-slate-800 p-2 rounded-lg shadow-inner hidden sm:flex">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                  <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">System Online</span>
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <h1 className="text-base sm:text-xl lg:text-2xl font-black tracking-tight text-white uppercase font-mono truncate">
+                    {isEditing ? formData.quoteNumber : 'New Quotation'}
+                  </h1>
+
+                  {isEditing && (
+                    <>
+                      <span className="hidden sm:inline-block px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700 rounded font-mono">
+                        REV {formData.revisionNumber} {formData.isCurrentRevision ? '(ACTIVE)' : '(ARCHIVED)'}
+                      </span>
+                      <Badge
+                        variant={formData.status === 'ACCEPTED' ? 'success' : formData.status === 'CONVERTED' ? 'purple' : 'default'}
+                        className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider font-mono ${formData.status === 'CONVERTED' ? 'bg-indigo-600 text-white' : ''}`}
+                      >
+                        {formData.status}
+                      </Badge>
+                    </>
+                  )}
                 </div>
               </div>
-              
-              {isEditing ? (
-                <div className="flex items-center gap-3 mt-2 pl-14">
-                  <p className="text-slate-400 text-sm font-medium tracking-wide">
-                    REVISION {formData.revisionNumber} {formData.isCurrentRevision ? '(ACTIVE)' : '(ARCHIVED)'}
-                  </p>
-                  <Badge
-                    variant={formData.status === 'ACCEPTED' ? 'success' : formData.status === 'CONVERTED' ? 'purple' : 'default'}
-                    className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${formData.status === 'CONVERTED' ? 'bg-indigo-600 text-white' : ''}`}
-                  >
-                    {formData.status}
-                  </Badge>
-                </div>
-              ) : (
-                <p className="text-slate-400 text-sm font-medium tracking-wide pl-14">
-                  CREATE NEW COMMERCIAL OFFER
-                </p>
-              )}
+
+              {/* Status Pill on mobile */}
+              <div className="flex sm:hidden items-center gap-1.5 bg-[#111827] border border-slate-800 px-2.5 py-1 rounded-md flex-shrink-0">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+                  ONLINE
+                </span>
+              </div>
+
+              {/* Status Pill on Desktop */}
+              <div className="hidden sm:flex items-center gap-2 bg-[#111827] border border-slate-800 px-3 py-1.5 rounded-lg shadow-inner flex-shrink-0">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                  SYSTEM ONLINE
+                </span>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto mt-4 lg:mt-0">
-              {isEditing && (
-                <>
-                  <Button
+            {/* Bottom Row / Actions Bar */}
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5 pt-2.5 border-t border-slate-800/80">
+              <p className="text-slate-400 text-xs font-medium tracking-wide hidden sm:block truncate">
+                {isEditing ? 'COMMERCIAL OFFER REVISION & TRANSACTION SPECIFICATION' : 'CREATE NEW COMMERCIAL OFFER • SALES PIPELINE SPECIFICATION'}
+              </p>
+
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center sm:justify-end gap-2 sm:gap-2.5 w-full sm:w-auto">
+                {isEditing && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setEmailModalOpen(true)}
+                      className="col-span-1 flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-emerald-500/40 shadow-sm"
+                    >
+                      <Mail size={13} /> Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setPrintTitle('QUOTATION'); setTimeout(() => window.print(), 100); }}
+                      className="col-span-1 flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-slate-700 hover:text-white shadow-sm"
+                    >
+                      <Printer size={13} /> Print
+                    </button>
+                  </>
+                )}
+
+                {isEditing && !formData.isCurrentRevision && (
+                  <Badge variant="error" className="col-span-2 sm:col-span-1 justify-center whitespace-nowrap">Archived Record</Badge>
+                )}
+
+                {isEditing && revisions.length > 0 && (
+                  <button
                     type="button"
-                    variant="outline"
-                    onClick={() => setEmailModalOpen(true)}
-                    leftIcon={<Mail className="w-4 h-4" />}
-                    className="whitespace-nowrap transition-colors bg-emerald-600/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-600/30"
+                    onClick={() => setShowHistoryPanel(!showHistoryPanel)}
+                    className={`col-span-1 flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border shadow-sm ${showHistoryPanel ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'}`}
                   >
-                    Email
-                  </Button>
-                  <Button
+                    <History size={13} /> History
+                  </button>
+                )}
+
+                {formData.status === 'CONVERTED' && formData.convertedToOrderId && (
+                  <button
                     type="button"
-                    variant="outline"
-                    onClick={() => { setPrintTitle('QUOTATION'); setTimeout(() => window.print(), 100); }}
-                    leftIcon={<Printer className="w-4 h-4" />}
-                    className="whitespace-nowrap transition-colors bg-white/10 text-white border-white/20 hover:bg-white/20"
+                    onClick={() => navigate(`/sales/orders/${formData.convertedToOrderId}`)}
+                    className="col-span-1 flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors border border-slate-700 shadow-sm"
                   >
-                    Print
-                  </Button>
-                </>
-              )}
+                    <FileText size={13} /> View Order
+                  </button>
+                )}
 
-              {isEditing && !formData.isCurrentRevision && (
-                <Badge variant="error" className="mr-2 whitespace-nowrap">Archived Record</Badge>
-              )}
+                {formData.status === 'CONVERTED' && hasPermission('EDIT_QUOTATIONS') && (
+                  <button
+                    type="button"
+                    onClick={handleGenerateProForma}
+                    disabled={loading}
+                    className="col-span-2 sm:col-span-1 w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-[0_0_12px_rgba(37,99,235,0.3)] whitespace-nowrap"
+                  >
+                    <FileText size={13} /> Generate Pro-Forma
+                  </button>
+                )}
 
-              {isEditing && revisions.length > 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowHistoryPanel(!showHistoryPanel)}
-                  leftIcon={<History className="w-4 h-4" />}
-                  className={`whitespace-nowrap transition-colors ${showHistoryPanel ? 'bg-blue-500 text-white border-blue-500' : 'bg-white/10 text-white border-white/20 hover:bg-white/20'}`}
-                >
-                  History
-                </Button>
-              )}
+                {formData.status === 'ACCEPTED' && hasPermission('EDIT_QUOTATIONS') && (
+                  <button
+                    type="button"
+                    onClick={handleConvert}
+                    disabled={loading}
+                    className="col-span-2 sm:col-span-1 w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-sm whitespace-nowrap"
+                  >
+                    <RefreshCw size={13} /> Convert to Order
+                  </button>
+                )}
 
-              {formData.status === 'CONVERTED' && formData.convertedToOrderId && (
-                <Button type="button" variant="outline" onClick={() => navigate(`/sales/orders/${formData.convertedToOrderId}`)} leftIcon={<FileText className="w-4 h-4" />} className="whitespace-nowrap bg-white/10 text-white border-white/20 hover:bg-white/20">
-                  View Order
-                </Button>
-              )}
+                {isEditing && ['DRAFT', 'SENT', 'VIEWED'].includes(formData.status) && hasPermission('APPROVE_QUOTATION') && (
+                  <button
+                    type="button"
+                    onClick={() => handleStatusUpdate('ACCEPTED')}
+                    disabled={loading}
+                    className="col-span-2 sm:col-span-1 w-full sm:w-auto flex items-center justify-center gap-1.5 px-3.5 py-2 sm:py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-sm whitespace-nowrap"
+                  >
+                    <CheckCircle2 size={13} /> Accept
+                  </button>
+                )}
 
-              {formData.status === 'CONVERTED' && hasPermission('EDIT_QUOTATIONS') && (
-                <Button type="button" onClick={handleGenerateProForma} isLoading={loading} className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white shadow-lg transition-all whitespace-nowrap border-0" leftIcon={<FileText className="w-4 h-4" />}>
-                  Generate Pro-Forma
-                </Button>
-              )}
-
-              {formData.status === 'ACCEPTED' && hasPermission('EDIT_QUOTATIONS') && (
-                <Button type="button" onClick={handleConvert} isLoading={loading} className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white shadow-lg transition-all whitespace-nowrap border-0" leftIcon={<RefreshCw className="w-4 h-4" />}>
-                  Convert to Order
-                </Button>
-              )}
-
-              {isEditing && ['DRAFT', 'SENT', 'VIEWED'].includes(formData.status) && hasPermission('APPROVE_QUOTATION') && (
-                <Button type="button" onClick={() => handleStatusUpdate('ACCEPTED')} isLoading={loading} className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg whitespace-nowrap border-0" leftIcon={<CheckCircle2 className="w-4 h-4" />}>
-                  Accept
-                </Button>
-              )}
-
-              {!isReadOnly && (
-                <Button type="submit" onClick={handleSubmit} isLoading={loading} leftIcon={<Save className="w-4 h-4" />} className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg whitespace-nowrap border-0">
-                  Save Changes
-                </Button>
-              )}
+                {!isReadOnly && (
+                  <button
+                    type="submit"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="col-span-2 sm:col-span-1 w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-[0_0_15px_rgba(37,99,235,0.4)] whitespace-nowrap"
+                  >
+                    <Save size={14} /> Save Changes
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         <div className="pt-2">
-          <div className="space-y-8 relative">
+          <div className="space-y-6 sm:space-y-8 relative">
             <div className="flex gap-8 relative">
               <div className={`flex-1 min-w-0 transition-all duration-300 ${showHistoryPanel ? 'lg:pr-96' : ''}`}>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <fieldset disabled={isReadOnly} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                  <fieldset disabled={isReadOnly} className="space-y-4 sm:space-y-6">
 
                     {/* Core Details Section */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                      <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+                      <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-3.5 sm:py-4">
                         <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                           <FileText size={14} className="text-blue-500" /> Commercial Details
                         </h2>
                       </div>
-                      <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                      <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                           <div className="col-span-1 md:col-span-2">
                             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Client / Customer *</label>
                             <CreatableSelect
@@ -713,7 +848,7 @@ const QuoteForm = () => {
                             <div className="space-y-3 mt-3">
                               {formData.items.map((item, index) => (
                                 <div key={index} className="grid grid-cols-12 gap-4 items-center bg-slate-50 p-2 rounded-lg border border-slate-200 group">
-                                  <div className="col-span-4">
+                                  <div className="col-span-4 space-y-1.5">
                                     <CreatableSelect
                                       isClearable
                                       required
@@ -724,12 +859,41 @@ const QuoteForm = () => {
                                       components={{ DropdownIndicator: () => null, IndicatorSeparator: () => null }}
                                       formatCreateLabel={(inputValue) => `Quick add "${inputValue}"`}
                                       value={products.find(p => p._id === item.productId) ? { value: item.productId, label: `${products.find(p => p._id === item.productId).name} - ${products.find(p => p._id === item.productId).sku}` } : null}
-                                      options={products.map(p => ({ value: p._id, label: `${p.name} - ${p.sku}` }))}
+                                      options={availableProducts.map(p => ({ value: p._id, label: `${p.name} - ${p.sku}` }))}
                                       onChange={(option) => handleItemChange(index, 'productId', option ? option.value : '')}
                                       onCreateOption={(val) => handleCreateProduct(val, index)}
                                       placeholder="Search..."
                                       noOptionsMessage={() => "Type to search or create..."}
                                     />
+                                    {variantsMap[item.productId]?.length > 0 && (
+                                      <div className="flex items-center gap-1.5 pt-0.5">
+                                        <div className="flex-1">
+                                          <select
+                                            value={item.variantId || ''}
+                                            onChange={(e) => handleItemChange(index, 'variantId', e.target.value)}
+                                            disabled={isReadOnly}
+                                            className="w-full text-xs font-semibold bg-white border border-slate-200 rounded px-2 py-1 focus:border-blue-600 focus:outline-none"
+                                          >
+                                            <option value="">-- Base Product --</option>
+                                            {variantsMap[item.productId].map(v => {
+                                              const attrStr = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
+                                              const label = v.title ? `${v.title} (${v.sku})` : (attrStr ? `${attrStr} (${v.sku})` : v.sku);
+                                              return <option key={v._id} value={v._id}>{label}</option>;
+                                            })}
+                                          </select>
+                                        </div>
+                                        {!isReadOnly && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handlePopulateAllVariants(item.productId, index)}
+                                            className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition-colors whitespace-nowrap cursor-pointer shadow-xs"
+                                            title="Populate rows for all variants of this product"
+                                          >
+                                            ⚡ All Variants
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="col-span-1">
                                     <input
@@ -820,12 +984,12 @@ const QuoteForm = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                       <div className="col-span-1 lg:col-span-7">
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+                          <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-3.5 sm:py-4">
                             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                               <FileText size={14} className="text-blue-500" /> Terms & Conditions
                             </h2>
                           </div>
-                          <div className="p-6 space-y-5">
+                          <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                           <div>
                               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Public Notes (Visible on PDF)</label>
                               <textarea
@@ -862,7 +1026,7 @@ const QuoteForm = () => {
 
                       <div className="col-span-1 lg:col-span-5">
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden relative">
-                          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4">
+                          <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-6 py-3.5 sm:py-4">
                             <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                               <Zap size={14} className="text-blue-500" /> Calculation
                             </h2>
@@ -871,7 +1035,7 @@ const QuoteForm = () => {
                           {/* Decorative element */}
                           <div className="absolute top-10 right-0 w-32 h-32 bg-indigo-50 rounded-full blur-3xl -mr-10 -mt-10 opacity-60"></div>
                           
-                          <div className="p-6 space-y-4 relative z-10">
+                          <div className="p-4 sm:p-6 space-y-4 relative z-10">
                             <div className="flex justify-between items-center pb-4 border-b border-slate-200/60">
                               <span className="text-slate-500 font-medium">Subtotal</span>
                               <span className="font-semibold text-slate-800 text-lg">
@@ -1079,7 +1243,19 @@ const QuoteForm = () => {
               const prod = products.find(p => p._id === item.productId);
               return (
                 <tr key={idx}>
-                  <td className="py-4 text-slate-800 font-medium text-base">{prod?.name || item.productId || 'Unknown Item'}</td>
+                  <td className="py-4 text-slate-800 font-medium text-base">
+                    <div>{prod?.name || item.productId || 'Unknown Item'}</div>
+                    {item.variantSku && (
+                      <div className="text-xs text-blue-600 font-mono mt-0.5">
+                        Variant: {item.variantSku}
+                        {item.attributes && Object.keys(item.attributes).length > 0 && (
+                          <span className="text-slate-500 font-sans ml-1">
+                            ({Object.entries(item.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td className="py-4 text-center text-slate-600 text-base">{item.quantity}</td>
                   <td className="py-4 text-right text-slate-600 text-base">{currencySymbol}{Number(item.unitPrice || 0).toFixed(2)}</td>
                   <td className="py-4 text-right text-slate-600 text-base">{currencySymbol}{Number(item.discount || 0).toFixed(2)}</td>

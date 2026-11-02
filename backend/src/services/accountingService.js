@@ -95,13 +95,14 @@ class AccountingService {
 
       const entry = await JournalEntry.create([{
         tenantId,
+        legalCompanyId: data.legalCompanyId || null,
         entryDate: date || new Date(),
         description,
         reference,
         sourceId,
         sourceModel,
         totalAmount,
-        status: 'DRAFT', // Always create as DRAFT first, or let post handle it
+        status: data.status || 'DRAFT',
         createdBy
       }], { session });
 

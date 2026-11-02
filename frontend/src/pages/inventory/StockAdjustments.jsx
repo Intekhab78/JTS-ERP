@@ -266,6 +266,11 @@ const StockAdjustments = () => {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-xs font-bold text-slate-600 uppercase tracking-tight">{a.reason || 'N/A'}</span>
+                        {a.items && a.items.length > 0 && (
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5 truncate max-w-xs" title={a.items.map(it => `${it.productId?.name || 'Item'}${it.variantSku ? ` (${it.variantSku})` : ''}: ${it.actualQuantity}`).join(', ')}>
+                            {a.items.map(it => `${it.productId?.name || 'Item'}${it.variantSku ? ` (${it.variantSku})` : ''}: ${it.actualQuantity}`).join(', ')}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className={`inline-flex px-2 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest ${getStatusStyle(a.status)}`}>

@@ -3,6 +3,7 @@ const VendorPayment = require('../../core/models/VendorPayment');
 const VendorBill = require('../../core/models/VendorBill');
 const Counter = require('../../core/models/Counter');
 const { verifyBranchAccess } = require('../../core/middleware/authMiddleware');
+const AutoPostingService = require('../../services/autoPostingService');
 
 const generatePaymentNumber = async (tenantId, session) => {
   const currentYear = new Date().getFullYear();
@@ -98,6 +99,9 @@ exports.createVendorPayment = async (req, res) => {
 
     await bill.save({ session });
     await session.commitTransaction();
+
+    // Trigger Double-Entry Auto-Posting (Dr. Accounts Payable / Cr. Bank)
+    await AutoPostingService.postVendorPayment(payment[0], req.user._id);
     
     res.status(201).json(payment[0]);
   } catch (error) {
