@@ -1,4 +1,5 @@
 import React from 'react';
+import './config/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { CustomerAuthProvider } from './context/CustomerAuthContext';
 import { CartProvider } from './context/CartContext';
