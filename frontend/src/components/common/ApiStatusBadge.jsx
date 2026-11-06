@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Globe, Server, Check, RefreshCw, ChevronDown, Wifi } from 'lucide-react';
-import { getApiMode, setApiMode, getActiveConfig, pingLocalBackend, ONLINE_API_URL, LOCAL_API_URL } from '../../config/api';
+import { getApiMode, setApiMode, getActiveConfig, pingLocalBackend, isLocalEnvironment, ONLINE_API_URL, LOCAL_API_URL } from '../../config/api';
 
 export const ApiStatusBadge = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -9,6 +9,10 @@ export const ApiStatusBadge = () => {
   const [activeConfig, setActiveConfig] = useState(getActiveConfig());
 
   const checkStatus = async () => {
+    if (!isLocalEnvironment()) {
+      setLocalAvailable(false);
+      return;
+    }
     setChecking(true);
     const alive = await pingLocalBackend();
     setLocalAvailable(alive);

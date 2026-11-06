@@ -34,7 +34,9 @@ exports.getGRNs = async (req, res) => {
     const grns = await GRN.find({ ...filter, isActive: true })
       .populate('branchId', 'name')
       .populate('supplierId', 'name email phone')
-      .populate('purchaseOrderId', '_id expectedDate')
+      .populate('purchaseOrderId', '_id expectedDate purchaseOrderNumber totalAmount')
+      .populate('createdBy', 'name')
+      .populate('validatedBy', 'name')
       .sort({ createdAt: -1 });
     res.status(200).json(grns);
   } catch (error) {
@@ -46,13 +48,14 @@ exports.getGRNById = async (req, res) => {
   try {
     const filter = getReadFilter(req);
     const grn = await GRN.findOne({ _id: req.params.id, ...filter, isActive: true })
-      .populate('branchId', 'name')
-      .populate('supplierId', 'name email phone')
-      .populate('purchaseOrderId', '_id')
-      .populate('items.productId', 'name sku')
-      .populate('items.variantId', 'sku attributes salesPrice purchasePrice')
-      .populate('createdBy', 'name')
-      .populate('validatedBy', 'name');
+      .populate('branchId', 'name address phone')
+      .populate('supplierId', 'name email phone address taxNumber gstin contactPerson')
+      .populate('purchaseOrderId', '_id purchaseOrderNumber expectedDate totalAmount')
+      .populate('items.productId', 'name sku price cost barcode category')
+      .populate('items.variantId', 'sku attributes salesPrice purchasePrice barcode')
+      .populate('createdBy', 'name email')
+      .populate('updatedBy', 'name email')
+      .populate('validatedBy', 'name email');
     if (!grn) return res.status(404).json({ message: 'GRN not found' });
     res.status(200).json(grn);
   } catch (error) {
@@ -147,9 +150,20 @@ exports.createGRN = async (req, res) => {
             throw err;
           }
           
-          item.uom = product.uomDetails?.purchaseUnit || product.uom || 'PCS';
-          item.conversionFactor = product.uomDetails?.purchaseConversionFactor || 1;
-          item.baseUom = product.uomDetails?.baseUnit || product.uom || 'PCS';
+          const baseUom = product.uomDetails?.baseUnit || product.uom || 'Piece';
+          const purchaseUom = product.uomDetails?.purchaseUnit || product.uom || 'Piece';
+          
+          const requestedUom = item.uom || baseUom;
+          item.baseUom = baseUom;
+          item.uom = requestedUom;
+
+          if (requestedUom.toLowerCase() === baseUom.toLowerCase()) {
+            item.conversionFactor = 1;
+          } else if (requestedUom.toLowerCase() === purchaseUom.toLowerCase()) {
+            item.conversionFactor = product.uomDetails?.purchaseConversionFactor || 1;
+          } else {
+            item.conversionFactor = Number(item.conversionFactor) || 1;
+          }
           
           const uomService = require('../../utils/uomService');
           item.baseQuantity = uomService.convertToBase(item.orderedQuantity, item.conversionFactor);
@@ -265,32 +279,29 @@ exports.validateGRN = async (req, res) => {
       if (item.acceptedQuantity > 0) {
         const baseAcceptedQty = uomService.convertToBase(item.acceptedQuantity, item.conversionFactor);
 
-        // Update Stock
-        let stock = await Stock.findOne({
+        // Atomic Stock Update using exact unique index key
+        const stockFilter = {
           tenantId: req.user.tenantId,
-          legalCompanyId: grn.legalCompanyId,
           branchId: grn.branchId,
           productId: item.productId,
           variantId: item.variantId || null,
           ownerType: item.ownerType || 'COMPANY',
           ownerId: item.ownerId || null
-        }).session(session);
+        };
 
-        if (stock) {
-          stock.quantity += baseAcceptedQty;
-          await stock.save({ session });
-        } else {
-          await Stock.create([{
-            tenantId: req.user.tenantId,
-            legalCompanyId: grn.legalCompanyId,
-            branchId: grn.branchId,
-            productId: item.productId,
-            variantId: item.variantId || null,
-            quantity: baseAcceptedQty,
-            ownerType: item.ownerType || 'COMPANY',
-            ownerId: item.ownerId || null
-          }], { session });
-        }
+        await Stock.findOneAndUpdate(
+          stockFilter,
+          {
+            $inc: { quantity: baseAcceptedQty },
+            $set: {
+              legalCompanyId: grn.legalCompanyId || null
+            },
+            $setOnInsert: {
+              ...stockFilter
+            }
+          },
+          { upsert: true, new: true, session }
+        );
 
         // Create Stock Movement log
         await StockMovement.create([{

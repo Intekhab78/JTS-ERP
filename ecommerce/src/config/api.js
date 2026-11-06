@@ -22,7 +22,28 @@ export const isLocalEnvironment = () => {
  * Get current configured API mode: 'online' | 'local' | 'auto'
  */
 export const getApiMode = () => {
-  return import.meta.env.VITE_API_MODE || localStorage.getItem(STORAGE_KEY) || 'online';
+  // Check user preference in localStorage (both ecommerce and global ERP keys)
+  const saved = localStorage.getItem('jts_ecommerce_api_mode') || localStorage.getItem('jts_api_mode');
+  if (saved && (saved === 'local' || saved === 'online')) {
+    return saved;
+  }
+
+  // If running in local browser environment (localhost / 127.0.0.1), default to local backend
+  if (isLocalEnvironment()) {
+    return 'local';
+  }
+
+  return import.meta.env.VITE_API_MODE || 'online';
+};
+
+/**
+ * Switch API mode and persist preference
+ */
+export const setApiMode = (mode) => {
+  localStorage.setItem('jts_ecommerce_api_mode', mode);
+  localStorage.setItem('jts_api_mode', mode);
+  setupAxios();
+  window.dispatchEvent(new Event('jts_api_mode_changed'));
 };
 
 /**

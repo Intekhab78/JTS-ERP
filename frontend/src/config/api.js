@@ -29,6 +29,18 @@ export const getApiMode = () => {
  * Get resolved API and Backend URLs based on current mode
  */
 export const getActiveConfig = () => {
+  // If deployed on remote/public domain (e.g. erp.jtsmiddleeast.com), always route to Online API
+  // to prevent Private Network Access / CORS loopback blocks.
+  if (!isLocalEnvironment()) {
+    return {
+      mode: 'online',
+      apiUrl: ONLINE_API_URL,
+      backendUrl: ONLINE_BACKEND_URL,
+      isLocal: false,
+      isOnline: true,
+    };
+  }
+
   const mode = getApiMode();
 
   if (mode === 'local') {
@@ -51,8 +63,7 @@ export const getActiveConfig = () => {
     };
   }
 
-  // 'auto' mode:
-  // When running locally in auto mode, default to Local
+  // 'auto' mode on local environment
   const autoTarget = localStorage.getItem('jts_auto_resolved_target') || 'local';
   const isLocalTarget = autoTarget === 'local';
 
@@ -126,6 +137,10 @@ export const getApiUrl = (endpoint = '') => {
  * Check if local backend server is running
  */
 export const pingLocalBackend = async () => {
+  // Never attempt to ping loopback / localhost from an external/production origin
+  if (!isLocalEnvironment()) {
+    return false;
+  }
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 1200);
@@ -221,6 +236,10 @@ setupAxios();
 
 // Initialize auto mode target detection on app start
 export const initializeApiMode = async () => {
+  // When running on production domain (e.g. erp.jtsmiddleeast.com), skip loopback health checks
+  if (!isLocalEnvironment()) {
+    return;
+  }
   if (getApiMode() === 'auto') {
     const isAlive = await pingLocalBackend();
     const target = isAlive ? 'local' : 'online';

@@ -99,6 +99,24 @@ export const CustomerAuthProvider = ({ children }) => {
     return data;
   };
 
+  // Send 6-digit OTP for password reset
+  const sendForgotPasswordOtp = async ({ email }) => {
+    const { data } = await axios.post('/api/v1/ecommerce/auth/forgot-password-otp', {
+      email
+    });
+    return data;
+  };
+
+  // Verify OTP and reset password
+  const resetPasswordWithOtp = async ({ email, otp, newPassword }) => {
+    const { data } = await axios.post('/api/v1/ecommerce/auth/reset-password', {
+      email,
+      otp,
+      newPassword
+    });
+    return data;
+  };
+
   // Verify OTP and complete registration
   const verifyOtpAndRegister = async ({ email, otp, password, firstName, lastName, phone }) => {
     const { data } = await axios.post('/api/v1/ecommerce/auth/verify-otp-register', {
@@ -232,6 +250,8 @@ export const CustomerAuthProvider = ({ children }) => {
       logout,
       sendRegistrationOtp,
       verifyOtpAndRegister,
+      sendForgotPasswordOtp,
+      resetPasswordWithOtp,
       updateProfile,
       addAddress,
       updateAddress,

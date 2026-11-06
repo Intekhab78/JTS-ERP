@@ -1,5 +1,8 @@
 const User = require('../models/User');
 const Employee = require('../models/Employee');
+const Role = require('../models/Role');
+const Company = require('../models/Company');
+const { sendUserWelcomeEmail } = require('../../services/emailService');
 const { verifyBranchAccess } = require('../middleware/authMiddleware');
 
 // @desc    Get all users for tenant
@@ -50,6 +53,27 @@ const createUser = async (req, res) => {
         { _id: employeeId, tenantId: req.user.tenantId },
         { userId: user._id }
       );
+    }
+
+    // Send Welcome Email with login credentials to the newly created user
+    try {
+      const role = roleId ? await Role.findById(roleId) : null;
+      const company = req.user?.tenantId ? await Company.findById(req.user.tenantId) : null;
+      const hostUrl = req.get('host') || 'localhost:5000';
+      const clientUrl = hostUrl.includes('localhost') ? 'http://localhost:5173/login' : `${req.protocol}://${hostUrl}/login`;
+
+      await sendUserWelcomeEmail({
+        to: user.email,
+        userName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'User',
+        email: user.email,
+        password: password || '(Configured by administrator)',
+        roleName: role?.name || 'Staff User',
+        companyName: company?.name || 'JTS ERP',
+        loginUrl: clientUrl
+      });
+      console.log(`[USER-CREATION-EMAIL] Welcome email sent to: ${user.email}`);
+    } catch (emailErr) {
+      console.error(`[USER-CREATION-EMAIL] Email delivery failed for ${user.email}:`, emailErr.message);
     }
 
     res.status(201).json({

@@ -137,6 +137,7 @@
 .custom-scroll {
   scrollbar-width: thin;
   scrollbar-color: rgba(150, 150, 150, 0.3) transparent;
+  scrollbar-gutter: stable;
 }
 
 /* Staggered entrance animation for sidebar modules */

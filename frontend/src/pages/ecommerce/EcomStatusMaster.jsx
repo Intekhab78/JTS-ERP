@@ -738,7 +738,7 @@ const EcomStatusMaster = () => {
                                     code: editingId ? formData.code : val.toUpperCase().replace(/\s+/g, '_')
                                   });
                                 }}
-                                className="w-full h-9.5 px-3.5 rounded-xl border border-border bg-background text-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-border/90 transition-all"
+                                className="w-full h-11 sm:h-12 px-4 rounded-xl border border-border bg-background text-foreground text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:border-blue-500 hover:border-border/90 transition-all duration-200 shadow-2xs"
                               />
                             </div>
 
@@ -746,13 +746,13 @@ const EcomStatusMaster = () => {
                               <label className="block text-xs font-extrabold text-foreground mb-1.5">
                                 Internal Identifier Code <span className="text-rose-500">*</span>
                               </label>
-                <input
+                              <input
                                 type="text"
                                 required
                                 placeholder="e.g. PROCESSING_STAGE"
                                 value={formData.code}
                                 onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
-                                className="w-full h-9.5 px-3.5 rounded-xl border border-border bg-background text-foreground text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-border/90 transition-all uppercase"
+                                className="w-full h-11 sm:h-12 px-4 rounded-xl border border-border bg-background text-foreground text-sm font-mono font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:border-blue-500 hover:border-border/90 transition-all duration-200 uppercase shadow-2xs"
                               />
                             </div>
 
@@ -767,7 +767,7 @@ const EcomStatusMaster = () => {
                                   min="0"
                                   value={formData.order}
                                   onChange={e => setFormData({ ...formData, order: Number(e.target.value) })}
-                                  className="w-full h-9.5 px-3.5 rounded-xl border border-border bg-background text-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-border/90 transition-all"
+                                  className="w-full h-11 sm:h-12 px-4 rounded-xl border border-border bg-background text-foreground text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:border-blue-500 hover:border-border/90 transition-all duration-200 shadow-2xs"
                                 />
                               </div>
 
@@ -777,7 +777,7 @@ const EcomStatusMaster = () => {
                                 </label>
                                 <div className="relative flex items-center gap-2">
                                   <div
-                                    className="w-9.5 h-9.5 rounded-xl border border-border/80 shadow-2xs shrink-0 cursor-pointer overflow-hidden relative flex items-center justify-center hover:scale-105 transition-transform"
+                                    className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl border border-border/80 shadow-2xs shrink-0 cursor-pointer overflow-hidden relative flex items-center justify-center hover:scale-105 transition-transform"
                                     style={{ backgroundColor: formData.color || '#2563eb' }}
                                   >
                                     <input
@@ -792,7 +792,7 @@ const EcomStatusMaster = () => {
                                     type="text"
                                     value={formData.color}
                                     onChange={e => setFormData({ ...formData, color: e.target.value })}
-                                    className="w-full h-9.5 px-3 rounded-xl border border-border bg-background text-foreground text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-border/90 transition-all uppercase"
+                                    className="w-full h-11 sm:h-12 px-3.5 rounded-xl border border-border bg-background text-foreground text-sm font-mono font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:border-blue-500 hover:border-border/90 transition-all duration-200 uppercase shadow-2xs"
                                   />
                                 </div>
                               </div>
@@ -877,7 +877,7 @@ const EcomStatusMaster = () => {
                                   placeholder="e.g. Your Order #{{orderId}} is In Transit!"
                                   value={formData.emailSubject}
                                   onChange={e => setFormData({ ...formData, emailSubject: e.target.value })}
-                                  className="w-full h-9.5 px-3.5 rounded-xl border border-border bg-background text-foreground text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-border/90 transition-all"
+                                  className="w-full h-11 sm:h-12 px-4 rounded-xl border border-border bg-background text-foreground text-sm font-semibold focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:border-blue-500 hover:border-border/90 transition-all duration-200 shadow-2xs"
                                 />
                               </div>
 
@@ -890,7 +890,7 @@ const EcomStatusMaster = () => {
                                   placeholder="e.g. Great news! Your order has transitioned to {{statusName}} and is on schedule."
                                   value={formData.emailTemplate}
                                   onChange={e => setFormData({ ...formData, emailTemplate: e.target.value })}
-                                  className="w-full p-2.5 rounded-xl border border-border bg-background text-foreground text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-border/90 transition-all resize-none"
+                                  className="w-full p-3 rounded-xl border border-border bg-background text-foreground text-sm font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:border-blue-500 hover:border-border/90 transition-all duration-200 resize-none shadow-2xs"
                                 />
                               </div>
 

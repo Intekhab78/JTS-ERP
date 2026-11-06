@@ -11,7 +11,7 @@ const AppShell = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => window.innerWidth >= 1024);
   const [userLoaded, setUserLoaded] = useState(false);
   const location = useLocation();
-  const isFullBleedRoute = false; // Removed full-bleed for QuoteForm so it matches StockOverview layout
+  const isFullBleedRoute = location.pathname.startsWith('/pos');
 
   useEffect(() => {
     const handleResize = () => {

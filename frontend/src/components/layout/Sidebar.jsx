@@ -33,9 +33,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
     }));
   };
 
-  const renderModule = (mod, modIndex = 0) => {
-    const baseDelay = Math.min(modIndex * 35, 240);
-
+  const renderModule = (mod) => {
     if (mod.isParent) {
       const hasAnyAccess = mod.subModules.some(sub => hasAccess(sub.id));
       if (!hasAnyAccess) return null;
@@ -46,21 +44,22 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       return (
         <li 
           key={mod.id} 
-          className="space-y-1 mb-2 animate-module-in"
-          style={{ animationDelay: `${baseDelay}ms` }}
+          className="space-y-1 mb-2"
         >
           <button
             onClick={() => toggleModule(mod.id)}
-            className={`w-full flex items-center justify-between gap-3 px-4 py-2 transition-all duration-200 text-[11px] font-bold tracking-wider uppercase focus-visible:outline-none hover:translate-x-0.5 ${
+            className={`group w-full flex items-center justify-between gap-3 px-4 py-2 transition-colors duration-150 text-[11px] font-bold tracking-wider uppercase focus-visible:outline-none ${
               isActiveParent
                 ? 'text-indigo-300'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 transition-transform duration-200 ease-out group-hover:translate-x-1">
               {mod.name === 'Sales' ? 'SALES & COMMERCE' : mod.name}
             </div>
-            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </span>
           </button>
           
           {/* Animated Accordion Wrapper */}
@@ -70,9 +69,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
             }`}
           >
             <ul className="space-y-1">
-              {mod.subModules.filter(sub => hasAccess(sub.id) || (sub.children && sub.children.some(c => hasAccess(c.id)))).map((sub, subIdx) => {
-                const subDelay = Math.min(baseDelay + (subIdx + 1) * 22, 380);
-
+              {mod.subModules.filter(sub => hasAccess(sub.id) || (sub.children && sub.children.some(c => hasAccess(c.id)))).map((sub) => {
                 if (sub.children) {
                   const isSubExpanded = expandedModules[sub.id];
                   const isActiveGroup = location.pathname.startsWith(sub.path);
@@ -80,8 +77,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                   return (
                     <li 
                       key={sub.id} 
-                      className="px-2 mb-1 mt-1 animate-module-in"
-                      style={{ animationDelay: `${subDelay}ms` }}
+                      className="px-2 mb-1 mt-1"
                     >
                       <button
                         onClick={() => {
@@ -92,17 +88,21 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                             if (window.innerWidth < 1024) setIsOpen(false);
                           }
                         }}
-                        className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none hover:translate-x-1 ${
+                        className={`group w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none ${
                           isActiveGroup && !isSubExpanded
                             ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                             : 'text-slate-300 hover:bg-white/5 hover:text-white'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          {sub.icon}
-                          {sub.name}
+                        <div className="flex items-center gap-3 transition-transform duration-200 ease-out group-hover:translate-x-1.5">
+                          <span className="transition-transform duration-200 group-hover:scale-110">
+                            {sub.icon}
+                          </span>
+                          <span>{sub.name}</span>
                         </div>
-                        {isSubExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+                          {isSubExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        </span>
                       </button>
 
                       <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isSubExpanded ? 'max-h-[500px] opacity-100 mt-1' : 'max-h-0 opacity-0'}`}>
@@ -112,13 +112,15 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                               <NavLink
                                 to={child.path}
                                 onClick={() => setIsOpen(false)}
-                                className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 text-[13px] font-semibold focus-visible:outline-none hover:translate-x-1 ${
+                                className={({ isActive }) => `group flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 text-[13px] font-semibold focus-visible:outline-none ${
                                   isActive
                                     ? 'bg-white/10 text-white' // Distinct active state for nested item
                                     : 'text-slate-400 hover:bg-white/5 hover:text-white'
                                 }`}
                               >
-                                {child.name}
+                                <span className="transition-transform duration-200 ease-out group-hover:translate-x-1.5 inline-block">
+                                  {child.name}
+                                </span>
                               </NavLink>
                             </li>
                           ))}
@@ -131,8 +133,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                 return (
                   <li 
                     key={sub.id} 
-                    className="px-2 animate-module-in"
-                    style={{ animationDelay: `${subDelay}ms` }}
+                    className="px-2"
                   >
                   <NavLink
                     to={sub.path}
@@ -148,15 +149,19 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
                         }
                       }
                       
-                      return `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none hover:translate-x-1 ${
+                      return `group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none ${
                         trulyActive
                           ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                           : 'text-slate-300 hover:bg-white/5 hover:text-white'
                       }`;
                     }}
                   >
-                    {sub.icon}
-                    {sub.name}
+                    <div className="flex items-center gap-3 transition-transform duration-200 ease-out group-hover:translate-x-1.5">
+                      <span className="transition-transform duration-200 group-hover:scale-110">
+                        {sub.icon}
+                      </span>
+                      <span>{sub.name}</span>
+                    </div>
                   </NavLink>
                 </li>
                 );
@@ -170,22 +175,25 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
       return (
         <li 
           key={mod.id} 
-          className="px-2 mb-2 animate-module-in"
-          style={{ animationDelay: `${baseDelay}ms` }}
+          className="px-2 mb-2"
         >
           <NavLink
             to={mod.path}
             onClick={() => setIsOpen(false)}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none hover:translate-x-1 ${
+              `group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-sm font-semibold focus-visible:outline-none ${
                 isActive
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
                   : 'text-slate-300 hover:bg-white/5 hover:text-white'
               }`
             }
           >
-            {mod.icon}
-            {mod.name}
+            <div className="flex items-center gap-3 transition-transform duration-200 ease-out group-hover:translate-x-1.5">
+              <span className="transition-transform duration-200 group-hover:scale-110">
+                {mod.icon}
+              </span>
+              <span>{mod.name}</span>
+            </div>
           </NavLink>
         </li>
       );
@@ -195,7 +203,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
   return (
     <aside 
       aria-label="Sidebar Navigation" 
-      className={`print:hidden fixed lg:static inset-y-0 left-0 z-30 w-64 bg-[#262b3a] flex flex-col shrink-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-2xl lg:shadow-none select-none will-change-transform ${
+      className={`print:hidden fixed lg:static inset-y-0 left-0 z-30 w-64 bg-[#262b3a] flex flex-col shrink-0 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-2xl lg:shadow-none select-none ${
         isOpen ? 'translate-x-0 lg:ml-0 opacity-100' : '-translate-x-full lg:translate-x-0 lg:-ml-64 lg:opacity-0 pointer-events-none lg:pointer-events-auto'
       }`}
     >
@@ -216,7 +224,7 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           <button 
             type="button"
             aria-label="Close Sidebar"
-            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200 cursor-pointer active:scale-90" 
+            className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors duration-150 cursor-pointer active:scale-90" 
             onClick={() => setIsOpen(false)}
             title="Collapse Sidebar"
           >
@@ -225,38 +233,44 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </button>
         </div>
 
-        {/* Navigation list with smooth scroll & staggered entrance animation */}
-        <nav id="tour-sidebar-modules" className="flex-1 py-3 overflow-y-auto custom-scrollbar">
-          <ul key={isOpen ? 'sidebar-modules-open' : 'sidebar-modules-closed'} className="space-y-1">
-            {ERP_MODULES.map((mod, idx) => renderModule(mod, idx))}
+        {/* Navigation list with smooth scroll & stable layout */}
+        <nav id="tour-sidebar-modules" className="flex-1 py-3 overflow-y-auto overflow-x-hidden custom-scrollbar">
+          <ul className="space-y-1">
+            {ERP_MODULES.map((mod) => renderModule(mod))}
           </ul>
         </nav>
 
-        {/* Footer actions with smooth entrance animation */}
+        {/* Footer actions */}
         <div className="p-3 shrink-0 border-t border-white/5 space-y-1">
           <button 
             id="tour-help-center"
             type="button"
             onClick={() => navigate('/help')}
-            style={{ animationDelay: '260ms' }}
-            className={`flex items-center gap-3 px-3 py-2 w-full rounded-xl transition-all duration-200 text-xs font-semibold focus-visible:outline-none cursor-pointer hover:translate-x-1 animate-module-in ${
+            className={`group flex items-center gap-3 px-3 py-2 w-full rounded-xl transition-all duration-200 text-xs font-semibold focus-visible:outline-none cursor-pointer ${
               location.pathname === '/help'
                 ? 'bg-blue-600 text-white shadow-md'
                 : 'text-slate-400 hover:bg-white/5 hover:text-white'
             }`}
           >
-            <HelpCircle size={16} />
-            Help Center
+            <div className="flex items-center gap-3 transition-transform duration-200 ease-out group-hover:translate-x-1.5">
+              <span className="transition-transform duration-200 group-hover:scale-110">
+                <HelpCircle size={16} />
+              </span>
+              <span>Help Center</span>
+            </div>
           </button>
 
           <button 
             type="button"
             onClick={handleLogout} 
-            style={{ animationDelay: '300ms' }}
-            className="flex items-center gap-3 px-3 py-2 w-full rounded-xl transition-all duration-200 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 focus-visible:outline-none cursor-pointer hover:translate-x-1 animate-module-in"
+            className="group flex items-center gap-3 px-3 py-2 w-full rounded-xl transition-all duration-200 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 focus-visible:outline-none cursor-pointer"
           >
-            <LogOut size={16} />
-            Log Out
+            <div className="flex items-center gap-3 transition-transform duration-200 ease-out group-hover:translate-x-1.5">
+              <span className="transition-transform duration-200 group-hover:scale-110">
+                <LogOut size={16} />
+              </span>
+              <span>Log Out</span>
+            </div>
           </button>
         </div>
       </div>

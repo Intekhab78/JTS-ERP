@@ -32,7 +32,22 @@ const grnItemSchema = new mongoose.Schema({
 const grnAdditionalCostSchema = new mongoose.Schema({
   costType: { 
     type: String, 
-    enum: ['Transportation', 'Logistics', 'Labor', 'Packing', 'Handling', 'Insurance', 'Customs Duty', 'Other'],
+    enum: [
+      'Transportation',
+      'Logistics',
+      'Labor',
+      'Packing',
+      'Handling',
+      'Handling Charges',
+      'Insurance',
+      'Customs Duty',
+      'Freight / Shipping',
+      'Freight',
+      'Shipping',
+      'Port Clearance',
+      'Storage / Demurrage',
+      'Other'
+    ],
     required: true
   },
   description: { type: String },

@@ -3,12 +3,12 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const isLocalMode = env.VITE_API_MODE === 'local';
+  const isOnlineMode = env.VITE_API_MODE === 'online' && mode === 'production';
 
-  // Target resolves dynamically based on .env mode
-  const target = isLocalMode 
-    ? (env.VITE_LOCAL_BACKEND_URL || 'http://localhost:5000') 
-    : (env.VITE_ONLINE_BACKEND_URL || 'https://erpapi.jtsmiddleeast.com');
+  // Target resolves to local backend in development so local routes & models are used
+  const target = isOnlineMode 
+    ? (env.VITE_ONLINE_BACKEND_URL || 'https://erpapi.jtsmiddleeast.com')
+    : (env.VITE_LOCAL_BACKEND_URL || 'http://localhost:5000');
 
   return {
     plugins: [react()],

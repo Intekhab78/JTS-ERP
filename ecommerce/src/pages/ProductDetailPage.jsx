@@ -413,7 +413,7 @@ export const ProductDetailPage = () => {
 
   const availableQuantity = currentVariant
     ? (typeof currentVariant.availableStock === 'number' ? currentVariant.availableStock : (currentVariant.inStock !== false ? 100 : 0))
-    : (typeof productData?.availableStock === 'number' ? productData.availableStock : (productData?.inStock !== false ? 100 : 0));
+    : (typeof productData?.availableStock === 'number' ? productData.availableStock : (typeof productData?.stockCount === 'number' ? productData.stockCount : (productData?.inStock !== false ? 100 : 0)));
 
   const isAvailable = currentVariant
     ? (currentVariant.inStock !== false && availableQuantity > 0)

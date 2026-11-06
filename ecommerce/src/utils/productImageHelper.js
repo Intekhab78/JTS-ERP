@@ -74,10 +74,22 @@ export const formatImageUrl = (url) => {
   };
 
   /**
-   * Image error handler to gracefully fallback to placeholder
+   * Image error handler to gracefully fallback to placeholder (with production server retry)
    */
   export const handleImageError = (e) => {
-    if (e.target && e.target.src !== NEUTRAL_PRODUCT_FALLBACK) {
+    if (!e?.target) return;
+    const currentSrc = e.target.src || '';
+
+    // If failed on localhost, retry from production server before showing fallback
+    if (currentSrc.includes('localhost:5000') || currentSrc.includes('127.0.0.1:5000')) {
+      const prodUrl = currentSrc.replace(/http:\/\/(localhost|127\.0\.0\.1):5000/g, 'https://erpapi.jtsmiddleeast.com');
+      if (prodUrl !== currentSrc) {
+        e.target.src = prodUrl;
+        return;
+      }
+    }
+
+    if (e.target.src !== NEUTRAL_PRODUCT_FALLBACK) {
       e.target.onerror = null;
       e.target.src = NEUTRAL_PRODUCT_FALLBACK;
     }
