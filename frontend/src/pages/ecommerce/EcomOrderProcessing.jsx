@@ -63,6 +63,38 @@ const ANIMATION_STYLES = `
   .ecom-modal-pop { animation: ecomModalPop 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
   .ecom-slide-up { animation: ecomSlideUpFade 0.26s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
   .ecom-float-icon { animation: ecomFloatIcon 2.4s ease-in-out infinite; }
+
+  /* ─── Smooth Rotating Round Close Button Animation ─── */
+  .btn-close-round {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 9999px !important;
+    position: relative !important;
+    cursor: pointer !important;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                background-color 0.22s ease, 
+                border-color 0.22s ease, 
+                box-shadow 0.22s ease, 
+                color 0.2s ease !important;
+  }
+  .btn-close-round:hover {
+    transform: rotate(180deg) scale(1.15) !important;
+    background-color: rgba(239, 68, 68, 0.22) !important;
+    color: #ef4444 !important;
+    border-color: rgba(239, 68, 68, 0.5) !important;
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.4) !important;
+  }
+  .btn-close-round:active {
+    transform: rotate(270deg) scale(0.9) !important;
+  }
+  .btn-close-round-white:hover {
+    transform: rotate(180deg) scale(1.15) !important;
+    background-color: rgba(255, 255, 255, 0.25) !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 0 18px rgba(255, 255, 255, 0.45) !important;
+  }
 `;
 
 const HelpStyleModal = ({ isOpen, onClose, badge, title, subtitle, headerActions, maxWidth = 'max-w-2xl', children }) => {
@@ -104,7 +136,7 @@ const HelpStyleModal = ({ isOpen, onClose, badge, title, subtitle, headerActions
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white/80 hover:text-white transition-all cursor-pointer"
+                className="w-8 h-8 btn-close-round btn-close-round-white bg-white/10 border border-white/20 text-white/90 hover:text-white cursor-pointer shadow-xs shrink-0"
                 title="Close modal"
               >
                 <X size={16} />
@@ -760,7 +792,8 @@ const EcomOrderProcessing = () => {
                 <button
                   type="button"
                   onClick={() => setSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs font-bold p-0.5 cursor-pointer"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 btn-close-round text-slate-300 hover:text-white cursor-pointer"
+                  title="Clear search"
                 >
                   <X size={13} />
                 </button>

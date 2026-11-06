@@ -16,8 +16,9 @@ exports.getBranchStock = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
     }
 
+    const tenantId = req.user.activeTenantId || req.user.tenantId;
     const stock = await Stock.find({
-      ...getReadFilter(req),
+      tenantId,
       branchId: req.params.branchId
     }).populate('productId').populate('variantId');
     
@@ -36,8 +37,9 @@ exports.getStockMovements = async (req, res) => {
       return res.status(403).json({ message: 'Forbidden: You do not have access to this branch' });
     }
 
+    const tenantId = req.user.activeTenantId || req.user.tenantId;
     const movements = await StockMovement.find({
-      ...getReadFilter(req),
+      tenantId,
       branchId: req.params.branchId
     })
       .populate('productId', 'name sku')

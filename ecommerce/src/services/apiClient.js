@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { getActiveConfig } from '../config/api';
 
 // Centralized Axios client for JTS ERP E-Commerce Storefront
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api/v1/ecommerce',
+  baseURL: getActiveConfig().ecommerceApiUrl,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -26,7 +27,6 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Unauthorized - session expired
       if (localStorage.getItem('customer_token')) {
         localStorage.removeItem('customer_token');
         localStorage.removeItem('customer_data');

@@ -1,22 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, FileText, Package, Truck, Calendar, MapPin, Building, CreditCard, Banknote, Trash2, Edit, Search, ChevronLeft, ChevronRight, X, Clock, Printer, Mail, Phone, AlertCircle, Box, Home, XCircle, CheckCircle } from 'lucide-react';
+import { 
+  ArrowLeft, FileText, Package, Truck, Calendar, MapPin, Building2, 
+  CreditCard, Banknote, Trash2, Edit, Search, ChevronLeft, ChevronRight, 
+  X, Clock, Printer, Mail, Phone, AlertCircle, Box, Home, XCircle, 
+  CheckCircle2, Copy, Check, Sparkles, ExternalLink, RefreshCw, Send,
+  Layers, ShieldAlert, ShieldCheck, ChevronDown, CheckCircle
+} from 'lucide-react';
 import { format } from 'date-fns';
-import { PageHeader } from '../../components/common/PageHeader';
-import { Card } from '../../components/common/Card';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { Select } from '../../components/ui/Select';
-import { Input } from '../../components/ui/Input';
 import { useReactToPrint } from 'react-to-print';
 import { EmailSendModal } from '../../components/common/EmailSendModal';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 const PurchaseOrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { formatCurrency, currencySymbol } = useCurrency();
+
   const [po, setPo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+
   // Main Schedules Table State
   const [scheduleSearch, setScheduleSearch] = useState('');
   const [debouncedScheduleSearch, setDebouncedScheduleSearch] = useState('');
@@ -38,8 +45,6 @@ const PurchaseOrderDetail = () => {
   
   // Global Bulk Selections
   const [globalBulkState, setGlobalBulkState] = useState({});
-
-  const [loading, setLoading] = useState(true);
   
   // Schedule Modal State
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -74,7 +79,7 @@ const PurchaseOrderDetail = () => {
     branchId: '',
     notes: ''
   });
-  const { currencySymbol } = useCurrency();
+
   const componentRef = useRef(null);
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
@@ -203,7 +208,6 @@ const PurchaseOrderDetail = () => {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setPo(res.data);
-
     } catch (error) {
       console.error('Failed to fetch PO', error);
       alert('Failed to load Purchase Order');
@@ -213,40 +217,25 @@ const PurchaseOrderDetail = () => {
     }
   };
 
-  if (loading) return (
-    <div className="animate-in fade-in zoom-in-95 duration-500 max-w-[1720px] mx-auto min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center py-40">
-      <div className="animate-spin rounded-none h-12 w-12 border-4 border-slate-200 border-t-blue-600 mb-4"></div>
-      <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">Fetching Core Assets...</p>
-    </div>
-  );
-  if (!po) return <div className="p-8 text-center text-red-500 font-bold uppercase tracking-widest">Purchase Order not found</div>;
-
-  const getStatusBadge = (status) => {
-    const baseClass = "text-xs px-3 py-1.5 rounded-full font-bold tracking-wider shadow-sm border";
-    switch (status) {
-      case 'RECEIVED':
-        return <Badge variant="success" className={`${baseClass} border-green-200 dark:border-green-800`}>RECEIVED</Badge>;
-      case 'PARTIALLY_RECEIVED':
-        return <Badge variant="info" className={`${baseClass} border-blue-200 dark:border-blue-800`}>PARTIALLY RECEIVED</Badge>;
-      case 'CONFIRMED':
-        return <Badge variant="primary" className={`${baseClass} border-indigo-200 dark:border-indigo-800`}>CONFIRMED</Badge>;
-      case 'CANCELLED':
-        return <Badge variant="destructive" className={`${baseClass} border-red-200 dark:border-red-800`}>CANCELLED</Badge>;
-      case 'DRAFT':
-      default:
-        return <Badge variant="secondary" className={`${baseClass} border-slate-200 dark:border-slate-800`}>DRAFT</Badge>;
-    }
+  const copyToClipboard = (text, field) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   const handleConfirm = async () => {
     if (!window.confirm('Are you sure you want to confirm this purchase order?')) return;
+    setActionLoading(true);
     try {
       await axios.post(`/api/v1/purchases/${id}/confirm`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      fetchPO();
+      await fetchPO();
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to confirm PO');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -516,6 +505,16 @@ const PurchaseOrderDetail = () => {
     }
   };
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'RECEIVED': return '#10b981';
+      case 'PARTIALLY_RECEIVED': return '#2563eb';
+      case 'CONFIRMED': return '#3b82f6';
+      case 'CANCELLED': return '#e11d48';
+      case 'DRAFT':
+      default: return '#f59e0b';
+    }
+  };
 
   const renderPagination = (pagination, setPage) => {
     if (!pagination) return null;
@@ -537,994 +536,1347 @@ const PurchaseOrderDetail = () => {
     }
 
     return (
-      <div className="flex flex-col md:flex-row items-center justify-between py-4 px-6 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 gap-4">
-         <div className="text-sm text-slate-500">
-            Showing <span className="font-medium text-slate-900 dark:text-white">{total === 0 ? 0 : startItem}-{endItem}</span> of <span className="font-medium text-slate-900 dark:text-white">{total}</span> items
+      <div className="flex flex-col sm:flex-row items-center justify-between py-3 px-4 border-t border-border/80 bg-card/60 gap-3 text-xs">
+         <div className="text-muted-foreground font-medium">
+            Showing <span className="font-bold text-foreground">{total === 0 ? 0 : startItem}-{endItem}</span> of <span className="font-bold text-foreground">{total}</span> items
          </div>
-         <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => setPage(p => p - 1)} disabled={page === 1} className="h-8 w-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 shrink-0 rounded-md"><ChevronLeft size={16} /></Button>
+         <div className="flex items-center gap-1.5">
+            <button 
+              type="button" 
+              onClick={() => setPage(p => p - 1)} 
+              disabled={page === 1} 
+              className="h-7 w-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-muted/80 disabled:opacity-40 transition-colors"
+            >
+              <ChevronLeft size={14} />
+            </button>
             {pages.map((p, i) => (
-               <Button 
+               <button 
                  type="button" 
                  key={i} 
-                 variant={p === page ? 'default' : 'outline'} 
-                 size="sm" 
-                 className={`h-8 rounded-md shrink-0 transition-colors ${p === '...' ? 'w-8 border-none pointer-events-none bg-transparent' : p === page ? 'min-w-8 bg-blue-600 hover:bg-blue-700 text-white border-blue-600' : 'min-w-8 border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'}`} 
+                 className={`h-7 min-w-7 px-1.5 rounded-lg text-xs font-bold transition-all ${p === '...' ? 'border-none pointer-events-none text-muted-foreground' : p === page ? 'bg-blue-600 text-white shadow-xs' : 'border border-border text-foreground hover:bg-muted/60'}`} 
                  onClick={() => p !== '...' && setPage(p)}
                >
                   {p}
-               </Button>
+               </button>
             ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => setPage(p => p + 1)} disabled={page === totalPages} className="h-8 w-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800 shrink-0 rounded-md"><ChevronRight size={16} /></Button>
+            <button 
+              type="button" 
+              onClick={() => setPage(p => p + 1)} 
+              disabled={page === totalPages} 
+              className="h-7 w-7 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:bg-muted/80 disabled:opacity-40 transition-colors"
+            >
+              <ChevronRight size={14} />
+            </button>
          </div>
       </div>
     );
   };
 
-  const poSymbol = po.currency === 'AED' ? 'AED' : currencySymbol;
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 space-y-3">
+        <div className="w-9 h-9 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Loading purchase order dossier...</h2>
+      </div>
+    );
+  }
+
+  if (!po) {
+    return (
+      <div className="p-8 text-center text-rose-500 font-bold uppercase tracking-widest">
+        Purchase Order not found
+      </div>
+    );
+  }
+
+  const poNumber = po.purchaseOrderNumber || `PO-${po._id.slice(-6).toUpperCase()}`;
+  const supplierName = po.supplierId?.name || 'Unknown Supplier';
+  const supplierEmail = po.supplierId?.email;
+  const supplierPhone = po.supplierId?.phone;
+  const branchName = po.branchId?.name || 'Head Office / Central Hub';
+
+  // Compute metrics
+  const totalItemsCount = po.items?.length || 0;
+  const totalOrderedQty = po.items?.reduce((acc, it) => acc + (Number(it.quantity) || 0), 0) || 0;
+  const totalScheduledQty = po.items?.reduce((acc, it) => acc + (Number(it.scheduledQuantity) || 0), 0) || 0;
+  const totalReceivedQty = po.items?.reduce((acc, it) => acc + (Number(it.receivedQuantity) || 0), 0) || 0;
+  
+  const schedulePercentage = totalOrderedQty > 0 ? Math.round((totalScheduledQty / totalOrderedQty) * 100) : 0;
+  const fulfillmentPercentage = totalOrderedQty > 0 ? Math.round((totalReceivedQty / totalOrderedQty) * 100) : 0;
 
   return (
-    <div ref={componentRef} className="animate-in fade-in zoom-in-95 duration-500 max-w-[1400px] mx-auto space-y-6 pb-10 bg-[#f8fafc] min-h-screen">
+    <div ref={componentRef} className="space-y-4 pb-12 max-w-[1440px] mx-auto text-foreground">
       
-      {/* Aggressive Tech Header */}
-      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl no-print">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
-        
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="flex items-start gap-4">
-            <button onClick={() => navigate('/purchases')} className="p-2.5 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 mt-1">
-              <ArrowLeft size={20} className="text-slate-300" />
+      {/* ========================================================================= */}
+      {/* 1. HERO HEADER WITH LEFT-ALIGNED ARROW BACK BUTTON & RIGHT ACTIONS       */}
+      {/* ========================================================================= */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 p-4 sm:p-5 text-white shadow-md border border-blue-900/40 no-print">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+          
+          {/* Left: Arrow-Only Back Button + Title & Subtitle */}
+          <div className="flex items-start gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate('/purchases')}
+              className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/20 flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md shrink-0 mt-0.5"
+              title="Back to Purchase Orders"
+            >
+              <ArrowLeft size={16} />
             </button>
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
-                  <FileText size={18} className="text-white" />
-                </div>
-                <h1 className="text-3xl font-black tracking-tight text-white uppercase">{po.purchaseOrderNumber || `PO-${po._id.slice(-6).toUpperCase()}`}</h1>
+
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-black uppercase tracking-wider">
+                  <Sparkles size={11} className="text-blue-400" />
+                  Procurement Dossier · {poNumber}
+                </span>
+
+                <span
+                  className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white shadow-2xs"
+                  style={{ backgroundColor: getStatusColor(po.status) }}
+                >
+                  {po.status}
+                </span>
               </div>
-              <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl uppercase tracking-widest">
-                Purchase Order Details • {po.supplierId?.name || 'VENDOR COMMERCE'}
+
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2 truncate">
+                <span>{supplierName}</span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(poNumber, 'poNumber')}
+                  className="p-1 rounded-md hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
+                  title="Copy PO Number"
+                >
+                  {copiedField === 'poNumber' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                </button>
+              </h1>
+
+              <p className="text-xs text-blue-100/75 leading-snug">
+                Created on <strong className="text-white">{format(new Date(po.createdAt), 'MMMM d, yyyy')}</strong> · Deliver To: <strong className="text-white">{branchName}</strong>
+                {po.expectedDate && <> · Expected Delivery: <strong className="text-white">{format(new Date(po.expectedDate), 'MMMM d, yyyy')}</strong></>}
               </p>
             </div>
           </div>
-          
-          <div className="flex flex-wrap items-center gap-3 bg-[#111827] border border-slate-800 p-2.5 rounded-lg shadow-inner">
-            <span className={`inline-flex items-center px-3 py-1.5 rounded text-xs font-black uppercase tracking-widest shadow-sm border-none text-white ${po.status === 'CONFIRMED' ? 'bg-emerald-500' : po.status === 'RECEIVED' ? 'bg-green-600' : po.status === 'CANCELLED' ? 'bg-rose-500' : po.status === 'PARTIALLY_RECEIVED' ? 'bg-blue-600' : 'bg-slate-600'}`}>
-              STATUS: {po.status}
-            </span>
-            
-            <button onClick={handlePrint} className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
-              <Printer size={14} /> Print
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="px-3.5 py-2 bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/20 text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all duration-200 cursor-pointer hover:shadow-md"
+            >
+              <Printer size={14} /> Print (A4)
             </button>
 
-            <button onClick={() => setIsEmailModalOpen(true)} className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEmailModalOpen(true)}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all duration-200 cursor-pointer hover:shadow-md"
+            >
               <Mail size={14} /> Send Email
             </button>
 
             {po.status === 'DRAFT' && (
-              <button onClick={handleConfirm} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
-                <CheckCircle size={14} /> Confirm Order
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={actionLoading}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md shadow-blue-600/30 flex items-center gap-1.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 size={14} /> Confirm Order
               </button>
             )}
 
             {(po.status === 'CONFIRMED' || po.status === 'PARTIALLY_RECEIVED') && (
-               <button onClick={() => navigate(`/purchases/grn/new?poId=${po._id}`)} className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
-                 <Package size={14} /> Create Receipt (GRN)
-               </button>
+              <button
+                type="button"
+                onClick={() => navigate(`/purchases/grn/new?poId=${po._id}`)}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md shadow-emerald-600/30 flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
+              >
+                <Package size={14} /> Create Receipt (GRN)
+              </button>
             )}
           </div>
+
         </div>
+
+        {/* Ambient subtle light */}
+        <div className="absolute right-0 top-0 w-80 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden md:col-span-2 flex flex-col print:border-none print:shadow-none">
-          <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2 print:bg-transparent">
-            <Building size={18} className="text-blue-500" />
-            <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Supplier Profile</h3>
-          </div>
-          <div className="p-6">
-            <div className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-4">{po.supplierId?.name}</div>
-            <div className="space-y-2">
-              {po.supplierId?.email && <div className="text-slate-500 font-medium text-sm"><span className="text-slate-400 w-20 inline-block uppercase text-xs font-bold">Email:</span> {po.supplierId.email}</div>}
-              {po.supplierId?.phone && <div className="text-slate-500 font-medium text-sm"><span className="text-slate-400 w-20 inline-block uppercase text-xs font-bold">Phone:</span> {po.supplierId.phone}</div>}
+      {/* ========================================================================= */}
+      {/* 2. FOUR KPI SUMMARY CARDS (With Smooth Hover Elevation)                    */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        
+        {/* Total Amount */}
+        <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-blue-500/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block truncate">
+              Total Order Value
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+              <Banknote size={14} />
             </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 p-6 border-t border-slate-100 bg-slate-50/50 print:bg-transparent">
-            <div>
-              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                <MapPin size={12} className="text-blue-400" /> Deliver To
-              </h3>
-              <div className="font-bold text-slate-800 uppercase tracking-wide text-sm">{po.branchId?.name}</div>
-            </div>
-            <div>
-              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                <Calendar size={12} className="text-green-400" /> Order Date
-              </h3>
-              <div className="font-bold text-slate-800 font-mono text-sm">{format(new Date(po.createdAt), 'dd MMM yyyy')}</div>
-            </div>
-            <div>
-              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                <Truck size={12} className="text-orange-400" /> Expected Delivery
-              </h3>
-              <div className="font-bold text-slate-800 font-mono text-sm">
-                {po.expectedDate ? format(new Date(po.expectedDate), 'dd MMM yyyy') : 'NOT SPECIFIED'}
-              </div>
-            </div>
+          <div className="text-base sm:text-lg font-black text-foreground">
+            {formatCurrency(po.totalAmount)}
           </div>
+          <span className="text-[9.5px] text-muted-foreground block truncate mt-0.5">
+            Terms: {po.paymentTerms || 'Immediate'}
+          </span>
         </div>
 
-        <Card className="p-6 md:col-span-1 bg-slate-900 text-white rounded-xl shadow-lg border-0 flex flex-col justify-between" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-           <div>
-             <div className="flex justify-between items-start mb-6">
-                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-3">
-                  <div className="p-2 bg-white/10 rounded-lg text-slate-300"><Banknote size={16} /></div> FINANCIAL SUMMARY
-                </h3>
-                <Badge variant="secondary" className="bg-white/10 text-slate-300 border-0 hover:bg-white/20 text-xs px-2 py-1">AED Currency</Badge>
-             </div>
-             
-             <div className="space-y-1">
-                <div className="text-xs text-slate-400 tracking-wider uppercase font-semibold mb-2">Total Amount</div>
-                <div className="flex items-baseline gap-2">
-                   <span className="text-xl font-bold text-blue-400">{poSymbol}</span>
-                   <span className="text-4xl font-bold tracking-tight text-white">{po.totalAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+        {/* Ordered Items & Units */}
+        <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-indigo-500/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block truncate">
+              Ordered Products
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+              <Package size={14} />
+            </div>
+          </div>
+          <div className="text-base sm:text-lg font-black text-foreground">
+            {totalOrderedQty} <span className="text-xs font-normal text-muted-foreground">Units</span>
+          </div>
+          <span className="text-[9.5px] text-muted-foreground block truncate mt-0.5">
+            {totalItemsCount} distinct product lines
+          </span>
+        </div>
+
+        {/* Scheduled Distribution */}
+        <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-amber-500/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block truncate">
+              Scheduled Allocation
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+              <Calendar size={14} />
+            </div>
+          </div>
+          <div className="text-base sm:text-lg font-black text-foreground">
+            {totalScheduledQty} <span className="text-xs font-normal text-muted-foreground">/ {totalOrderedQty} ({schedulePercentage}%)</span>
+          </div>
+          <span className="text-[9.5px] text-muted-foreground block truncate mt-0.5">
+            {totalOrderedQty - totalScheduledQty} units remaining to schedule
+          </span>
+        </div>
+
+        {/* Fulfillment Status */}
+        <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-emerald-500/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block truncate">
+              Fulfillment Intake
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+              <CheckCircle2 size={14} />
+            </div>
+          </div>
+          <div className="text-base sm:text-lg font-black text-foreground">
+            {totalReceivedQty} <span className="text-xs font-normal text-muted-foreground">/ {totalOrderedQty} ({fulfillmentPercentage}%)</span>
+          </div>
+          <span className="text-[9.5px] text-muted-foreground block truncate mt-0.5">
+            {totalOrderedQty - totalReceivedQty} units awaiting intake
+          </span>
+        </div>
+
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. SUPPLIER PROFILE & FINANCIAL SUMMARY                                    */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+        
+        {/* Left: Supplier Profile Card */}
+        <div className="lg:col-span-2 rounded-2xl bg-card border border-border/80 p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-border/70">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                  <Building2 size={15} />
                 </div>
-             </div>
-           </div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-foreground">
+                  Supplier Profile & Logistics
+                </h3>
+              </div>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-muted text-muted-foreground uppercase tracking-wider">
+                Vendor Dossier
+              </span>
+            </div>
 
-           <div className="mt-8 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                 <div>
-                    <div className="text-xs text-slate-400 mb-1">Payment Terms</div>
-                    <div className="text-sm font-semibold text-green-400 flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-green-400"></div> {po.paymentTerms || 'Immediate'}</div>
-                 </div>
-                 <div>
-                    <div className="text-xs text-slate-400 mb-1">Fulfillment Status</div>
-                    <div className="text-sm font-semibold text-yellow-400 flex items-center gap-1"><AlertCircle size={14} /> 0% Received</div>
-                 </div>
+            <div className="space-y-3">
+              <div>
+                <h2 className="text-lg sm:text-xl font-black text-foreground tracking-tight">
+                  {supplierName}
+                </h2>
+                <div className="flex items-center gap-4 mt-1.5 flex-wrap text-xs text-muted-foreground">
+                  {supplierEmail && (
+                    <span className="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                      <Mail size={13} className="text-blue-500" />
+                      {supplierEmail}
+                    </span>
+                  )}
+                  {supplierPhone && (
+                    <span className="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                      <Phone size={13} className="text-emerald-500" />
+                      {supplierPhone}
+                    </span>
+                  )}
+                </div>
               </div>
-              
-              <div className="space-y-2">
-                 <div className="flex justify-between items-end">
-                    <span className="text-xs text-slate-300 font-medium">Fulfillment Pipeline</span>
-                    <span className="text-xs text-blue-400 font-bold">80 / 100 Scheduled</span>
-                 </div>
-                 <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden flex">
-                    <div className="h-full bg-blue-500 rounded-l-full" style={{ width: '80%' }}></div>
-                    <div className="h-full bg-orange-400 rounded-r-full" style={{ width: '20%' }}></div>
-                 </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3.5 mt-3.5 border-t border-border/70">
+            <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
+              <span className="text-[9.5px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                <MapPin size={12} className="text-blue-500" /> Deliver To
+              </span>
+              <p className="text-xs font-black text-foreground truncate">{branchName}</p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
+              <span className="text-[9.5px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                <Calendar size={12} className="text-emerald-500" /> Order Date
+              </span>
+              <p className="text-xs font-black text-foreground font-mono">
+                {format(new Date(po.createdAt), 'dd MMM yyyy')}
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
+              <span className="text-[9.5px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                <Truck size={12} className="text-amber-500" /> Expected Delivery
+              </span>
+              <p className="text-xs font-black text-foreground font-mono">
+                {po.expectedDate ? format(new Date(po.expectedDate), 'dd MMM yyyy') : 'NOT SPECIFIED'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Financial Summary Card */}
+        <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white p-4 sm:p-5 shadow-md border border-indigo-950 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-white/10 text-blue-300 flex items-center justify-center">
+                  <Banknote size={15} />
+                </div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                  Financial Summary
+                </h3>
               </div>
-           </div>
-        </Card>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-white/10 text-blue-300 uppercase tracking-wider border border-white/10">
+                {currencySymbol} Currency
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-blue-200/70">
+                Total Committed Value
+              </span>
+              <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                {formatCurrency(po.totalAmount)}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-4 mt-4 border-t border-white/10">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-[9.5px] uppercase font-bold text-blue-200/60 block mb-0.5">Payment Terms</span>
+                <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  {po.paymentTerms || 'Immediate'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[9.5px] uppercase font-bold text-blue-200/60 block mb-0.5">Intake Status</span>
+                <span className="font-bold text-amber-400 flex items-center gap-1.5">
+                  <AlertCircle size={12} />
+                  {fulfillmentPercentage}% Intake
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-1">
+              <div className="flex justify-between items-center text-[10px]">
+                <span className="text-blue-100/70 font-semibold uppercase tracking-wider">Fulfillment Pipeline</span>
+                <span className="text-blue-300 font-bold">{totalScheduledQty} / {totalOrderedQty} Scheduled</span>
+              </div>
+              <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden flex">
+                <div 
+                  className="h-full bg-blue-500 rounded-l-full transition-all duration-300" 
+                  style={{ width: `${Math.min(schedulePercentage, 100)}%` }} 
+                />
+                <div 
+                  className="h-full bg-amber-400 rounded-r-full transition-all duration-300" 
+                  style={{ width: `${Math.max(0, 100 - schedulePercentage)}%` }} 
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden print:border-none print:shadow-none print:mx-0">
-        <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print:bg-transparent">
+      {/* ========================================================================= */}
+      {/* 4. ORDER LINES (PRODUCTS TABLE)                                            */}
+      {/* ========================================================================= */}
+      <div className="rounded-2xl bg-card border border-border/80 shadow-2xs overflow-hidden">
+        
+        {/* Table Header Bar */}
+        <div className="p-3.5 sm:p-4 border-b border-border/80 bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Package size={18} className="text-blue-500" />
-            <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Order Lines</h3>
-            <span className="text-[10px] font-bold text-slate-500 font-mono px-2 py-1 bg-slate-200 rounded ml-2">
-               {schedulePagination?.totalItems || po.items?.length || 0} ITEMS INCLUDED
+            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+              <Package size={15} />
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-wider text-foreground">
+              Order Lines
+            </h3>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 uppercase tracking-wider">
+              {schedulePagination?.totalItems || totalItemsCount} Included
             </span>
           </div>
+
           <div className="relative w-full md:w-72">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <Input 
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <input 
               type="text" 
               placeholder="Search products, SKU..." 
-              className="pl-10 pr-8 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-md focus-visible:ring-1 focus-visible:ring-blue-500 shadow-none text-sm h-9"
+              className="w-full pl-9 pr-8 py-1.5 bg-background border border-border/80 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
               value={scheduleSearch}
               onChange={e => setScheduleSearch(e.target.value)}
             />
             {scheduleSearch && (
-              <button className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors" onClick={() => setScheduleSearch('')}>
-                <X className="h-4 w-4" />
+              <button 
+                type="button"
+                className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground" 
+                onClick={() => setScheduleSearch('')}
+              >
+                <X size={14} />
               </button>
             )}
           </div>
         </div>
-        <div className="w-full">
-          <table className="w-full text-left whitespace-nowrap">
-            <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white border-b-2 border-slate-100 print:bg-transparent print:border-slate-300">
+
+        {/* Table Content */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left whitespace-nowrap text-xs">
+            <thead className="text-[10px] font-black text-muted-foreground uppercase tracking-wider bg-muted/10 border-b border-border/80">
               <tr>
-                <th className="px-4 py-4">Product</th>
-                <th className="px-4 py-4 text-center">UOM</th>
-                <th className="px-4 py-4 text-center">Unit Price</th>
-                <th className="px-4 py-4 text-center">Ordered</th>
-                <th className="px-4 py-4 text-center">Scheduled</th>
-                <th className="px-4 py-4 text-center">Received</th>
-                <th className="px-4 py-4 text-center">Rem. to Schedule</th>
-                <th className="px-4 py-4 text-center">Rem. to Receive</th>
-                <th className="px-4 py-4 text-right">Subtotal</th>
+                <th className="px-4 py-3">Product Designation</th>
+                <th className="px-3 py-3 text-center">UOM</th>
+                <th className="px-3 py-3 text-right">Unit Price</th>
+                <th className="px-3 py-3 text-center">Ordered</th>
+                <th className="px-3 py-3 text-center">Scheduled</th>
+                <th className="px-3 py-3 text-center">Received</th>
+                <th className="px-3 py-3 text-center">Rem. Schedule</th>
+                <th className="px-3 py-3 text-center">Rem. Receive</th>
+                <th className="px-4 py-3 text-right">Subtotal</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-              {loadingSchedules ? <tr><td colSpan={9} className="p-8 text-center text-slate-400 animate-pulse">Loading order lines...</td></tr> : mainPaginatedItems.map((item, idx) => {
-                const remToSchedule = item.quantity - (item.scheduledQuantity || 0);
-                const remToReceive = (item.scheduledQuantity || 0) - (item.receivedQuantity || 0);
-                return (
-                  <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
-                    <td className="p-4">
-                      <div className="font-bold text-slate-900 dark:text-white">{item.productId?.name}</div>
-                      {item.variantId ? (
-                        <div className="text-xs font-semibold text-blue-600">
-                          Variant: {item.variantSku || item.variantId?.sku}
-                          {item.variantId?.attributes && (
-                            <span className="text-slate-400 font-normal ml-1">
-                              ({Object.entries(item.variantId.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-xs text-slate-400">SKU: {item.productId?.sku}</div>
-                      )}
-                      {item.description && <div className="text-xs text-slate-400 mt-1 italic">{item.description}</div>}
-                    </td>
-                    <td className="p-4 text-center text-slate-600 dark:text-slate-300">{item.uom || 'PCS'}</td>
-                    <td className="p-4 text-center text-slate-600 dark:text-slate-300">
-                      <div className="text-xs text-slate-400">{poSymbol}</div>
-                      <div>{item.unitCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
-                    </td>
-                    <td className="p-4 text-center font-bold text-slate-800 dark:text-slate-200">{item.quantity}</td>
-                    <td className="p-4 text-center">
-                       {item.scheduledQuantity > 0 ? (
-                          <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-sm font-bold text-xs">{item.scheduledQuantity}</span>
-                       ) : (
-                          <span className="text-slate-400">0</span>
-                       )}
-                    </td>
-                    <td className="p-4 text-center text-slate-400">
-                      {item.receivedQuantity > 0 ? (
-                         <span className="font-bold text-slate-600 dark:text-slate-300">{item.receivedQuantity}</span>
-                      ) : (
-                         <span>0</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-center">
-                      {remToSchedule > 0 ? (
-                         <span className="bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-3 py-1 rounded-sm font-bold text-xs">{remToSchedule}</span>
-                      ) : (
-                         <span className="text-slate-400">0</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-center">
-                      {remToReceive > 0 ? (
-                         <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1 rounded-sm font-bold text-xs">{remToReceive}</span>
-                      ) : (
-                         <span className="text-slate-400">0</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-right">
-                       <div className="font-bold text-slate-900 dark:text-white">
-                         <div className="text-xs text-slate-400 text-right">{poSymbol}</div>
-                         {item.subTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {renderPagination(schedulePagination, setSchedulePage)}
-      </div>
-
-      <div className="flex flex-col gap-6">
-          {po.grns && po.grns.length > 0 && (
-            <Card className="overflow-hidden rounded-xl shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-              <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-1">
-                <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-3">
-                  <div className="p-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg"><Box size={16} className="text-green-600 dark:text-green-400" /></div> 
-                  RELATED GOODS RECEIPTS (GRNS)
-                </h3>
-                <div className="text-xs text-slate-500 pl-11">{po.grns.length} recorded receipt{po.grns.length !== 1 ? 's' : ''}</div>
-              </div>
-              <div className="p-4 space-y-3 bg-white dark:bg-slate-950">
-                {po.grns.map(grn => (
-                  <div key={grn._id} className="px-4 py-3 flex items-center justify-between border border-slate-100 dark:border-slate-800 rounded-lg hover:shadow-sm transition-shadow bg-slate-50/50 dark:bg-slate-900/50">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded-lg">
-                        <FileText size={20} />
-                      </div>
-                      <div className="flex flex-col">
-                        <div className="font-semibold text-slate-900 dark:text-white text-sm">{grn.grnNumber}</div>
-                        <div className="text-xs text-slate-500 mt-0.5">{format(new Date(grn.receiptDate), 'MMM d, yyyy')}</div>
-                      </div>
+            <tbody className="divide-y divide-border/60">
+              {loadingSchedules ? (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      <span>Loading order lines...</span>
                     </div>
-                    <div className="flex items-center gap-4">
-                       {grn.status === 'VALIDATED' && <Badge variant="success">VALIDATED</Badge>}
-                       {grn.status === 'DRAFT' && <Badge variant="secondary">DRAFT</Badge>}
-                       {grn.status === 'CONFIRMED' && <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none">CONFIRMED</Badge>}
-                       {grn.status === 'CANCELLED' && <Badge variant="destructive">CANCELLED</Badge>}
-                       <Button variant="outline" size="sm" onClick={() => navigate(`/purchases/grn/${grn._id}`)} className="h-8 bg-white border-slate-200 text-slate-700 hover:bg-slate-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300">
-                         View
-                       </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {po.notes && (
-            <Card className="p-4 rounded-xl shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Notes</h3>
-              <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap text-sm leading-relaxed">{po.notes}</p>
-            </Card>
-          )}
-
-          {/* DELIVERY SCHEDULES */}
-          <Card className="overflow-hidden rounded-xl shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                <h3 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-3">
-                  <div className="p-1.5 bg-pink-50 dark:bg-pink-900/20 rounded-lg"><Calendar size={16} className="text-pink-600 dark:text-pink-400" /></div> 
-                  Delivery Schedules
-                </h3>
-                <div className="text-xs text-slate-500 pl-11">{schedulePagination?.totalItems || mainPaginatedSchedules.length} shipment{schedulePagination?.totalItems !== 1 ? 's' : ''} planned</div>
-              </div>
-              {(po.status === 'DRAFT' || po.status === 'CONFIRMED') && (
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={openBulkScheduleModal} className="rounded-md border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-                    Bulk Schedule
-                  </Button>
-                  <Button size="sm" onClick={() => {
-                    setEditingScheduleId(null);
-                    setScheduleData({ purchaseOrderItemId: '', productId: '', scheduledQuantity: '', expectedDate: '', destinationType: 'Store', branchId: '', notes: '' });
-                    setIsScheduleModalOpen(true);
-                  }} className="rounded-md bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
-                    + Add Delivery Schedule
-                  </Button>
-                </div>
-              )}
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-bold uppercase text-xs tracking-wider border-b border-slate-200 dark:border-slate-800">
-                    <th className="p-4">Product</th>
-                    <th className="p-4 text-center">Scheduled</th>
-                    <th className="p-4 text-center">Received</th>
-                    <th className="p-4 text-center">Remaining</th>
-                    <th className="p-4 text-center">Destination</th>
-                    <th className="p-4">Expected Date</th>
-                    <th className="p-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-sm">
-              {loadingSchedules ? <tr><td colSpan={8} className="p-8 text-center text-muted-foreground animate-pulse">Loading schedules...</td></tr> : mainPaginatedSchedules.length === 0 ? (
-                 <tr><td colSpan={8} className="p-10 text-center text-muted-foreground">
-                   <div className="flex flex-col items-center gap-2">
-                     <Calendar size={32} className="text-slate-300 dark:text-slate-700" />
-                     <span>No delivery schedules found for this PO.</span>
-                   </div>
-                 </td></tr>
+                  </td>
+                </tr>
+              ) : mainPaginatedItems.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center text-muted-foreground">
+                    No order lines found matching search.
+                  </td>
+                </tr>
               ) : (
-                mainPaginatedSchedules.map(schedule => {
-                  const remaining = schedule.scheduledQuantity - (schedule.receivedQuantity || 0);
+                mainPaginatedItems.map((item, idx) => {
+                  const remToSchedule = item.quantity - (item.scheduledQuantity || 0);
+                  const remToReceive = (item.scheduledQuantity || 0) - (item.receivedQuantity || 0);
                   return (
-                    <tr key={schedule._id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors group">
-                      <td className="p-4">
-                        <div className="font-bold text-slate-900 dark:text-white">{schedule.scheduledQuantity} {schedule.productId?.uom || 'PCS'} &bull; {schedule.productId?.name}</div>
-                        <div className="text-xs text-slate-400">SKU: {schedule.productId?.sku}</div>
-                      </td>
-                      <td className="p-4 text-center font-bold text-slate-800 dark:text-slate-200">{schedule.scheduledQuantity}</td>
-                      <td className="p-4 text-center text-slate-400">
-                        {schedule.receivedQuantity > 0 ? (
-                           <span className="font-bold text-slate-600 dark:text-slate-300">{schedule.receivedQuantity}</span>
+                    <tr key={item._id || idx} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-foreground text-xs">{item.productId?.name}</div>
+                        {item.variantId ? (
+                          <div className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 mt-0.5">
+                            Variant: {item.variantSku || item.variantId?.sku}
+                            {item.variantId?.attributes && (
+                              <span className="text-muted-foreground font-normal ml-1">
+                                ({Object.entries(item.variantId.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
+                              </span>
+                            )}
+                          </div>
                         ) : (
-                           <span>0</span>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {item.productId?.sku}</div>
+                        )}
+                        {item.description && <div className="text-[10px] text-muted-foreground italic mt-0.5">{item.description}</div>}
+                      </td>
+                      <td className="px-3 py-3 text-center font-bold text-muted-foreground">{item.uom || 'Piece'}</td>
+                      <td className="px-3 py-3 text-right font-medium text-foreground">
+                        {formatCurrency(item.unitCost)}
+                      </td>
+                      <td className="px-3 py-3 text-center font-black text-foreground">{item.quantity}</td>
+                      <td className="px-3 py-3 text-center">
+                        {item.scheduledQuantity > 0 ? (
+                          <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 font-bold text-[11px]">
+                            {item.scheduledQuantity}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
                         )}
                       </td>
-                      <td className="p-4 text-center">
-                        {remaining > 0 ? (
-                           <span className="bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 px-3 py-1 rounded-sm font-bold text-xs">{remaining}</span>
+                      <td className="px-3 py-3 text-center">
+                        {item.receivedQuantity > 0 ? (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 font-bold text-[11px]">
+                            {item.receivedQuantity}
+                          </span>
                         ) : (
-                           <span className="text-slate-400">0</span>
+                          <span className="text-muted-foreground">0</span>
                         )}
                       </td>
-                      <td className="p-4 text-center font-medium text-slate-700 dark:text-slate-300 flex items-center justify-center gap-2">
-                        <Home size={14} className="text-slate-400" />
-                        <div className="text-left">
-                          <div>{schedule.branchId?.name}</div>
-                          <div className="text-xs text-slate-400 font-normal">{schedule.destinationType}</div>
-                        </div>
+                      <td className="px-3 py-3 text-center">
+                        {remToSchedule > 0 ? (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 font-bold text-[11px]">
+                            {remToSchedule}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
                       </td>
-                      <td className="p-4 text-slate-600 dark:text-slate-300 font-medium">
-                        {format(new Date(schedule.expectedDate), 'MMM d, yyyy')}
+                      <td className="px-3 py-3 text-center">
+                        {remToReceive > 0 ? (
+                          <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 font-bold text-[11px]">
+                            {remToReceive}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
                       </td>
-                      <td className="p-4">
-                        {getStatusBadge(schedule.status)}
-                      </td>
-                      <td className="p-4 text-right">
-                         {(po.status === 'DRAFT' || po.status === 'CONFIRMED') && schedule.receivedQuantity === 0 && (
-                            <div className="flex items-center justify-end gap-2">
-                               <Button variant="ghost" size="sm" className="text-blue-600" onClick={() => openEditModal(schedule)}>
-                                  <Edit size={16} />
-                               </Button>
-                               {schedule.status !== 'CANCELLED' && (
-                                 <Button variant="ghost" size="sm" className="text-error" onClick={() => openCancelModal(schedule._id)} title="Cancel Delivery">
-                                    <XCircle size={16} />
-                                 </Button>
-                               )}
-                            </div>
-                         )}
+                      <td className="px-4 py-3 text-right font-black text-foreground">
+                        {formatCurrency(item.subTotal)}
                       </td>
                     </tr>
-                  )
+                  );
                 })
               )}
             </tbody>
           </table>
         </div>
+
         {renderPagination(schedulePagination, setSchedulePage)}
-      </Card>
+      </div>
 
-      {/* Schedule Modal */}
-      {isScheduleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-background rounded-lg shadow-xl w-full max-w-xl p-6">
-              <h3 className="text-xl font-bold mb-4">{editingScheduleId ? 'Edit Delivery Schedule' : 'Add Delivery Schedule'}</h3>
-              <form onSubmit={handleSubmitSchedule} className="space-y-4">
-                 <div>
-                    <label className="block text-sm font-medium mb-1">Product</label>
-                    <Select 
-                      required 
-                      disabled={!!editingScheduleId}
-                      value={scheduleData.purchaseOrderItemId}
-                      onChange={e => {
-                        const item = po.items.find(i => i._id === e.target.value);
-                        setScheduleData({...scheduleData, purchaseOrderItemId: e.target.value, productId: item?.productId?._id});
-                      }}
-                    >
-                       <option value="">Select Product from PO</option>
-                       {po.items.map(item => {
-                          const available = item.quantity - (item.scheduledQuantity || 0);
-                          return (
-                            <option key={item._id} value={item._id} disabled={available <= 0}>
-                               {item.productId?.name} (Available: {available})
-                            </option>
-                          )
-                       })}
-                    </Select>
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                       <label className="block text-sm font-medium mb-1">Quantity</label>
-                       <Input 
-                         type="number" min="1" required 
-                         value={scheduleData.scheduledQuantity}
-                         onChange={e => setScheduleData({...scheduleData, scheduledQuantity: e.target.value})}
-                       />
-                    </div>
-                    <div>
-                       <label className="block text-sm font-medium mb-1">Expected Date</label>
-                       <Input 
-                         type="date" required 
-                         value={scheduleData.expectedDate}
-                         onChange={e => setScheduleData({...scheduleData, expectedDate: e.target.value})}
-                       />
-                    </div>
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                       <label className="block text-sm font-medium mb-1">Destination Type</label>
-                       <Select 
-                         value={scheduleData.destinationType}
-                         onChange={e => setScheduleData({...scheduleData, destinationType: e.target.value})}
-                       >
-                          <option value="Store">Store</option>
-                          <option value="Warehouse">Warehouse</option>
-                          <option value="Branch">Branch</option>
-                       </Select>
-                    </div>
-                    <div>
-                       <label className="block text-sm font-medium mb-1">Destination</label>
-                       <Select 
-                         required 
-                         value={scheduleData.branchId}
-                         onChange={e => setScheduleData({...scheduleData, branchId: e.target.value})}
-                       >
-                          <option value="">Select Destination</option>
-                          {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-                       </Select>
-                    </div>
-                 </div>
-
-                 <div>
-                    <label className="block text-sm font-medium mb-1">Notes</label>
-                    <Input 
-                      value={scheduleData.notes}
-                      onChange={e => setScheduleData({...scheduleData, notes: e.target.value})}
-                    />
-                 </div>
-
-                 <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                    <Button type="button" variant="outline" onClick={() => setIsScheduleModalOpen(false)}>Cancel</Button>
-                    <Button type="submit">{editingScheduleId ? 'Update Schedule' : 'Add Schedule'}</Button>
-                 </div>
-               </form>
+      {/* ========================================================================= */}
+      {/* 5. DELIVERY SCHEDULES & RELATED GRNS                                       */}
+      {/* ========================================================================= */}
+      <div className="space-y-4">
+        
+        {/* Linked GRNs Card */}
+        {po.grns && po.grns.length > 0 && (
+          <div className="rounded-2xl bg-card border border-border/80 shadow-2xs overflow-hidden">
+            <div className="p-3.5 sm:p-4 border-b border-border/80 bg-muted/20 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                  <Box size={15} />
+                </div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-foreground">
+                  Related Goods Receipts (GRNs)
+                </h3>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 uppercase tracking-wider">
+                  {po.grns.length} Recorded
+                </span>
+              </div>
             </div>
+
+            <div className="p-3.5 sm:p-4 space-y-2.5">
+              {po.grns.map(grn => (
+                <div 
+                  key={grn._id} 
+                  className="p-3 rounded-xl border border-border/70 hover:border-blue-500/50 bg-card hover:shadow-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+                      <FileText size={18} />
+                    </div>
+                    <div>
+                      <div className="font-black text-xs text-foreground">{grn.grnNumber}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        Received: {format(new Date(grn.receiptDate || grn.createdAt), 'MMM d, yyyy · h:mm a')}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 self-end sm:self-center">
+                    <span 
+                      className="px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white"
+                      style={{ backgroundColor: getStatusColor(grn.status) }}
+                    >
+                      {grn.status}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/purchases/grn/${grn._id}`)}
+                      className="px-3 py-1.5 rounded-lg border border-border/80 text-foreground hover:bg-muted text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      View Receipt
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* PO Notes */}
+        {po.notes && (
+          <div className="rounded-2xl bg-card border border-border/80 p-4 shadow-2xs">
+            <h4 className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-1">
+              Purchase Order Instructions & Notes
+            </h4>
+            <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{po.notes}</p>
+          </div>
+        )}
+
+        {/* Delivery Schedules Section */}
+        <div className="rounded-2xl bg-card border border-border/80 shadow-2xs overflow-hidden">
+          <div className="p-3.5 sm:p-4 border-b border-border/80 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-pink-500/10 text-pink-600 flex items-center justify-center">
+                <Calendar size={15} />
+              </div>
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-foreground">
+                  Delivery Schedules
+                </h3>
+                <span className="text-[10px] text-muted-foreground">
+                  {schedulePagination?.totalItems || mainPaginatedSchedules.length} shipments planned
+                </span>
+              </div>
+            </div>
+
+            {(po.status === 'DRAFT' || po.status === 'CONFIRMED') && (
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={openBulkScheduleModal}
+                  className="px-3 py-1.5 rounded-xl border border-border/80 text-foreground hover:bg-muted text-xs font-bold transition-all cursor-pointer"
+                >
+                  Bulk Schedule
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingScheduleId(null);
+                    setScheduleData({ purchaseOrderItemId: '', productId: '', scheduledQuantity: '', expectedDate: '', destinationType: 'Store', branchId: '', notes: '' });
+                    setIsScheduleModalOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+                >
+                  + Add Delivery Schedule
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left whitespace-nowrap text-xs">
+              <thead className="text-[10px] font-black text-muted-foreground uppercase tracking-wider bg-muted/10 border-b border-border/80">
+                <tr>
+                  <th className="px-4 py-3">Scheduled Product</th>
+                  <th className="px-3 py-3 text-center">Scheduled</th>
+                  <th className="px-3 py-3 text-center">Received</th>
+                  <th className="px-3 py-3 text-center">Remaining</th>
+                  <th className="px-3 py-3">Destination Branch</th>
+                  <th className="px-3 py-3">Expected Date</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {loadingSchedules ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                      Loading delivery schedules...
+                    </td>
+                  </tr>
+                ) : mainPaginatedSchedules.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                      No delivery schedules recorded for this purchase order.
+                    </td>
+                  </tr>
+                ) : (
+                  mainPaginatedSchedules.map(schedule => {
+                    const remaining = schedule.scheduledQuantity - (schedule.receivedQuantity || 0);
+                    return (
+                      <tr key={schedule._id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-foreground text-xs">
+                            {schedule.scheduledQuantity} {schedule.productId?.uom || 'Piece'} &bull; {schedule.productId?.name}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {schedule.productId?.sku}</div>
+                        </td>
+                        <td className="px-3 py-3 text-center font-black text-foreground">{schedule.scheduledQuantity}</td>
+                        <td className="px-3 py-3 text-center font-bold text-muted-foreground">{schedule.receivedQuantity || 0}</td>
+                        <td className="px-3 py-3 text-center">
+                          {remaining > 0 ? (
+                            <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 font-bold text-[11px]">
+                              {remaining}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <Home size={13} className="text-blue-500" />
+                            <div>
+                              <div className="font-bold text-foreground text-xs">{schedule.branchId?.name}</div>
+                              <div className="text-[10px] text-muted-foreground">{schedule.destinationType}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 font-mono font-medium text-foreground">
+                          {schedule.expectedDate ? format(new Date(schedule.expectedDate), 'MMM d, yyyy') : '-'}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span 
+                            className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white"
+                            style={{ backgroundColor: getStatusColor(schedule.status) }}
+                          >
+                            {schedule.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {(po.status === 'DRAFT' || po.status === 'CONFIRMED') && schedule.receivedQuantity === 0 && (
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => openEditModal(schedule)}
+                                className="p-1 rounded-lg hover:bg-muted text-blue-600 transition-colors cursor-pointer"
+                                title="Edit Schedule"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              {schedule.status !== 'CANCELLED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => openCancelModal(schedule._id)}
+                                  className="p-1 rounded-lg hover:bg-muted text-rose-500 transition-colors cursor-pointer"
+                                  title="Cancel Schedule"
+                                >
+                                  <XCircle size={14} />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSchedule(schedule._id)}
+                                className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-rose-600 transition-colors cursor-pointer"
+                                title="Delete Schedule"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {renderPagination(schedulePagination, setSchedulePage)}
+        </div>
+
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 6. MODALS                                                                 */}
+      {/* ========================================================================= */}
+      
+      {/* Single Schedule Modal */}
+      {isScheduleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-xl p-6 text-foreground animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-border">
+              <h3 className="text-base font-black uppercase tracking-tight">
+                {editingScheduleId ? 'Edit Delivery Schedule' : 'Add Delivery Schedule'}
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setIsScheduleModalOpen(false)}
+                className="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitSchedule} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                  Product Line
+                </label>
+                <select 
+                  required 
+                  disabled={!!editingScheduleId}
+                  value={scheduleData.purchaseOrderItemId}
+                  onChange={e => {
+                    const item = po.items.find(i => i._id === e.target.value);
+                    setScheduleData({...scheduleData, purchaseOrderItemId: e.target.value, productId: item?.productId?._id});
+                  }}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">Select Product from PO</option>
+                  {po.items.map(item => {
+                    const available = item.quantity - (item.scheduledQuantity || 0);
+                    return (
+                      <option key={item._id} value={item._id} disabled={available <= 0 && !editingScheduleId}>
+                        {item.productId?.name} (Available: {available})
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Quantity
+                  </label>
+                  <input 
+                    type="number" min="1" required 
+                    value={scheduleData.scheduledQuantity}
+                    onChange={e => setScheduleData({...scheduleData, scheduledQuantity: e.target.value})}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Expected Delivery Date
+                  </label>
+                  <input 
+                    type="date" required 
+                    value={scheduleData.expectedDate}
+                    onChange={e => setScheduleData({...scheduleData, expectedDate: e.target.value})}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Destination Type
+                  </label>
+                  <select 
+                    value={scheduleData.destinationType}
+                    onChange={e => setScheduleData({...scheduleData, destinationType: e.target.value})}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="Store">Store</option>
+                    <option value="Warehouse">Warehouse</option>
+                    <option value="Branch">Branch</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                    Destination Branch
+                  </label>
+                  <select 
+                    required 
+                    value={scheduleData.branchId}
+                    onChange={e => setScheduleData({...scheduleData, branchId: e.target.value})}
+                    className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Select Destination</option>
+                    {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                  Notes / Instructions
+                </label>
+                <input 
+                  value={scheduleData.notes}
+                  placeholder="Optional delivery instructions..."
+                  onChange={e => setScheduleData({...scheduleData, notes: e.target.value})}
+                  className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-border mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsScheduleModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-foreground hover:bg-muted text-xs font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-xs transition-colors"
+                >
+                  {editingScheduleId ? 'Update Schedule' : 'Add Schedule'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
       {/* Cancel Schedule Modal */}
       {isCancelModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-background rounded-lg shadow-xl w-full max-w-md p-6">
-              <h3 className="text-xl font-bold mb-4 text-error flex items-center gap-2">
-                 <AlertCircle size={20} />
-                 Cancel Delivery Schedule
-              </h3>
-              <form onSubmit={handleCancelScheduleSubmit} className="space-y-4">
-                 <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Are you sure you want to cancel this delivery? Please provide a reason for cancellation.
-                 </p>
-                 <div>
-                    <label className="block text-sm font-medium mb-1">Reason for Cancellation</label>
-                    <textarea 
-                      required
-                      rows="3"
-                      className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                      value={cancelReason}
-                      onChange={e => setCancelReason(e.target.value)}
-                      placeholder="e.g. Supplier delayed, Order changed, etc."
-                    ></textarea>
-                 </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6 text-foreground animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="text-base font-black mb-3 text-rose-500 flex items-center gap-2">
+              <AlertCircle size={18} />
+              Cancel Delivery Schedule
+            </h3>
+            <form onSubmit={handleCancelScheduleSubmit} className="space-y-4 text-xs">
+              <p className="text-muted-foreground">
+                Are you sure you want to cancel this delivery schedule? Please provide a reason for the record.
+              </p>
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                  Reason for Cancellation *
+                </label>
+                <textarea 
+                  required
+                  rows="3"
+                  className="w-full rounded-xl border border-border bg-background p-3 text-xs focus:outline-none focus:ring-1 focus:ring-rose-500 placeholder:text-muted-foreground"
+                  value={cancelReason}
+                  onChange={e => setCancelReason(e.target.value)}
+                  placeholder="e.g. Supplier delay, inventory change, branch modification..."
+                />
+              </div>
 
-                 <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
-                    <Button type="button" variant="outline" onClick={closeCancelModal}>Keep Schedule</Button>
-                    <Button type="submit" variant="destructive" disabled={!cancelReason.trim()}>Confirm Cancel</Button>
-                 </div>
-               </form>
-            </div>
+              <div className="flex justify-end gap-2 pt-4 border-t border-border">
+                <button 
+                  type="button" 
+                  onClick={closeCancelModal}
+                  className="px-4 py-2 rounded-xl border border-border text-foreground hover:bg-muted text-xs font-bold transition-colors"
+                >
+                  Keep Schedule
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={!cancelReason.trim()}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
+                >
+                  Confirm Cancel
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
       {/* Bulk Schedule Modal */}
       {isBulkScheduleModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
-            <div className="bg-background rounded-lg shadow-xl w-full max-w-7xl p-6 m-auto">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-3 border-b border-border">
-                 <div>
-                    <h3 className="text-xl font-bold">Bulk Schedule Delivery</h3>
-                    <p className="text-sm text-muted-foreground">Distribute delivery across multiple items or stores</p>
-                 </div>
-                 <div className="flex items-center gap-2">
-                    <div className="flex items-center bg-muted p-1 rounded-lg border border-border">
-                       <button
-                         type="button"
-                         className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${bulkMode === 'MANUAL' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                         onClick={() => setBulkMode('MANUAL')}
-                       >
-                         Manual Item Split
-                       </button>
-                       <button
-                         type="button"
-                         className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${bulkMode === 'EQUAL' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                         onClick={() => setBulkMode('EQUAL')}
-                       >
-                         Equal Store Distribution
-                       </button>
-                    </div>
-                    {bulkMode === 'MANUAL' && (
-                       <div className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={handleScheduleAllRemaining}>Schedule All Remaining</Button>
-                          <Button variant="outline" size="sm" onClick={handleClearAllBulk}>Clear All</Button>
-                       </div>
-                    )}
-                 </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-6xl p-5 sm:p-6 text-foreground animate-in fade-in zoom-in-95 duration-200 m-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-4 border-b border-border">
+              <div>
+                <h3 className="text-base font-black uppercase tracking-tight">Bulk Schedule Delivery</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Distribute order fulfillment across multiple items and branch locations</p>
               </div>
-              
-              {bulkScheduleError && (
-                 <div className="bg-error/10 text-error p-3 rounded mb-4 text-sm font-medium">
-                    {bulkScheduleError}
-                 </div>
-              )}
 
-              {bulkMode === 'MANUAL' ? (
-                <form onSubmit={handleBulkSubmit}>
-                   <div className="mb-4 flex flex-col md:flex-row items-center justify-between gap-4 bg-muted/10 p-3 rounded border border-border">
-                      <div className="relative w-full md:w-80">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                          type="text" 
-                          placeholder="Search products, SKU..." 
-                          className="pl-9 pr-8"
-                          value={bulkSearch}
-                          onChange={e => setBulkSearch(e.target.value)}
-                        />
-                        {bulkSearch && (
-                          <button type="button" className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground" onClick={() => setBulkSearch('')}>
-                            <X className="h-4 w-4" />
-                          </button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-muted/60 p-1 rounded-xl border border-border">
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${bulkMode === 'MANUAL' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                    onClick={() => setBulkMode('MANUAL')}
+                  >
+                    Manual Item Split
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${bulkMode === 'EQUAL' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
+                    onClick={() => setBulkMode('EQUAL')}
+                  >
+                    Equal Store Distribution
+                  </button>
+                </div>
+                {bulkMode === 'MANUAL' && (
+                  <div className="flex gap-1.5">
+                    <button 
+                      type="button"
+                      onClick={handleScheduleAllRemaining}
+                      className="px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold hover:bg-muted text-foreground transition-colors"
+                    >
+                      Schedule All
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={handleClearAllBulk}
+                      className="px-2.5 py-1.5 rounded-lg border border-border text-xs font-bold hover:bg-muted text-muted-foreground transition-colors"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {bulkScheduleError && (
+              <div className="bg-rose-500/10 border border-rose-500/30 text-rose-500 p-3 rounded-xl mb-4 text-xs font-bold">
+                {bulkScheduleError}
+              </div>
+            )}
+
+            {bulkMode === 'MANUAL' ? (
+              <form onSubmit={handleBulkSubmit}>
+                <div className="mb-4 flex flex-col md:flex-row items-center justify-between gap-4 bg-muted/20 p-3 rounded-xl border border-border">
+                  <div className="relative w-full md:w-80">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <input 
+                      type="text" 
+                      placeholder="Search products, SKU..." 
+                      className="w-full pl-8 pr-8 py-1.5 bg-background border border-border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      value={bulkSearch}
+                      onChange={e => setBulkSearch(e.target.value)}
+                    />
+                    {bulkSearch && (
+                      <button type="button" className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground" onClick={() => setBulkSearch('')}>
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {renderPagination(bulkPagination, setBulkPage)}
+                </div>
+
+                <div className="overflow-x-auto max-h-[55vh] space-y-4 pr-1">
+                  <div className="flex items-center gap-2 px-1">
+                    <input 
+                      type="checkbox" 
+                      checked={bulkPaginatedItems.length > 0 && bulkPaginatedItems.every(i => globalBulkState[i._id]?.selected)}
+                      onChange={e => toggleSelectAllPage(e.target.checked)}
+                      className="w-4 h-4 cursor-pointer rounded"
+                    />
+                    <span className="font-black text-xs">Select all items on this page</span>
+                  </div>
+
+                  {loadingBulkSchedules && (
+                    <div className="text-center p-6 text-muted-foreground text-xs">Loading items...</div>
+                  )}
+
+                  {!loadingBulkSchedules && bulkPaginatedItems.map(poItem => {
+                    const state = globalBulkState[poItem._id];
+                    if (!state) return null;
+                    
+                    const sumSplits = state.splits.reduce((acc, curr) => acc + (Number(curr.scheduledQuantity) || 0), 0);
+                    const orderedQuantity = poItem.quantity;
+                    const alreadyScheduledQuantity = poItem.scheduledQuantity || 0;
+                    const remainingToSchedule = orderedQuantity - alreadyScheduledQuantity - sumSplits;
+                    const hasError = remainingToSchedule < 0;
+
+                    return (
+                      <div 
+                        key={poItem._id} 
+                        className={`border rounded-2xl overflow-hidden transition-all ${!state.selected ? 'opacity-50 grayscale bg-muted/10' : 'bg-card border-border'} ${hasError ? 'border-rose-500 shadow-[0_0_0_1px_rgba(244,63,94,1)]' : ''}`}
+                      >
+                        <div className="p-3.5 bg-muted/20 border-b border-border flex items-start justify-between">
+                          <div className="flex items-start gap-3">
+                            <input 
+                              type="checkbox" 
+                              checked={state.selected}
+                              onChange={() => toggleItemSelection(poItem._id)}
+                              className="w-4 h-4 mt-1 cursor-pointer rounded"
+                            />
+                            <div>
+                              <div className="font-black text-foreground text-xs">{poItem.productId?.name}</div>
+                              <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {poItem.productId?.sku}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-4 text-xs">
+                            <div className="text-center">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">Ordered</span>
+                              <span className="font-black text-foreground">{orderedQuantity}</span>
+                            </div>
+                            <div className="text-center">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">Already Sch.</span>
+                              <span className="font-black text-blue-600">{alreadyScheduledQuantity}</span>
+                            </div>
+                            <div className="text-center">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">New Sch.</span>
+                              <span className={`font-black ${hasError ? 'text-rose-500' : 'text-emerald-500'}`}>{sumSplits}</span>
+                            </div>
+                            <div className="text-center">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">Remaining</span>
+                              <span className={`font-black ${remainingToSchedule < 0 ? 'text-rose-500' : remainingToSchedule > 0 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                                {remainingToSchedule}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {state.selected && (
+                          <div className="p-3.5 bg-card space-y-2">
+                            {state.splits.map((split, splitIndex) => (
+                              <div key={split.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center text-xs">
+                                <div className="sm:col-span-2">
+                                  <input 
+                                    type="number" min="0" placeholder="Qty"
+                                    value={split.scheduledQuantity}
+                                    onChange={e => updateDeliverySplit(poItem._id, split.id, 'scheduledQuantity', e.target.value)}
+                                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded-lg text-xs"
+                                  />
+                                </div>
+                                <div className="sm:col-span-3">
+                                  <input 
+                                    type="date"
+                                    required={Number(split.scheduledQuantity) > 0}
+                                    value={split.expectedDate}
+                                    onChange={e => updateDeliverySplit(poItem._id, split.id, 'expectedDate', e.target.value)}
+                                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded-lg text-xs"
+                                  />
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <select 
+                                    value={split.destinationType}
+                                    onChange={e => updateDeliverySplit(poItem._id, split.id, 'destinationType', e.target.value)}
+                                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded-lg text-xs"
+                                  >
+                                    <option value="Store">Store</option>
+                                    <option value="Warehouse">Warehouse</option>
+                                    <option value="Branch">Branch</option>
+                                  </select>
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <select 
+                                    value={split.branchId}
+                                    required={Number(split.scheduledQuantity) > 0}
+                                    onChange={e => updateDeliverySplit(poItem._id, split.id, 'branchId', e.target.value)}
+                                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded-lg text-xs"
+                                  >
+                                    <option value="">Select Dest</option>
+                                    {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                                  </select>
+                                </div>
+                                <div className="sm:col-span-2">
+                                  <input 
+                                    value={split.notes}
+                                    placeholder="Notes..."
+                                    onChange={e => updateDeliverySplit(poItem._id, split.id, 'notes', e.target.value)}
+                                    className="w-full px-2.5 py-1.5 bg-background border border-border rounded-lg text-xs"
+                                  />
+                                </div>
+                                <div className="sm:col-span-1 text-right">
+                                  <button 
+                                    type="button" 
+                                    onClick={() => removeDeliverySplit(poItem._id, split.id)}
+                                    className="p-1 rounded-lg text-muted-foreground hover:text-rose-500 transition-colors"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+
+                            <button 
+                              type="button" 
+                              onClick={() => addDeliverySplit(poItem._id)}
+                              className="text-xs text-blue-600 font-bold hover:underline inline-flex items-center gap-1 mt-1"
+                            >
+                              + Add Split
+                            </button>
+                          </div>
                         )}
                       </div>
-                      {renderPagination(bulkPagination, setBulkPage)}
-                   </div>
-                   
-                   <div className="overflow-x-auto max-h-[60vh] pb-8 space-y-6">
-                      <div className="flex items-center gap-2 px-2 py-1">
-                         <input 
-                           type="checkbox" 
-                           checked={bulkPaginatedItems.length > 0 && bulkPaginatedItems.every(i => globalBulkState[i._id]?.selected)}
-                           onChange={e => toggleSelectAllPage(e.target.checked)}
-                           className="w-4 h-4 cursor-pointer"
-                         />
-                         <span className="font-bold text-sm">Select all items on this page</span>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4 border-t border-border mt-4">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsBulkScheduleModalOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-border text-foreground hover:bg-muted text-xs font-bold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-xs transition-colors"
+                  >
+                    Save All Schedules
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleEqualSubmit} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-muted/20 p-3.5 rounded-xl border border-border">
+                  <div>
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                      Destination Type
+                    </label>
+                    <select 
+                      value={equalBranchType} 
+                      onChange={e => {
+                        setEqualBranchType(e.target.value);
+                        setEqualSelectedBranchIds([]);
+                      }}
+                      className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="Store">Store (Retail Locations)</option>
+                      <option value="Branch">Branch (Office Locations)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-black uppercase tracking-wider text-muted-foreground mb-1.5">
+                      Expected Delivery Date *
+                    </label>
+                    <input 
+                      type="date" 
+                      required 
+                      value={equalExpectedDate} 
+                      onChange={e => setEqualExpectedDate(e.target.value)} 
+                      className="w-full px-3 py-2 bg-background border border-border rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                  <div className="lg:col-span-7 border border-border rounded-2xl p-4 bg-card">
+                    <div className="flex items-center justify-between pb-2 mb-3 border-b border-border">
+                      <h4 className="font-black text-xs uppercase tracking-tight flex items-center gap-1.5">
+                        <Building2 size={14} className="text-blue-500" />
+                        Select Stores ({equalSelectedBranchIds.length} / {branches.filter(b => b.type === (equalBranchType === 'Branch' ? 'Office' : 'Store')).length})
+                      </h4>
+                      <div className="flex gap-2 text-xs">
+                        <button 
+                          type="button" 
+                          className="text-blue-600 font-bold hover:underline"
+                          onClick={() => {
+                            const matching = branches.filter(b => b.type === (equalBranchType === 'Branch' ? 'Office' : 'Store'));
+                            setEqualSelectedBranchIds(matching.map(b => b._id));
+                          }}
+                        >
+                          Select All
+                        </button>
+                        <span className="text-muted-foreground">|</span>
+                        <button 
+                          type="button" 
+                          className="text-muted-foreground font-bold hover:underline"
+                          onClick={() => setEqualSelectedBranchIds([])}
+                        >
+                          Clear
+                        </button>
                       </div>
+                    </div>
 
-                      {loadingBulkSchedules && <div className="text-center p-4">Loading items...</div>}
-                      {!loadingBulkSchedules && bulkPaginatedItems.length === 0 && <div className="text-center p-4">No items found.</div>}
-
-                      {!loadingBulkSchedules && bulkPaginatedItems.map((poItem) => {
-                         const state = globalBulkState[poItem._id];
-                         if (!state) return null;
-                         
-                         const sumSplits = state.splits.reduce((acc, curr) => acc + (Number(curr.scheduledQuantity) || 0), 0);
-                         const orderedQuantity = poItem.quantity;
-                         const alreadyScheduledQuantity = poItem.scheduledQuantity || 0;
-                         
-                         const remainingToSchedule = orderedQuantity - alreadyScheduledQuantity - sumSplits;
-                         const hasError = remainingToSchedule < 0;
-
-                         return (
-                           <div key={poItem._id} className={`border rounded-lg overflow-hidden transition-colors ${!state.selected ? 'opacity-50 grayscale bg-muted/20' : 'bg-card border-border'} ${hasError ? 'border-error shadow-[0_0_0_1px_rgba(239,68,68,1)]' : ''}`}>
-                              <div className="p-4 bg-muted/10 border-b border-border flex items-start justify-between">
-                                 <div className="flex items-start gap-3">
-                                    <input 
-                                      type="checkbox" 
-                                      checked={state.selected}
-                                      onChange={() => toggleItemSelection(poItem._id)}
-                                      className="w-4 h-4 mt-1 cursor-pointer"
-                                    />
-                                    <div>
-                                       <div className="font-bold text-foreground text-lg">{poItem.productId?.name}</div>
-                                       <div className="text-sm text-muted-foreground">{poItem.productId?.sku}</div>
-                                    </div>
-                                 </div>
-                                 <div className="flex gap-6 text-sm">
-                                    <div className="text-center">
-                                       <div className="text-muted-foreground uppercase text-xs font-bold tracking-wider">Ordered</div>
-                                       <div className="font-medium text-lg">{orderedQuantity}</div>
-                                    </div>
-                                    <div className="text-center">
-                                       <div className="text-muted-foreground uppercase text-xs font-bold tracking-wider">Already Sch.</div>
-                                       <div className="font-medium text-lg text-blue-600">{alreadyScheduledQuantity}</div>
-                                    </div>
-                                    <div className="text-center">
-                                       <div className="text-muted-foreground uppercase text-xs font-bold tracking-wider">New Sch.</div>
-                                       <div className={`font-bold text-lg ${hasError ? 'text-error' : 'text-success'}`}>{sumSplits}</div>
-                                    </div>
-                                    <div className="text-center">
-                                       <div className="text-muted-foreground uppercase text-xs font-bold tracking-wider">Total Sch.</div>
-                                       <div className="font-medium text-lg">{alreadyScheduledQuantity + sumSplits}</div>
-                                    </div>
-                                    <div className="text-center">
-                                       <div className="text-muted-foreground uppercase text-xs font-bold tracking-wider">Remaining</div>
-                                       <div className={`font-bold text-lg ${remainingToSchedule < 0 ? 'text-error' : remainingToSchedule > 0 ? 'text-warning' : 'text-success'}`}>{remainingToSchedule}</div>
-                                    </div>
-                                 </div>
+                    <div className="max-h-[300px] overflow-y-auto space-y-1 pr-1">
+                      {branches
+                        .filter(b => b.type === (equalBranchType === 'Branch' ? 'Office' : 'Store'))
+                        .map(branch => {
+                          const isChecked = equalSelectedBranchIds.includes(branch._id);
+                          return (
+                            <label 
+                              key={branch._id} 
+                              className={`flex items-center justify-between p-2 rounded-xl cursor-pointer text-xs transition-colors ${isChecked ? 'bg-blue-500/10 border border-blue-500/30 font-bold' : 'hover:bg-muted/30 border border-transparent'}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <input 
+                                  type="checkbox" 
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    setEqualSelectedBranchIds(prev => 
+                                      prev.includes(branch._id) ? prev.filter(id => id !== branch._id) : [...prev, branch._id]
+                                    );
+                                  }}
+                                  className="w-4 h-4 cursor-pointer rounded"
+                                />
+                                <span>{branch.name}</span>
                               </div>
-                              
-                              {state.selected && (
-                                 <div className="p-4 bg-card">
-                                    {hasError && (
-                                       <div className="text-sm text-error font-bold mb-3 flex items-center gap-1">
-                                          Total scheduled quantity exceeds remaining quantity by {Math.abs(remainingToSchedule)}.
-                                       </div>
-                                    )}
-                                    <table className="w-full text-left border-collapse">
-                                      <thead>
-                                        <tr className="text-muted-foreground text-xs uppercase tracking-wider border-b border-border">
-                                          <th className="pb-2 font-bold">Qty</th>
-                                          <th className="pb-2 font-bold">Expected Date</th>
-                                          <th className="pb-2 font-bold">Dest. Type</th>
-                                          <th className="pb-2 font-bold">Destination</th>
-                                          <th className="pb-2 font-bold">Notes</th>
-                                          <th className="pb-2 font-bold w-10"></th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-border text-sm">
-                                        {state.splits.map((split, splitIndex) => (
-                                           <tr key={split.id} className="hover:bg-muted/5 group">
-                                              <td className="py-2 pr-2 w-32">
-                                                 <Input 
-                                                   type="number" min="0" 
-                                                   value={split.scheduledQuantity}
-                                                   onChange={e => updateDeliverySplit(poItem._id, split.id, 'scheduledQuantity', e.target.value)}
-                                                   className={hasError ? 'border-error' : ''}
-                                                 />
-                                              </td>
-                                              <td className="py-2 pr-2 w-48">
-                                                 <Input 
-                                                   type="date" 
-                                                   required={Number(split.scheduledQuantity) > 0}
-                                                   value={split.expectedDate}
-                                                   onChange={e => updateDeliverySplit(poItem._id, split.id, 'expectedDate', e.target.value)}
-                                                 />
-                                              </td>
-                                              <td className="py-2 pr-2 w-36">
-                                                 <Select 
-                                                   value={split.destinationType}
-                                                   onChange={e => updateDeliverySplit(poItem._id, split.id, 'destinationType', e.target.value)}
-                                                 >
-                                                    <option value="Store">Store</option>
-                                                    <option value="Warehouse">Warehouse</option>
-                                                    <option value="Branch">Branch</option>
-                                                 </Select>
-                                              </td>
-                                              <td className="py-2 pr-2 w-48">
-                                                 <Select 
-                                                   value={split.branchId}
-                                                   required={Number(split.scheduledQuantity) > 0}
-                                                   onChange={e => updateDeliverySplit(poItem._id, split.id, 'branchId', e.target.value)}
-                                                 >
-                                                    <option value="">Select Dest</option>
-                                                    {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-                                                 </Select>
-                                              </td>
-                                              <td className="py-2 pr-2">
-                                                 <Input 
-                                                   value={split.notes}
-                                                   placeholder="Optional notes..."
-                                                   onChange={e => updateDeliverySplit(poItem._id, split.id, 'notes', e.target.value)}
-                                                 />
-                                              </td>
-                                              <td className="py-2 text-right">
-                                                 <Button 
-                                                    type="button" 
-                                                    variant="ghost" 
-                                                    size="sm" 
-                                                    className="text-muted-foreground hover:text-error opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    onClick={() => removeDeliverySplit(poItem._id, split.id)}
-                                                 >
-                                                    <Trash2 size={16} />
-                                                 </Button>
-                                              </td>
-                                           </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                    <div className="mt-3">
-                                       <Button 
-                                         type="button" 
-                                         variant="ghost" 
-                                         size="sm" 
-                                         className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                         onClick={() => addDeliverySplit(poItem._id)}
-                                       >
-                                          + Add Delivery
-                                       </Button>
-                                    </div>
-                                 </div>
-                              )}
-                           </div>
-                         );
-                      })}
-                      {Object.keys(globalBulkState).length === 0 && !loadingBulkSchedules && (
-                        <div className="p-8 text-center text-muted-foreground border rounded-lg bg-muted/10">
-                          All items have been fully scheduled.
-                        </div>
-                      )}
-                   </div>
-
-                   <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
-                      <Button type="button" variant="outline" onClick={() => setIsBulkScheduleModalOpen(false)}>Cancel</Button>
-                      <Button 
-                        type="submit" 
-                        disabled={Object.values(globalBulkState).filter(s => s.selected).length === 0 || Object.entries(globalBulkState).some(([itemId, state]) => {
-                          if (!state.selected) return false;
-                          const poItem = po.items.find(i => i._id === itemId);
-                          if (!poItem) return false;
-                          const sumSplits = state.splits.reduce((acc, curr) => acc + (Number(curr.scheduledQuantity) || 0), 0);
-                          return (poItem.quantity - (poItem.scheduledQuantity || 0) - sumSplits) < 0;
+                              {branch.code && <span className="text-[10px] text-muted-foreground font-mono">{branch.code}</span>}
+                            </label>
+                          );
                         })}
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-5 border border-border rounded-2xl p-4 bg-muted/20 flex flex-col justify-between">
+                    <div>
+                      <h4 className="font-black text-xs uppercase tracking-tight mb-3 flex items-center gap-1.5 pb-2 border-b border-border">
+                        <Package size={14} className="text-indigo-500" />
+                        Distribution Summary
+                      </h4>
+
+                      {loadingEqualPreview ? (
+                        <div className="text-center py-8 text-muted-foreground">Calculating preview...</div>
+                      ) : equalPreview ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="p-2.5 rounded-xl bg-card border border-border">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">Items with Qty</span>
+                              <span className="font-black text-sm text-foreground">{equalPreview.poItemsWithRemainingQuantity} lines</span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-card border border-border">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground block">Selected Stores</span>
+                              <span className="font-black text-sm text-foreground">{equalPreview.selectedStores}</span>
+                            </div>
+                          </div>
+                          <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs">
+                            <div className="font-black text-blue-600 mb-1">Equal Distribution Rule</div>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                              Each product line's remaining quantity is distributed equally across {equalPreview.selectedStores} stores.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">Select stores to preview distribution</div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4 border-t border-border mt-4">
+                      <button 
+                        type="button" 
+                        onClick={() => setIsBulkScheduleModalOpen(false)}
+                        className="px-4 py-2 rounded-xl border border-border text-foreground hover:bg-muted text-xs font-bold transition-colors"
                       >
-                        Save Schedule
-                      </Button>
-                   </div>
-                </form>
-              ) : (
-                <form onSubmit={handleEqualSubmit} className="space-y-6">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/10 p-4 rounded-lg border border-border">
-                      <div>
-                         <label className="block text-sm font-semibold mb-1">Destination Type</label>
-                         <Select 
-                           value={equalBranchType} 
-                           onChange={e => {
-                             setEqualBranchType(e.target.value);
-                             setEqualSelectedBranchIds([]);
-                           }}
-                         >
-                            <option value="Store">Store (Retail Locations)</option>
-                            <option value="Branch">Branch (Office Locations)</option>
-                         </Select>
-                      </div>
-                      <div>
-                         <label className="block text-sm font-semibold mb-1">Expected Delivery Date <span className="text-error">*</span></label>
-                         <Input 
-                           type="date" 
-                           required 
-                           value={equalExpectedDate} 
-                           onChange={e => setEqualExpectedDate(e.target.value)} 
-                         />
-                      </div>
-                   </div>
-
-                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                      {/* Left: Destination Stores Selection */}
-                      <div className="lg:col-span-7 border border-border rounded-lg p-4 bg-card">
-                         <div className="flex items-center justify-between gap-2 mb-3">
-                            <h4 className="font-bold text-sm flex items-center gap-2">
-                              <Building size={16} />
-                              Select Destination Stores ({equalSelectedBranchIds.length} / {branches.filter(b => b.type === (equalBranchType === 'Branch' ? 'Office' : 'Store')).length})
-                            </h4>
-                            <div className="flex gap-2">
-                               <button 
-                                 type="button" 
-                                 className="text-xs text-blue-600 hover:underline font-medium"
-                                 onClick={() => {
-                                   const matching = branches.filter(b => b.type === (equalBranchType === 'Branch' ? 'Office' : 'Store'));
-                                   setEqualSelectedBranchIds(matching.map(b => b._id));
-                                 }}
-                               >
-                                 Select All
-                               </button>
-                               <span className="text-muted-foreground text-xs">|</span>
-                               <button 
-                                 type="button" 
-                                 className="text-xs text-muted-foreground hover:underline font-medium"
-                                 onClick={() => setEqualSelectedBranchIds([])}
-                               >
-                                 Clear
-                               </button>
-                            </div>
-                         </div>
-
-                         <div className="relative mb-3">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input 
-                              type="text" 
-                              placeholder="Filter stores by name or code..." 
-                              className="pl-9 pr-8 text-sm"
-                              value={equalBranchSearch}
-                              onChange={e => setEqualBranchSearch(e.target.value)}
-                            />
-                            {equalBranchSearch && (
-                              <button type="button" className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground" onClick={() => setEqualBranchSearch('')}>
-                                <X className="h-4 w-4" />
-                              </button>
-                            )}
-                         </div>
-
-                         <div className="max-h-[350px] overflow-y-auto space-y-1 pr-1 border rounded p-2 bg-muted/5">
-                            {branches
-                              .filter(b => b.type === (equalBranchType === 'Branch' ? 'Office' : 'Store'))
-                              .filter(b => b.name.toLowerCase().includes(equalBranchSearch.toLowerCase()) || (b.code && b.code.toLowerCase().includes(equalBranchSearch.toLowerCase())))
-                              .map(branch => {
-                                const isChecked = equalSelectedBranchIds.includes(branch._id);
-                                return (
-                                  <label 
-                                    key={branch._id} 
-                                    className={`flex items-center justify-between p-2 rounded cursor-pointer transition-colors text-sm ${isChecked ? 'bg-primary/10 border border-primary/30 font-medium' : 'hover:bg-muted/20 border border-transparent'}`}
-                                  >
-                                     <div className="flex items-center gap-2.5">
-                                        <input 
-                                          type="checkbox" 
-                                          checked={isChecked}
-                                          onChange={() => {
-                                            setEqualSelectedBranchIds(prev => 
-                                              prev.includes(branch._id) ? prev.filter(id => id !== branch._id) : [...prev, branch._id]
-                                            );
-                                          }}
-                                          className="w-4 h-4 cursor-pointer"
-                                        />
-                                        <span>{branch.name}</span>
-                                     </div>
-                                     {branch.code && <span className="text-xs text-muted-foreground font-mono">{branch.code}</span>}
-                                  </label>
-                                );
-                              })}
-                            {branches.filter(b => b.type === (equalBranchType === 'Branch' ? 'Office' : 'Store')).length === 0 && (
-                              <div className="text-center py-6 text-sm text-muted-foreground">
-                                No {equalBranchType.toLowerCase()} locations found.
-                              </div>
-                            )}
-                         </div>
-                      </div>
-
-                      {/* Right: Live Calculation & Preview Summary Card */}
-                      <div className="lg:col-span-5 flex flex-col">
-                         <div className="border border-border rounded-lg p-5 bg-muted/10 h-full flex flex-col justify-between">
-                            <div>
-                               <h4 className="font-bold text-base mb-4 flex items-center gap-2 pb-2 border-b border-border">
-                                  <Package size={18} />
-                                  Equal Distribution Summary
-                               </h4>
-
-                               {loadingEqualPreview ? (
-                                  <div className="text-center py-8 text-muted-foreground text-sm">
-                                     Calculating equal distribution preview...
-                                  </div>
-                               ) : equalPreview ? (
-                                  <div className="space-y-4">
-                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="bg-background p-3 rounded-lg border border-border">
-                                           <div className="text-xs text-muted-foreground font-medium uppercase">PO Items with Qty</div>
-                                           <div className="text-xl font-bold text-foreground mt-0.5">{equalPreview.poItemsWithRemainingQuantity} <span className="text-xs text-muted-foreground font-normal">/ {equalPreview.totalPOItems} items</span></div>
-                                        </div>
-                                        <div className="bg-background p-3 rounded-lg border border-border">
-                                           <div className="text-xs text-muted-foreground font-medium uppercase">Selected Stores</div>
-                                           <div className="text-xl font-bold text-foreground mt-0.5">{equalPreview.selectedStores}</div>
-                                        </div>
-                                        <div className="bg-background p-3 rounded-lg border border-border">
-                                           <div className="text-xs text-muted-foreground font-medium uppercase">Remaining PO Qty</div>
-                                           <div className="text-xl font-bold text-blue-600 mt-0.5">{equalPreview.totalRemainingQuantity}</div>
-                                        </div>
-                                        <div className="bg-background p-3 rounded-lg border border-border">
-                                           <div className="text-xs text-muted-foreground font-medium uppercase">Schedules to Create</div>
-                                           <div className="text-xl font-bold text-success mt-0.5">{equalPreview.schedulesToCreate}</div>
-                                        </div>
-                                     </div>
-
-                                     <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-xs space-y-1.5">
-                                        <div className="font-semibold text-blue-700 dark:text-blue-400">Distribution Strategy:</div>
-                                        <p className="text-muted-foreground leading-relaxed">
-                                          Every PO item's remaining quantity will be split equally across the {equalPreview.selectedStores} selected store(s). Any rounding remainders will be assigned 1-by-1 to stores deterministically.
-                                        </p>
-                                     </div>
-                                  </div>
-                               ) : (
-                                  <div className="text-center py-8 text-muted-foreground text-sm">
-                                     Select stores on the left to view equal distribution preview.
-                                  </div>
-                               )}
-                            </div>
-
-                            <div className="pt-4 border-t border-border mt-6">
-                               <p className="text-xs text-muted-foreground mb-3">
-                                  Generating equal distribution recalculates live quantities safely inside a database transaction.
-                               </p>
-                            </div>
-                         </div>
-                      </div>
-                   </div>
-
-                   <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
-                      <Button type="button" variant="outline" onClick={() => setIsBulkScheduleModalOpen(false)}>Cancel</Button>
-                      <Button 
+                        Cancel
+                      </button>
+                      <button 
                         type="submit" 
                         disabled={submittingEqual || equalSelectedBranchIds.length === 0 || !equalExpectedDate}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
                       >
-                        {submittingEqual 
-                          ? 'Generating Schedules...' 
-                          : equalPreview 
-                            ? `Apply Equal Distribution (${equalPreview.schedulesToCreate} Schedules)` 
-                            : 'Apply Equal Distribution'}
-                      </Button>
-                   </div>
-                 </form>
-              )}
-            </div>
+                        {submittingEqual ? 'Applying...' : 'Apply Equal Distribution'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       )}
+
+      {/* Email Modal */}
       {isEmailModalOpen && po && (
         <EmailSendModal
           isOpen={isEmailModalOpen}
           onClose={() => setIsEmailModalOpen(false)}
           documentType="Purchase Order"
-          documentNumber={po.purchaseOrderNumber || `PO-${po._id?.slice(-6).toUpperCase()}`}
+          documentNumber={poNumber}
           recipientName={po.supplierId?.name}
           defaultEmail={po.supplierId?.email}
           sendEndpoint={`/api/v1/email/purchase-order/${po._id}`}
         />
       )}
+
     </div>
-  </div>
   );
 };
 

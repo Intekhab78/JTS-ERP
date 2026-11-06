@@ -24,6 +24,8 @@ const {
 const {
   sendRegisterOtp,
   verifyOtpAndRegister,
+  sendForgotPasswordOtp,
+  resetPasswordWithOtp,
   loginCustomer,
   getCustomerProfile,
   updateCustomerProfile,
@@ -59,6 +61,8 @@ const {
 // Customer Authentication with Email OTP
 router.post('/auth/send-otp', protectApiKey, sendRegisterOtp);
 router.post('/auth/verify-otp-register', protectApiKey, verifyOtpAndRegister);
+router.post('/auth/forgot-password-otp', protectApiKey, sendForgotPasswordOtp);
+router.post('/auth/reset-password', protectApiKey, resetPasswordWithOtp);
 router.post('/auth/login', protectApiKey, loginCustomer);
 router.get('/auth/profile', protectCustomer, getCustomerProfile);
 router.put('/auth/profile', protectCustomer, updateCustomerProfile);

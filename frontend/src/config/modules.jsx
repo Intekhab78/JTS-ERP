@@ -18,7 +18,6 @@ import {
   Factory,
   Wrench,
   Globe,
-  Key,
   MapPin,
   FileCheck,
   Receipt,
@@ -33,7 +32,8 @@ import {
   CalendarDays,
   Image,
   Sliders,
-  Star
+  Star,
+  BarChart2
 } from 'lucide-react';
 
 export const ACTIONS = [
@@ -202,7 +202,7 @@ export const ERP_MODULES = [
       { id: 'ECOM_SETTINGS_MENU', name: 'Settings & Mapping', path: '/ecommerce/settings', icon: <Sliders size={16} /> },
       { id: 'ECOM_STATUS_MASTER', name: 'Status Master', path: '/ecommerce/statuses', icon: <Tag size={16} /> },
       { id: 'ECOM_LOGISTICS', name: 'Logistics Mapping', path: '/ecommerce/logistics', icon: <Truck size={16} /> },
-      { id: 'API_KEYS', name: 'API Keys', path: '/api-keys', icon: <Key size={16} /> }
+      { id: 'ECOM_REPORTS', name: 'Reports & Analytics', path: '/ecommerce/reports', icon: <BarChart2 size={16} /> }
     ]
   },
 

@@ -1,17 +1,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { Plus, Trash2, ArrowLeft, Save, FileText, Settings, Zap } from 'lucide-react';
+import { 
+  Plus, Trash2, ArrowLeft, Save, FileText, Settings, Zap, CreditCard, 
+  Building2, Sparkles, Package, Calendar, Banknote, Clock,
+  CheckCircle2, AlertCircle, X, ChevronRight, Layers, DollarSign,
+  MapPin, Hash
+} from 'lucide-react';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 export default function RFQForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { formatCurrency, currencySymbol } = useCurrency();
   const isEditing = !!id;
 
   const [suppliers, setSuppliers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [products, setProducts] = useState([]);
   const [variantsMap, setVariantsMap] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [rfqStatus, setRfqStatus] = useState('DRAFT');
   
   const [formData, setFormData] = useState({
     supplierId: '',
@@ -20,16 +30,14 @@ export default function RFQForm() {
     currency: 'AED',
     paymentTerms: '',
     notes: '',
-    items: []
+    items: [
+      { productId: '', variantId: '', variantSku: '', description: '', quantity: 1, uom: 'Piece', unitCost: 0, subTotal: 0 }
+    ]
   });
 
   const availableProducts = useMemo(() => {
-    // In Procurement / RFQ, allow requesting quotes for any product in the inventory catalog
-    return products;
+    return products || [];
   }, [products]);
-
-  const [loading, setLoading] = useState(false);
-  const [rfqStatus, setRfqStatus] = useState('DRAFT');
 
   useEffect(() => {
     fetchFormData();
@@ -56,10 +64,11 @@ export default function RFQForm() {
         axios.get('/api/v1/branches', { headers }),
         axios.get('/api/v1/inventory/products', { headers })
       ]);
-      setSuppliers(supRes.data.data || supRes.data);
-      setBranches(brRes.data);
-      setProducts(prodRes.data);
-      (prodRes.data || []).forEach(p => {
+      setSuppliers(supRes.data?.data || supRes.data || []);
+      setBranches(brRes.data || []);
+      const loadedProducts = prodRes.data || [];
+      setProducts(loadedProducts);
+      (loadedProducts || []).forEach(p => {
         if (p.hasVariants) {
           fetchVariantsForProduct(p._id);
         }
@@ -92,7 +101,7 @@ export default function RFQForm() {
         currency: rfq.currency || 'AED',
         paymentTerms: rfq.paymentTerms || '',
         notes: rfq.notes || '',
-        items: items.map(i => {
+        items: (items || []).map(i => {
           const prodId = i.productId?._id || i.productId;
           if (prodId) fetchVariantsForProduct(prodId);
           return {
@@ -100,10 +109,10 @@ export default function RFQForm() {
             variantId: i.variantId?._id || i.variantId || '',
             variantSku: i.variantSku || i.variantId?.sku || '',
             description: i.description || '',
-            quantity: i.quantity,
-            uom: i.uom,
-            unitCost: i.unitCost,
-            subTotal: i.subTotal
+            quantity: i.quantity || 1,
+            uom: i.uom || 'Piece',
+            unitCost: i.unitCost || 0,
+            subTotal: i.subTotal || 0
           };
         })
       });
@@ -119,37 +128,43 @@ export default function RFQForm() {
   const handleItemChange = (index, field, value) => {
     if (rfqStatus !== 'DRAFT') return;
     const newItems = [...formData.items];
-    const item = newItems[index];
+    const item = { ...newItems[index] };
 
     if (field === 'productId') {
-      const product = products.find(p => p._id === value);
+      item.productId = value;
       item.variantId = '';
       item.variantSku = '';
+      const product = products.find(p => p._id === value);
       if (product) {
         item.description = product.description || product.name;
-        item.uom = product.unitOfMeasure || product.uom || 'PCS';
-        item.unitCost = product.costPrice || product.purchasePrice || 0;
+        item.uom = product.unitOfMeasure || product.uom || 'Piece';
+        item.unitCost = Number(product.costPrice) || Number(product.purchasePrice) || 0;
         fetchVariantsForProduct(value);
+      } else {
+        item.description = '';
+        item.uom = 'Piece';
+        item.unitCost = 0;
       }
-    }
-
-    if (field === 'variantId') {
-      const selectedVariant = variantsMap[item.productId]?.find(v => v._id === value);
+    } else if (field === 'variantId') {
       item.variantId = value;
+      const selectedVariant = variantsMap[item.productId]?.find(v => v._id === value);
       item.variantSku = selectedVariant ? selectedVariant.sku : '';
-      if (selectedVariant && selectedVariant.purchasePrice) {
-        item.unitCost = selectedVariant.purchasePrice;
+      if (selectedVariant && (selectedVariant.costPrice || selectedVariant.purchasePrice)) {
+        item.unitCost = Number(selectedVariant.costPrice) || Number(selectedVariant.purchasePrice) || item.unitCost;
       }
-    }
-
-    if (field === 'quantity' || field === 'unitCost') {
-      item[field] = value === '' ? '' : Number(value).toString() === 'NaN' ? '' : Number(value);
-    } else if (field !== 'productId' && field !== 'variantId') {
+    } else if (field === 'quantity') {
+      item.quantity = value === '' ? '' : Number(value);
+    } else if (field === 'unitCost') {
+      item.unitCost = value === '' ? '' : Number(value);
+    } else {
       item[field] = value;
     }
 
-    item.subTotal = (Number(item.quantity) || 0) * (Number(item.unitCost) || 0);
+    const qty = Number(item.quantity) || 0;
+    const cost = Number(item.unitCost) || 0;
+    item.subTotal = Number((qty * cost).toFixed(2));
 
+    newItems[index] = item;
     setFormData({ ...formData, items: newItems });
   };
 
@@ -157,12 +172,22 @@ export default function RFQForm() {
     if (rfqStatus !== 'DRAFT') return;
     setFormData({
       ...formData,
-      items: [...formData.items, { productId: '', variantId: '', variantSku: '', description: '', quantity: 1, uom: 'PCS', unitCost: 0, subTotal: 0 }]
+      items: [
+        ...formData.items,
+        { productId: '', variantId: '', variantSku: '', description: '', quantity: 1, uom: 'Piece', unitCost: 0, subTotal: 0 }
+      ]
     });
   };
 
   const removeItem = (index) => {
     if (rfqStatus !== 'DRAFT') return;
+    if (formData.items.length === 1) {
+      setFormData({
+        ...formData,
+        items: [{ productId: '', variantId: '', variantSku: '', description: '', quantity: 1, uom: 'Piece', unitCost: 0, subTotal: 0 }]
+      });
+      return;
+    }
     const newItems = formData.items.filter((_, idx) => idx !== index);
     setFormData({ ...formData, items: newItems });
   };
@@ -173,20 +198,21 @@ export default function RFQForm() {
     if (vars.length === 0) return;
 
     const prod = availableProducts.find(p => p._id === productId);
-    const uom = prod?.uom || 'PCS';
-    const cost = prod?.costPrice || 0;
+    const uom = prod?.unitOfMeasure || prod?.uom || 'Piece';
+    const cost = Number(prod?.costPrice) || Number(prod?.purchasePrice) || 0;
 
     const newRows = vars.map(v => {
       const attrStr = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
+      const unitCost = v.costPrice != null ? Number(v.costPrice) : (v.purchasePrice != null ? Number(v.purchasePrice) : cost);
       return {
         productId,
         variantId: v._id,
         variantSku: v.sku,
-        description: attrStr || v.sku || '',
+        description: (prod?.name ? `${prod.name} - ` : '') + (attrStr || v.sku || ''),
         quantity: 1,
         uom,
-        unitCost: v.costPrice != null ? v.costPrice : cost,
-        subTotal: (v.costPrice != null ? v.costPrice : cost) * 1
+        unitCost,
+        subTotal: Number((unitCost * 1).toFixed(2))
       };
     });
 
@@ -196,19 +222,20 @@ export default function RFQForm() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (rfqStatus !== 'DRAFT') return;
+    if (e && e.preventDefault) e.preventDefault();
+    if (rfqStatus !== 'DRAFT' || submitting) return;
     
     if (formData.items.length === 0) {
       return alert('Please add at least one item');
     }
     
     // Validation
-    const invalidItems = formData.items.some(i => !i.productId || i.quantity <= 0 || i.unitCost < 0);
+    const invalidItems = formData.items.some(i => !i.productId || Number(i.quantity) <= 0 || Number(i.unitCost) < 0);
     if (invalidItems) {
-      return alert('All items must have a valid product, quantity > 0, and unit cost >= 0');
+      return alert('All items must have a selected product, quantity > 0, and unit price >= 0');
     }
 
+    setSubmitting(true);
     try {
       const headers = { Authorization: `Bearer ${localStorage.getItem('token')}` };
       if (isEditing) {
@@ -222,243 +249,479 @@ export default function RFQForm() {
     } catch (error) {
       console.error(error);
       alert(error.response?.data?.message || 'Failed to save RFQ');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const totalAmount = formData.items.reduce((sum, item) => sum + (item.subTotal || 0), 0);
+  const totalAmount = formData.items.reduce((sum, item) => sum + (Number(item.subTotal) || 0), 0);
+  const totalQuantity = formData.items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
-  if (loading) return (
-    <div className="animate-in fade-in zoom-in-95 duration-500 max-w-[1720px] mx-auto min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center py-40">
-      <div className="animate-spin rounded-none h-12 w-12 border-4 border-slate-200 border-t-blue-600 mb-4"></div>
-      <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">Fetching RFQ Parameters...</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 space-y-3">
+        <div className="w-9 h-9 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Fetching RFQ Parameters...</h2>
+      </div>
+    );
+  }
 
   return (
-    <div className="animate-in fade-in zoom-in-95 duration-500 max-w-[1720px] mx-auto pb-10 bg-[#f8fafc] min-h-screen">
+    <div className="space-y-4 pb-12 max-w-[1440px] mx-auto text-foreground">
       
-      {/* Aggressive Tech Header */}
-      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl mt-4 sm:mx-4 lg:mx-8">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
-        
-        <div className="relative z-10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-          <div className="flex items-start gap-4">
-            <button onClick={() => navigate('/purchases/rfqs')} className="p-2.5 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 mt-1">
-              <ArrowLeft size={20} className="text-slate-300" />
+      {/* ========================================================================= */}
+      {/* 1. HERO HEADER WITH BACK BUTTON & PRIMARY ACTIONS (ONLY HERE - NO DUPLICATE) */}
+      {/* ========================================================================= */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 p-4 sm:p-5 text-white shadow-md border border-blue-900/40">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+          
+          {/* Left: Back Button + Title */}
+          <div className="flex items-start gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate('/purchases/rfqs')}
+              className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/20 flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md shrink-0 mt-0.5"
+              title="Back to RFQs List"
+            >
+              <ArrowLeft size={16} />
             </button>
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
-                  <FileText size={18} className="text-white" />
-                </div>
-                <h1 className="text-3xl font-black tracking-tight text-white uppercase">{isEditing ? 'Edit Request for Quotation' : 'New Request for Quotation'}</h1>
+
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-black uppercase tracking-wider">
+                  <Sparkles size={11} className="text-blue-400" />
+                  Procurement Sourcing · RFQ Matrix
+                </span>
+
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 shadow-2xs">
+                  STATUS: {rfqStatus}
+                </span>
               </div>
-              <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl">
-                PROCUREMENT COMMAND • VENDOR BIDDING & SOURCING
+
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-white truncate">
+                {isEditing ? 'Edit Request for Quotation' : 'New Request for Quotation'}
+              </h1>
+
+              <p className="text-xs text-blue-100/75 leading-snug">
+                Procurement Command &bull; Vendor Bidding, Price Inquiry & Sourcing Matrix
               </p>
             </div>
           </div>
-          
-          <div className="flex items-center gap-3 bg-[#111827] border border-slate-800 p-2.5 rounded-lg shadow-inner">
-            <div className="h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse"></div>
-            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">STATUS: {rfqStatus}</span>
+
+          {/* Right: Only One Set of Primary Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+            <button
+              type="button"
+              onClick={() => navigate('/purchases/rfqs')}
+              className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/20 text-xs font-bold transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md"
+            >
+              Abort
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting || rfqStatus !== 'DRAFT'}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md shadow-blue-600/30 flex items-center gap-1.5 transition-all duration-200 cursor-pointer disabled:opacity-50 hover:shadow-lg"
+            >
+              <Save size={14} />
+              {submitting ? 'Deploying...' : isEditing ? 'Update RFQ' : 'Deploy RFQ'}
+            </button>
           </div>
+
         </div>
+
+        {/* Ambient subtle light */}
+        <div className="absolute right-0 top-0 w-80 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 mt-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
         
-        {/* Core Configuration Card */}
-        <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden group hover:border-blue-300 transition-colors sm:mx-4 lg:mx-8">
-          <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-            <Settings size={18} className="text-blue-500" />
-            <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Primary Parameters</h3>
+        {/* ========================================================================= */}
+        {/* 2. PRIMARY PARAMETERS CARD (E-Commerce Order Processing Card Style)        */}
+        {/* ========================================================================= */}
+        <div className="rounded-2xl bg-card border border-border/80 p-4 sm:p-5 shadow-2xs">
+          <div className="flex items-center justify-between pb-3 mb-4 border-b border-border/70">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                <Settings size={15} />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-foreground">
+                Primary Parameters
+              </h3>
+            </div>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-muted text-muted-foreground uppercase tracking-wider">
+              Sourcing Configuration
+            </span>
           </div>
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Supplier / Vendor *</label>
-              <select required disabled={rfqStatus !== 'DRAFT'} value={formData.supplierId} onChange={e => setFormData({...formData, supplierId: e.target.value})} className="flex h-11 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors outline-none disabled:opacity-50">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            
+            {/* Supplier / Vendor */}
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Building2 size={12} className="text-blue-500" />
+                Supplier / Vendor <span className="text-rose-500">*</span>
+              </label>
+              <select
+                required
+                disabled={rfqStatus !== 'DRAFT'}
+                value={formData.supplierId}
+                onChange={e => setFormData({ ...formData, supplierId: e.target.value })}
+                className="w-full h-10 px-3.5 bg-background border border-border/80 rounded-xl text-xs sm:text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-blue-400 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+              >
                 <option value="">-- SELECT TARGET SUPPLIER --</option>
-                {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                {suppliers.map(s => (
+                  <option key={s._id} value={s._id}>
+                    {s.name} {s.phone ? `(${s.phone})` : ''}
+                  </option>
+                ))}
               </select>
             </div>
-            
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Receiving Branch *</label>
-              <select required disabled={rfqStatus !== 'DRAFT'} value={formData.branchId} onChange={e => setFormData({...formData, branchId: e.target.value})} className="flex h-11 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors outline-none disabled:opacity-50">
+
+            {/* Receiving Branch */}
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <MapPin size={12} className="text-emerald-500" />
+                Receiving Branch <span className="text-rose-500">*</span>
+              </label>
+              <select
+                required
+                disabled={rfqStatus !== 'DRAFT'}
+                value={formData.branchId}
+                onChange={e => setFormData({ ...formData, branchId: e.target.value })}
+                className="w-full h-10 px-3.5 bg-background border border-border/80 rounded-xl text-xs sm:text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-blue-400 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+              >
                 <option value="">-- SELECT TARGET BRANCH --</option>
-                {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                {branches.map(b => (
+                  <option key={b._id} value={b._id}>
+                    {b.name}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Expected Delivery Date</label>
-              <input type="date" disabled={rfqStatus !== 'DRAFT'} value={formData.expectedDate} onChange={e => setFormData({...formData, expectedDate: e.target.value})} className="flex h-11 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors outline-none disabled:opacity-50 font-mono" />
+            {/* Expected Delivery Date */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Calendar size={12} className="text-amber-500" />
+                Expected Delivery Date
+              </label>
+              <input
+                type="date"
+                disabled={rfqStatus !== 'DRAFT'}
+                value={formData.expectedDate}
+                onChange={e => setFormData({ ...formData, expectedDate: e.target.value })}
+                className="w-full h-10 px-3 bg-background border border-border/80 rounded-xl text-xs sm:text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-blue-400 transition-all shadow-2xs disabled:opacity-50"
+              />
             </div>
 
-            <div>
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Payment Terms</label>
-              <input type="text" disabled={rfqStatus !== 'DRAFT'} placeholder="E.G. NET 30" value={formData.paymentTerms} onChange={e => setFormData({...formData, paymentTerms: e.target.value})} className="flex h-11 w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors outline-none disabled:opacity-50 uppercase" />
+            {/* Payment Terms */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <CreditCard size={12} className="text-indigo-500" />
+                Payment Terms
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. NET 30, COD"
+                disabled={rfqStatus !== 'DRAFT'}
+                value={formData.paymentTerms}
+                onChange={e => setFormData({ ...formData, paymentTerms: e.target.value })}
+                className="w-full h-10 px-3 bg-background border border-border/80 rounded-xl text-xs sm:text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-blue-400 transition-all shadow-2xs uppercase disabled:opacity-50"
+              />
             </div>
-            
-            <div className="md:col-span-2">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Internal Notes & Terms</label>
-              <textarea rows={3} disabled={rfqStatus !== 'DRAFT'} value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="flex w-full rounded-md border-2 border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900 shadow-sm hover:border-blue-400 focus:border-blue-600 focus:ring-0 transition-colors outline-none disabled:opacity-50" placeholder="Specify any strict conditions, SLAs, or internal operational notes..."></textarea>
+
+            {/* Currency */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <DollarSign size={12} className="text-blue-500" />
+                Currency
+              </label>
+              <select
+                disabled={rfqStatus !== 'DRAFT'}
+                value={formData.currency}
+                onChange={e => setFormData({ ...formData, currency: e.target.value })}
+                className="w-full h-10 px-3 bg-background border border-border/80 rounded-xl text-xs sm:text-sm font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-blue-400 transition-all cursor-pointer shadow-2xs disabled:opacity-50 font-bold"
+              >
+                <option value="AED">AED (UAE Dirham)</option>
+                <option value="USD">USD (US Dollar)</option>
+                <option value="EUR">EUR (Euro)</option>
+                <option value="SAR">SAR (Saudi Riyal)</option>
+                <option value="INR">INR (Indian Rupee)</option>
+              </select>
             </div>
+
+            {/* Matrix Scope Pill */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Layers size={12} className="text-purple-500" />
+                Matrix Scope
+              </label>
+              <div className="h-10 px-3 bg-muted/40 border border-border/80 rounded-xl flex items-center justify-between text-xs font-bold text-foreground">
+                <span>{formData.items.length} Product Lines</span>
+                <span className="text-blue-600 font-bold">{totalQuantity} Total Units</span>
+              </div>
+            </div>
+
+            {/* Internal Notes */}
+            <div className="space-y-1.5 md:col-span-2 lg:col-span-4">
+              <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
+                Internal Notes & Terms
+              </label>
+              <textarea
+                rows={2}
+                disabled={rfqStatus !== 'DRAFT'}
+                value={formData.notes}
+                onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                className="w-full px-3 py-2 bg-background border border-border/80 rounded-xl text-xs sm:text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 hover:border-blue-400 transition-all shadow-2xs resize-none disabled:opacity-50"
+                placeholder="Specify any strict conditions, SLAs, delivery instructions or vendor bidding remarks..."
+              />
+            </div>
+
           </div>
         </div>
 
-        {/* Matrix Card */}
-        <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden group hover:border-blue-300 transition-colors sm:mx-4 lg:mx-8">
-          <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+        {/* ========================================================================= */}
+        {/* 3. REQUISITION MATRIX CARD (PRODUCTS TABLE)                              */}
+        {/* ========================================================================= */}
+        <div className="rounded-2xl bg-card border border-border/80 shadow-2xs overflow-hidden">
+          
+          {/* Card Header Bar */}
+          <div className="p-3.5 sm:p-4 border-b border-border/80 bg-muted/20 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Zap size={18} className="text-blue-500" />
-              <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Requisition Matrix</h3>
+              <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                <Zap size={15} />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-foreground">
+                Requisition Matrix
+              </h3>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 uppercase tracking-wider">
+                {formData.items.length} Lines Included
+              </span>
             </div>
+
             {rfqStatus === 'DRAFT' && (
-              <button type="button" onClick={addItem} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest rounded hover:bg-slate-800 transition-colors shadow-sm">
-                <Plus size={14} strokeWidth={3} /> Add Matrix Row
+              <button
+                type="button"
+                onClick={addItem}
+                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer hover:shadow-md"
+              >
+                <Plus size={14} /> Add Matrix Row
               </button>
             )}
           </div>
 
+          {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left whitespace-nowrap">
-              <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white border-b-2 border-slate-100">
+            <table className="w-full text-left whitespace-nowrap text-xs">
+              <thead className="text-[10px] font-black text-muted-foreground uppercase tracking-wider bg-muted/10 border-b border-border/80">
                 <tr>
-                  <th className="px-6 py-4 min-w-[220px]">Product / Designation *</th>
-                  <th className="px-6 py-4 min-w-[180px]">Variant / Spec</th>
-                  <th className="px-6 py-4 min-w-[180px]">Description</th>
-                  <th className="px-6 py-4 w-28">Quantity *</th>
-                  <th className="px-6 py-4 w-24">UOM</th>
-                  <th className="px-6 py-4 w-36">Unit Price *</th>
-                  <th className="px-6 py-4 w-36">Subtotal</th>
-                  <th className="px-6 py-4 w-16 text-center">CMD</th>
+                  <th className="px-4 py-3 min-w-[240px]">Product / Designation *</th>
+                  <th className="px-3 py-3 min-w-[190px]">Variant / Spec</th>
+                  <th className="px-3 py-3 min-w-[180px]">Description</th>
+                  <th className="px-3 py-3 w-28 text-center">Quantity *</th>
+                  <th className="px-3 py-3 w-24 text-center">UOM</th>
+                  <th className="px-3 py-3 w-36 text-right">Unit Price *</th>
+                  <th className="px-4 py-3 w-36 text-right">Subtotal</th>
+                  <th className="px-3 py-3 w-16 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-sm">
-                {formData.items.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50 group/row">
-                    <td className="p-2 pl-4">
-                      <select required disabled={rfqStatus !== 'DRAFT' || !formData.branchId} value={item.productId} onChange={e => handleItemChange(idx, 'productId', e.target.value)} className="w-full h-10 px-2 border-2 border-slate-200 bg-white rounded text-sm font-bold text-slate-800 focus:border-blue-500 outline-none disabled:opacity-50 hover:border-slate-300">
-                        <option value="">{formData.branchId ? '-- SELECT PRODUCT --' : '-- SELECT RECEIVING BRANCH FIRST --'}</option>
-                        {availableProducts.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-                      </select>
-                    </td>
-                    <td className="p-2">
-                      {!item.productId ? (
-                        <span className="text-xs text-slate-400 italic px-2">Select product first</span>
-                      ) : variantsMap[item.productId]?.length > 0 ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Variant</span>
-                            {rfqStatus === 'DRAFT' && (
-                              <button
-                                type="button"
-                                onClick={() => handlePopulateAllVariants(item.productId, idx)}
-                                className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-1.5 py-0.5 rounded border border-blue-200 transition-colors cursor-pointer"
-                                title="Populate rows for all variants of this product"
-                              >
-                                ⚡ All Variants
-                              </button>
-                            )}
+              <tbody className="divide-y divide-border/60">
+                {formData.items.map((item, idx) => {
+                  const prod = products.find(p => p._id === item.productId);
+                  const hasVars = prod?.hasVariants || (variantsMap[item.productId]?.length > 0);
+
+                  return (
+                    <tr key={idx} className="hover:bg-muted/20 transition-colors">
+                      
+                      {/* Product Selector */}
+                      <td className="px-4 py-2.5">
+                        <select
+                          required
+                          disabled={rfqStatus !== 'DRAFT'}
+                          value={item.productId || ''}
+                          onChange={e => handleItemChange(idx, 'productId', e.target.value)}
+                          className="w-full h-9 px-2.5 bg-background border border-border/80 rounded-xl text-xs font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500 hover:border-blue-400 transition-colors cursor-pointer"
+                        >
+                          <option value="">-- SELECT PRODUCT --</option>
+                          {availableProducts.map(p => (
+                            <option key={p._id} value={p._id}>
+                              {p.name} {p.sku ? `[${p.sku}]` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      {/* Variant / Spec */}
+                      <td className="px-3 py-2.5">
+                        {!item.productId ? (
+                          <span className="text-[11px] text-muted-foreground italic px-1">Select product first</span>
+                        ) : variantsMap[item.productId]?.length > 0 ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-wider">Variant</span>
+                              {rfqStatus === 'DRAFT' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handlePopulateAllVariants(item.productId, idx)}
+                                  className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-700 bg-blue-500/10 hover:bg-blue-500/20 px-1.5 py-0.5 rounded-md border border-blue-500/20 transition-colors cursor-pointer"
+                                  title="Add rows for all variants of this product"
+                                >
+                                  ⚡ All Variants
+                                </button>
+                              )}
+                            </div>
+                            <select
+                              disabled={rfqStatus !== 'DRAFT'}
+                              value={item.variantId || ''}
+                              onChange={e => handleItemChange(idx, 'variantId', e.target.value)}
+                              className="w-full h-8 px-2 bg-background border border-border/80 rounded-lg text-[11px] font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500 hover:border-blue-400 transition-colors cursor-pointer"
+                            >
+                              <option value="">-- BASE PRODUCT --</option>
+                              {variantsMap[item.productId].map(v => {
+                                const attrStr = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
+                                const label = v.title ? `${v.title} (${v.sku})` : (attrStr ? `${attrStr} (${v.sku})` : v.sku);
+                                return <option key={v._id} value={v._id}>{label}</option>;
+                              })}
+                            </select>
                           </div>
-                          <select
+                        ) : hasVars ? (
+                          <div className="flex items-center gap-1.5 px-2 text-[11px] text-blue-600 font-medium">
+                            <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+                            <span>Loading variants...</span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground px-1">No variants</span>
+                        )}
+                      </td>
+
+                      {/* Description */}
+                      <td className="px-3 py-2.5">
+                        <input
+                          type="text"
+                          disabled={rfqStatus !== 'DRAFT'}
+                          value={item.description || ''}
+                          onChange={e => handleItemChange(idx, 'description', e.target.value)}
+                          className="w-full h-9 px-2.5 bg-background border border-border/80 rounded-xl text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                          placeholder="Specification / description..."
+                        />
+                      </td>
+
+                      {/* Quantity */}
+                      <td className="px-3 py-2.5 text-center">
+                        <input
+                          type="number"
+                          min="1"
+                          disabled={rfqStatus !== 'DRAFT'}
+                          required
+                          value={item.quantity}
+                          onChange={e => handleItemChange(idx, 'quantity', e.target.value)}
+                          className="w-20 h-9 px-2 bg-background border border-border/80 rounded-xl text-xs font-black text-center text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors mx-auto block"
+                        />
+                      </td>
+
+                      {/* UOM */}
+                      <td className="px-3 py-2.5 text-center">
+                        <span className="inline-block px-2 py-1 rounded-md bg-muted text-[11px] font-black text-muted-foreground uppercase">
+                          {item.uom || 'Piece'}
+                        </span>
+                      </td>
+
+                      {/* Unit Price */}
+                      <td className="px-3 py-2.5 text-right">
+                        <div className="relative inline-block w-28">
+                          <span className="absolute left-2.5 top-2.5 text-muted-foreground text-[10px] font-bold">
+                            {formData.currency}
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
                             disabled={rfqStatus !== 'DRAFT'}
-                            value={item.variantId || ''}
-                            onChange={e => handleItemChange(idx, 'variantId', e.target.value)}
-                            className="w-full h-10 px-2 border-2 border-slate-200 bg-white rounded text-xs font-bold text-slate-800 focus:border-blue-500 outline-none disabled:opacity-50 hover:border-slate-300"
+                            required
+                            value={item.unitCost}
+                            onChange={e => handleItemChange(idx, 'unitCost', e.target.value)}
+                            className="w-full h-9 pl-9 pr-2 bg-background border border-border/80 rounded-xl text-xs font-black text-right text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                          />
+                        </div>
+                      </td>
+
+                      {/* Subtotal */}
+                      <td className="px-4 py-2.5 text-right font-black text-foreground text-xs">
+                        {formData.currency} {Number(item.subTotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-3 py-2.5 text-center">
+                        {rfqStatus === 'DRAFT' && (
+                          <button
+                            type="button"
+                            onClick={() => removeItem(idx)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                            title="Remove row"
                           >
-                            <option value="">-- BASE PRODUCT --</option>
-                            {variantsMap[item.productId].map(v => {
-                              const attrStr = Object.entries(v.attributes || {}).map(([k, val]) => `${k}: ${val}`).join(', ');
-                              const label = v.title ? `${v.title} (${v.sku})` : (attrStr ? `${attrStr} (${v.sku})` : v.sku);
-                              return <option key={v._id} value={v._id}>{label}</option>;
-                            })}
-                          </select>
-                        </div>
-                      ) : products.find(p => p._id === item.productId)?.hasVariants ? (
-                        <div className="flex items-center gap-1.5 px-2 text-xs text-blue-600 font-medium">
-                          <span className="inline-block w-2 h-2 rounded-full bg-blue-500 animate-ping" />
-                          <span>Loading variants...</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400 font-mono px-2">No variants</span>
-                      )}
-                    </td>
-                    <td className="p-2">
-                      <input type="text" disabled={rfqStatus !== 'DRAFT'} value={item.description} onChange={e => handleItemChange(idx, 'description', e.target.value)} className="w-full h-10 px-2 border-2 border-slate-200 bg-white rounded text-sm text-slate-700 focus:border-blue-500 outline-none disabled:opacity-50 hover:border-slate-300" placeholder="Variant/Specs" />
-                    </td>
-                    <td className="p-2">
-                      <input type="number" min="1" disabled={rfqStatus !== 'DRAFT'} required value={item.quantity} onChange={e => handleItemChange(idx, 'quantity', e.target.value)} className="w-full h-10 px-2 border-2 border-slate-200 bg-white rounded text-sm font-bold font-mono text-slate-800 focus:border-blue-500 outline-none disabled:opacity-50 hover:border-slate-300" />
-                    </td>
-                    <td className="p-2">
-                      <input type="text" disabled={rfqStatus !== 'DRAFT'} value={item.uom} onChange={e => handleItemChange(idx, 'uom', e.target.value)} className="w-full h-10 px-2 border-2 border-slate-200 bg-slate-100 rounded text-xs font-bold text-slate-500 uppercase focus:border-blue-500 outline-none disabled:opacity-50" readOnly title="Unit of Measure (Auto-filled)" />
-                    </td>
-                    <td className="p-2 relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">{formData.currency}</span>
-                      <input type="number" min="0" step="0.01" disabled={rfqStatus !== 'DRAFT'} required value={item.unitCost} onChange={e => handleItemChange(idx, 'unitCost', e.target.value)} className="w-full h-10 pl-10 pr-2 border-2 border-slate-200 bg-white rounded text-sm font-bold font-mono text-slate-800 focus:border-blue-500 outline-none disabled:opacity-50 hover:border-slate-300" />
-                    </td>
-                    <td className="p-2 px-6 font-bold text-slate-800 font-mono text-right bg-slate-50/50">
-                      {formData.currency} {item.subTotal.toFixed(2)}
-                    </td>
-                    <td className="p-2 text-center">
-                      {rfqStatus === 'DRAFT' && (
-                        <button type="button" onClick={() => removeItem(idx)} className="text-slate-400 hover:text-white hover:bg-rose-500 p-2 rounded transition-colors" title="Remove Line">
-                          <Trash2 size={16} strokeWidth={2.5} />
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </td>
+
+                    </tr>
+                  );
+                })}
+
                 {formData.items.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="p-12 text-center text-slate-400 border-2 border-dashed border-slate-200 bg-slate-50 m-2 rounded-lg">
-                       <div className="flex flex-col items-center justify-center gap-2">
-                         <Zap size={32} className="text-slate-300 mb-2" />
-                         <p className="text-xs font-bold tracking-widest uppercase">Matrix Empty</p>
-                         <p className="text-xs font-medium">Inject product rows using the Add button above.</p>
-                       </div>
+                    <td colSpan="8" className="p-10 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <Package size={30} className="text-muted-foreground/40 mb-1" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Matrix is empty</span>
+                        <button
+                          type="button"
+                          onClick={addItem}
+                          className="text-xs text-blue-600 font-bold hover:underline"
+                        >
+                          + Add First Product Row
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          
-          <div className="bg-slate-800 text-white p-5 flex justify-end">
-            <div className="w-full max-w-sm">
-              <div className="flex justify-between items-center text-lg">
-                <span className="text-xs font-black tracking-widest uppercase text-slate-400">Estimated Commitment</span>
-                <span className="text-2xl font-black font-mono tracking-tighter text-emerald-400">
-                  <span className="text-sm text-emerald-500 mr-1">{formData.currency}</span>
-                  {totalAmount.toFixed(2)}
+
+          {/* ========================================================================= */}
+          {/* BOTTOM SUMMARY FOOTER (CLEAN TOTAL DISPLAY - NO DUPLICATE BUTTONS)         */}
+          {/* ========================================================================= */}
+          <div className="p-4 bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 text-white flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-blue-900/40">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-white/10 text-blue-300 flex items-center justify-center shrink-0">
+                <Banknote size={18} />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-200/70 block">
+                  Estimated Sourcing Commitment
+                </span>
+                <span className="text-xs text-slate-300 font-medium">
+                  {formData.items.length} Product Line{formData.items.length !== 1 ? 's' : ''} &bull; {totalQuantity} Total Units
                 </span>
               </div>
             </div>
+
+            <div className="flex items-center gap-4 text-right">
+              <div>
+                <span className="text-[10px] font-bold text-blue-300 uppercase block">
+                  Total Valuation ({formData.currency})
+                </span>
+                <div className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  {formData.currency} {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+              </div>
+            </div>
           </div>
+
         </div>
-        
-        {/* Footer Actions */}
-        <div className="flex justify-end gap-3 sm:mx-4 lg:mx-8 pt-4">
-          <button 
-            type="button" 
-            onClick={() => navigate('/purchases/rfqs')}
-            className="px-6 py-3 bg-white border-2 border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-widest rounded hover:bg-slate-100 transition-colors"
-          >
-            {rfqStatus === 'DRAFT' ? 'Abort' : 'Back'}
-          </button>
-          {rfqStatus === 'DRAFT' && (
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white text-xs font-bold uppercase tracking-widest rounded hover:bg-blue-500 shadow-md transition-colors disabled:opacity-50"
-            >
-              <Save size={16} /> {isEditing ? 'Commit Overrides' : 'Deploy RFQ'}
-            </button>
-          )}
-        </div>
+
       </form>
     </div>
   );

@@ -352,7 +352,7 @@ const sendDeliveryNoteEmail = async ({ deliveryNote, recipientEmail, customMessa
 };
 
 // 5. Purchase Order (PO) Email
-const sendPurchaseOrderEmail = async ({ po, recipientEmail, customMessage = '', companyName = 'JTS ERP' }) => {
+const sendPurchaseOrderEmail = async ({ po, recipientEmail, customMessage = '', subject = '', companyName = 'JTS ERP' }) => {
   const to = recipientEmail || po.supplierId?.email || po.supplierSnapshot?.email;
   if (!to) throw new Error('No valid supplier email address found for this Purchase Order');
 
@@ -398,7 +398,7 @@ const sendPurchaseOrderEmail = async ({ po, recipientEmail, customMessage = '', 
 
   return sendEmail({
     to,
-    subject: `Purchase Order #${po.poNumber || po.purchaseOrderNumber} - ${companyName}`,
+    subject: subject || `Purchase Order #${po.poNumber || po.purchaseOrderNumber} - ${companyName}`,
     html: wrapEmailTemplate({ title: `Purchase Order #${po.poNumber || po.purchaseOrderNumber}`, contentHtml, companyName }),
     text: `Purchase Order #${po.poNumber || po.purchaseOrderNumber} from ${companyName}. Total: ${po.grandTotal || po.totalAmount}.`
   });
@@ -585,9 +585,53 @@ const sendCustomerOtpEmail = async ({ to, otp, customerName = 'Customer', compan
   });
 };
 
+// 10b. E-Commerce Customer Password Reset OTP Email
+const sendCustomerPasswordResetOtpEmail = async ({ to, otp, customerName = 'Customer', companyName = 'JTS Store' }) => {
+  if (!to) throw new Error('Recipient email is required');
+
+  const contentHtml = `
+    <p style="font-size:15px; color:#1e293b; margin-bottom:16px;">Hello <strong>${customerName}</strong>,</p>
+    <p style="font-size:14px; color:#475569; line-height:1.6; margin-bottom:20px;">
+      We received a request to reset the password for your account at <strong>${companyName}</strong>. Please use the following 6-digit verification code to reset your password:
+    </p>
+
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0;">
+      <tr>
+        <td align="center">
+          <div style="display: inline-block; background-color: #eff6ff; border: 2px dashed #2563eb; border-radius: 12px; padding: 20px 40px; text-align: center;">
+            <div style="font-size: 12px; font-weight: 700; color: #1d4ed8; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px;">
+              Password Reset Code (OTP)
+            </div>
+            <div style="font-size: 42px; font-weight: 900; letter-spacing: 12px; color: #1e40af; font-family: Consolas, 'Courier New', monospace; line-height: 1;">
+              ${otp}
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-top: 10px;">
+              Valid for 15 minutes &bull; Keep this code confidential
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size:13px; color:#64748b; line-height:1.5;">
+      If you did not request a password reset, please ignore this email or reach out to customer support immediately. Your password will remain unchanged.
+    </p>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Password Reset Verification Code: ${otp} - ${companyName}`,
+    html: wrapEmailTemplate({ title: 'Reset Your Account Password', preheader: `Your reset code is ${otp}`, contentHtml, companyName }),
+    text: `Hello ${customerName},\n\nYour password reset code for ${companyName} is: ${otp}\n\nIt is valid for 15 minutes. Enter this code to set a new password.\n\nThank you,\n${companyName}`
+  });
+};
+
 // 11. E-Commerce Customer Order Confirmation Email
 const sendOrderConfirmationEmail = async ({ to, order, items = [], customerName = 'Customer', trackingUrl, companyName = 'JTS Store' }) => {
   if (!to) throw new Error('Recipient email is required');
+
+  const orderRef = order?.orderNumber || (order?._id ? order._id.toString().slice(-6).toUpperCase() : 'ORDER');
+  const totalAmount = Number(order?.totalAmount || order?.total || 0).toFixed(2);
 
   const itemsHtml = items.map(item => `
     <tr>
@@ -599,7 +643,7 @@ const sendOrderConfirmationEmail = async ({ to, order, items = [], customerName 
         ${item.quantity}
       </td>
       <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; text-align: right; font-weight: 600; color: #1e293b;">
-        $${Number(item.subTotal || (item.unitPrice * item.quantity) || 0).toFixed(2)}
+        ${Number(item.subTotal || (item.unitPrice * item.quantity) || 0).toFixed(2)}
       </td>
     </tr>
   `).join('');
@@ -607,13 +651,13 @@ const sendOrderConfirmationEmail = async ({ to, order, items = [], customerName 
   const contentHtml = `
     <p style="font-size:15px; color:#1e293b; margin-bottom:16px;">Hello <strong>${customerName}</strong>,</p>
     <p style="font-size:14px; color:#475569; line-height:1.6; margin-bottom:20px;">
-      Thank you for shopping with <strong>${companyName}</strong>! Your order <strong>#${order._id.toString().slice(-6).toUpperCase()}</strong> has been booked successfully.
+      Thank you for shopping with <strong>${companyName}</strong>! Your order <strong>#${orderRef}</strong> has been booked successfully.
     </p>
 
     <div style="background: #f1f5f9; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
       <div style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Order Summary</div>
-      <div style="font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 4px;">Total Amount: $${Number(order.totalAmount || 0).toFixed(2)}</div>
-      <div style="font-size: 13px; color: #475569; margin-top: 4px;">Payment Method: ${order.paymentMethod || 'Online'} | Status: Booked</div>
+      <div style="font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 4px;">Total Amount: ${totalAmount}</div>
+      <div style="font-size: 13px; color: #475569; margin-top: 4px;">Payment Method: ${order?.paymentMethod || 'Online'} | Status: Booked</div>
     </div>
 
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
@@ -629,7 +673,7 @@ const sendOrderConfirmationEmail = async ({ to, order, items = [], customerName 
       </tbody>
     </table>
 
-    ${order.shippingAddress ? `
+    ${order?.shippingAddress ? `
       <div style="background: #fafafa; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin-bottom: 24px;">
         <strong style="font-size: 13px; color: #334155;">Shipping Address:</strong>
         <p style="font-size: 13px; color: #64748b; margin: 4px 0 0 0; line-height: 1.5;">${order.shippingAddress}</p>
@@ -647,9 +691,9 @@ const sendOrderConfirmationEmail = async ({ to, order, items = [], customerName 
 
   return sendEmail({
     to,
-    subject: `Order Confirmation #${order._id.toString().slice(-6).toUpperCase()} - ${companyName}`,
-    html: wrapEmailTemplate({ title: 'Order Confirmed!', preheader: `Your order #${order._id.toString().slice(-6).toUpperCase()} has been placed`, contentHtml, companyName }),
-    text: `Your order #${order._id.toString().slice(-6).toUpperCase()} for $${order.totalAmount} has been placed at ${companyName}.`
+    subject: `Order Confirmation #${orderRef} - ${companyName}`,
+    html: wrapEmailTemplate({ title: 'Order Confirmed!', preheader: `Your order #${orderRef} has been placed`, contentHtml, companyName }),
+    text: `Your order #${orderRef} for ${totalAmount} has been placed at ${companyName}.`
   });
 };
 
@@ -657,10 +701,12 @@ const sendOrderConfirmationEmail = async ({ to, order, items = [], customerName 
 const sendOrderStatusUpdateEmail = async ({ to, order, statusName, statusNote, trackingUrl, carrierName, trackingNumber, companyName = 'JTS Store' }) => {
   if (!to) throw new Error('Recipient email is required');
 
+  const orderRef = order?.orderNumber || (order?._id ? order._id.toString().slice(-6).toUpperCase() : 'ORDER');
+
   const contentHtml = `
-    <p style="font-size:15px; color:#1e293b; margin-bottom:16px;">Hello <strong>${order.customerName || 'Customer'}</strong>,</p>
+    <p style="font-size:15px; color:#1e293b; margin-bottom:16px;">Hello <strong>${order?.customerName || 'Customer'}</strong>,</p>
     <p style="font-size:14px; color:#475569; line-height:1.6; margin-bottom:20px;">
-      There is an update on your order <strong>#${order._id.toString().slice(-6).toUpperCase()}</strong>.
+      There is an update on your order <strong>#${orderRef}</strong>.
     </p>
 
     <div style="background: #eff6ff; border-left: 4px solid #3b82f6; border-radius: 6px; padding: 18px; margin: 24px 0;">
@@ -689,9 +735,77 @@ const sendOrderStatusUpdateEmail = async ({ to, order, statusName, statusNote, t
 
   return sendEmail({
     to,
-    subject: `Order #${order._id.toString().slice(-6).toUpperCase()} Status Update: ${statusName} - ${companyName}`,
+    subject: `Order #${orderRef} Status Update: ${statusName} - ${companyName}`,
     html: wrapEmailTemplate({ title: `Order Status: ${statusName}`, preheader: `Status updated to ${statusName}`, contentHtml, companyName }),
-    text: `Your order #${order._id.toString().slice(-6).toUpperCase()} status is now: ${statusName}.`
+    text: `Your order #${orderRef} status is now: ${statusName}.`
+  });
+};
+
+// 12b. User Creation Welcome Email (ERP Staff)
+const sendUserWelcomeEmail = async ({ to, userName, email, password, roleName = 'Staff User', companyName = 'JTS ERP', loginUrl = 'http://localhost:5173/login' }) => {
+  if (!to) throw new Error('Recipient email is required');
+
+  const contentHtml = `
+    <p style="font-size:15px; color:#1e293b; margin-bottom:16px;">Hello <strong>${userName}</strong>,</p>
+    <p style="font-size:14px; color:#475569; line-height:1.6; margin-bottom:20px;">
+      Welcome to <strong>${companyName}</strong>! Your ERP user account has been successfully created. You can now log in to the portal using the credentials below:
+    </p>
+
+    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 20px; margin: 20px 0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <tr>
+          <td style="padding: 6px 0; color: #64748b; width: 140px;"><strong>Username / Email:</strong></td>
+          <td style="padding: 6px 0; color: #1e293b; font-weight: 700;">${email}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #64748b;"><strong>Password:</strong></td>
+          <td style="padding: 6px 0; color: #1d4ed8; font-family: monospace; font-size: 15px; font-weight: 800;">${password}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 0; color: #64748b;"><strong>Assigned Role:</strong></td>
+          <td style="padding: 6px 0; color: #1e293b;">${roleName}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; display: inline-block;">
+        Log In to JTS ERP
+      </a>
+    </div>
+
+    <p style="font-size: 12px; color: #94a3b8; line-height: 1.5;">
+      For security reasons, we recommend changing your password after your first login.
+    </p>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Your ERP Account Login Credentials - ${companyName}`,
+    html: wrapEmailTemplate({ title: 'Welcome to JTS ERP', preheader: `Your account credentials for ${companyName}`, contentHtml, companyName }),
+    text: `Hello ${userName},\n\nWelcome to ${companyName}. Your ERP account has been created.\n\nEmail: ${email}\nPassword: ${password}\nLogin: ${loginUrl}\n\nPlease change your password upon first login.\n\nThank you,\n${companyName}`
+  });
+};
+
+// 12c. E-Commerce Customer Welcome Email (Post verification)
+const sendCustomerWelcomeEmail = async ({ to, customerName = 'Customer', companyName = 'JTS Store' }) => {
+  if (!to) throw new Error('Recipient email is required');
+
+  const contentHtml = `
+    <p style="font-size:15px; color:#1e293b; margin-bottom:16px;">Hello <strong>${customerName}</strong>,</p>
+    <p style="font-size:14px; color:#475569; line-height:1.6; margin-bottom:20px;">
+      Welcome to <strong>${companyName}</strong>! Your customer account has been registered and verified successfully.
+    </p>
+    <p style="font-size:14px; color:#475569; line-height:1.6; margin-bottom:20px;">
+      You can now track orders in real-time, save multiple delivery addresses, and enjoy faster checkout on our storefront.
+    </p>
+  `;
+
+  return sendEmail({
+    to,
+    subject: `Welcome to ${companyName}! Account Created Successfully`,
+    html: wrapEmailTemplate({ title: 'Welcome to Our Store!', preheader: `Welcome to ${companyName}`, contentHtml, companyName }),
+    text: `Hello ${customerName},\n\nWelcome to ${companyName}! Your account has been verified and registered successfully.\n\nThank you,\n${companyName}`
   });
 };
 
@@ -772,6 +886,9 @@ module.exports = {
   sendLeadEmail,
   sendPasswordResetEmail,
   sendCustomerOtpEmail,
+  sendCustomerPasswordResetOtpEmail,
+  sendCustomerWelcomeEmail,
+  sendUserWelcomeEmail,
   sendOrderConfirmationEmail,
   sendOrderStatusUpdateEmail,
   sendReturnPickupOtpEmail

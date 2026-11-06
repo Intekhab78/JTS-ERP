@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useCustomerAuth } from '../context/CustomerAuthContext';
 import { Mail, Lock, Eye, EyeOff, ShoppingBag, ArrowRight, ShieldCheck, Check } from 'lucide-react';
+import { AuthModal } from '../components/auth/AuthModal';
 
 export const LoginPage = () => {
   const { login, sendRegistrationOtp, verifyOtpAndRegister, isAuthenticated } = useCustomerAuth();
@@ -15,6 +16,7 @@ export const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [regStep, setRegStep] = useState('FORM'); // 'FORM' or 'OTP'
   const [successMsg, setSuccessMsg] = useState('');
+  const [showForgotModal, setShowForgotModal] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -204,8 +206,8 @@ export const LoginPage = () => {
                 </label>
                 <button
                   type="button"
-                  onClick={() => alert('Password reset link will be sent to your registered email.')}
-                  className="font-bold text-blue-600 hover:underline"
+                  onClick={() => setShowForgotModal(true)}
+                  className="font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
                 >
                   Forgot Password?
                 </button>
@@ -356,6 +358,13 @@ export const LoginPage = () => {
 
         </div>
       </div>
+
+      {/* Forgot Password Recovery Modal */}
+      <AuthModal
+        isOpen={showForgotModal}
+        onClose={() => setShowForgotModal(false)}
+        initialMode="FORGOT_PASSWORD"
+      />
     </div>
   );
 };

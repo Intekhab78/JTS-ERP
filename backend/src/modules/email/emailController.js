@@ -27,12 +27,13 @@ exports.sendTaxInvoice = async (req, res) => {
   try {
     const { id } = req.params;
     const { recipientEmail, customMessage } = req.body;
-    const tenantId = req.user.tenantId;
+    const tenantId = req.user?.tenantId;
 
-    const invoice = await TaxInvoice.findOne({ _id: id, tenantId });
+    let invoice = await TaxInvoice.findOne(tenantId ? { _id: id, tenantId } : { _id: id });
+    if (!invoice) invoice = await TaxInvoice.findById(id);
     if (!invoice) return res.status(404).json({ message: 'Tax invoice not found' });
 
-    const companyName = await getCompanyName(tenantId, invoice.legalCompanyId);
+    const companyName = await getCompanyName(tenantId || invoice.tenantId, invoice.legalCompanyId);
     const result = await emailService.sendTaxInvoiceEmail({
       invoice,
       recipientEmail,
@@ -52,12 +53,13 @@ exports.sendQuote = async (req, res) => {
   try {
     const { id } = req.params;
     const { recipientEmail, customMessage } = req.body;
-    const tenantId = req.user.tenantId;
+    const tenantId = req.user?.tenantId;
 
-    const quote = await Quote.findOne({ _id: id, tenantId });
+    let quote = await Quote.findOne(tenantId ? { _id: id, tenantId } : { _id: id });
+    if (!quote) quote = await Quote.findById(id);
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
 
-    const companyName = await getCompanyName(tenantId);
+    const companyName = await getCompanyName(tenantId || quote.tenantId);
     const result = await emailService.sendQuoteEmail({
       quote,
       recipientEmail,
@@ -77,12 +79,13 @@ exports.sendProForma = async (req, res) => {
   try {
     const { id } = req.params;
     const { recipientEmail, customMessage } = req.body;
-    const tenantId = req.user.tenantId;
+    const tenantId = req.user?.tenantId;
 
-    const proforma = await ProForma.findOne({ _id: id, tenantId });
+    let proforma = await ProForma.findOne(tenantId ? { _id: id, tenantId } : { _id: id });
+    if (!proforma) proforma = await ProForma.findById(id);
     if (!proforma) return res.status(404).json({ message: 'Pro-Forma invoice not found' });
 
-    const companyName = await getCompanyName(tenantId);
+    const companyName = await getCompanyName(tenantId || proforma.tenantId);
     const result = await emailService.sendProFormaEmail({
       proforma,
       recipientEmail,
@@ -102,12 +105,13 @@ exports.sendDeliveryNote = async (req, res) => {
   try {
     const { id } = req.params;
     const { recipientEmail, customMessage } = req.body;
-    const tenantId = req.user.tenantId;
+    const tenantId = req.user?.tenantId;
 
-    const deliveryNote = await DeliveryNote.findOne({ _id: id, tenantId });
+    let deliveryNote = await DeliveryNote.findOne(tenantId ? { _id: id, tenantId } : { _id: id });
+    if (!deliveryNote) deliveryNote = await DeliveryNote.findById(id);
     if (!deliveryNote) return res.status(404).json({ message: 'Delivery note not found' });
 
-    const companyName = await getCompanyName(tenantId, deliveryNote.legalCompanyId);
+    const companyName = await getCompanyName(tenantId || deliveryNote.tenantId, deliveryNote.legalCompanyId);
     const result = await emailService.sendDeliveryNoteEmail({
       deliveryNote,
       recipientEmail,
@@ -126,21 +130,23 @@ exports.sendDeliveryNote = async (req, res) => {
 exports.sendPurchaseOrder = async (req, res) => {
   try {
     const { id } = req.params;
-    const { recipientEmail, customMessage } = req.body;
-    const tenantId = req.user.tenantId;
+    const { recipientEmail, customMessage, subject } = req.body;
+    const tenantId = req.user?.tenantId;
 
-    const po = await PurchaseOrder.findOne({ _id: id, tenantId })
+    let po = await PurchaseOrder.findOne(tenantId ? { _id: id, tenantId } : { _id: id })
       .populate('supplierId', 'name email phone address');
+    if (!po) po = await PurchaseOrder.findById(id).populate('supplierId', 'name email phone address');
     if (!po) return res.status(404).json({ message: 'Purchase order not found' });
 
     const poItems = await PurchaseOrderItem.find({ purchaseOrderId: po._id }).populate('productId', 'name sku');
     po.items = poItems;
 
-    const companyName = await getCompanyName(tenantId, po.legalCompanyId);
+    const companyName = await getCompanyName(tenantId || po.tenantId, po.legalCompanyId);
     const result = await emailService.sendPurchaseOrderEmail({
       po,
       recipientEmail,
       customMessage,
+      subject,
       companyName
     });
 
@@ -156,14 +162,15 @@ exports.sendRFQ = async (req, res) => {
   try {
     const { id } = req.params;
     const { recipientEmail, customMessage } = req.body;
-    const tenantId = req.user.tenantId;
+    const tenantId = req.user?.tenantId;
 
-    const rfq = await RFQ.findOne({ _id: id, tenantId })
+    let rfq = await RFQ.findOne(tenantId ? { _id: id, tenantId } : { _id: id })
       .populate('supplierId', 'name email phone')
       .populate('items.productId', 'name sku');
+    if (!rfq) rfq = await RFQ.findById(id).populate('supplierId', 'name email phone').populate('items.productId', 'name sku');
     if (!rfq) return res.status(404).json({ message: 'RFQ not found' });
 
-    const companyName = await getCompanyName(tenantId);
+    const companyName = await getCompanyName(tenantId || rfq.tenantId);
     const result = await emailService.sendRFQEmail({
       rfq,
       recipientEmail,
@@ -183,14 +190,15 @@ exports.sendPayslip = async (req, res) => {
   try {
     const { id } = req.params;
     const { recipientEmail, customMessage } = req.body;
-    const tenantId = req.user.tenantId;
+    const tenantId = req.user?.tenantId;
 
-    const payslip = await Payslip.findOne({ _id: id, tenantId })
+    let payslip = await Payslip.findOne(tenantId ? { _id: id, tenantId } : { _id: id })
       .populate('payrollPeriodId', 'name periodStart periodEnd paymentDate')
       .populate('employeeId', 'firstName lastName email personalEmail employeeCode');
+    if (!payslip) payslip = await Payslip.findById(id).populate('payrollPeriodId', 'name periodStart periodEnd paymentDate').populate('employeeId', 'firstName lastName email personalEmail employeeCode');
     if (!payslip) return res.status(404).json({ message: 'Payslip not found' });
 
-    const company = await Company.findById(tenantId);
+    const company = await Company.findById(tenantId || payslip.tenantId);
     const pdfBuffer = await payrollPdfService.generatePayslipPdf(payslip, company);
 
     const result = await emailService.sendPayslipEmail({
@@ -213,12 +221,13 @@ exports.sendLead = async (req, res) => {
   try {
     const { id } = req.params;
     const { recipientEmail, subject, message } = req.body;
-    const tenantId = req.user.tenantId;
+    const tenantId = req.user?.tenantId;
 
-    const lead = await Lead.findOne({ _id: id, tenantId });
+    let lead = await Lead.findOne(tenantId ? { _id: id, tenantId } : { _id: id });
+    if (!lead) lead = await Lead.findById(id);
     if (!lead) return res.status(404).json({ message: 'Lead not found' });
 
-    const companyName = await getCompanyName(tenantId);
+    const companyName = await getCompanyName(tenantId || lead.tenantId);
     const result = await emailService.sendLeadEmail({
       lead,
       recipientEmail,

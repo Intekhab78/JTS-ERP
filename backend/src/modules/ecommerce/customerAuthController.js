@@ -1,6 +1,6 @@
 const Customer = require('../../core/models/Customer');
 const Company = require('../../core/models/Company');
-const { sendCustomerOtpEmail } = require('../../services/emailService');
+const { sendCustomerOtpEmail, sendCustomerPasswordResetOtpEmail, sendCustomerWelcomeEmail } = require('../../services/emailService');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
@@ -181,6 +181,20 @@ exports.verifyOtpAndRegister = async (req, res) => {
       });
     }
 
+    // Send Welcome Email to newly registered customer
+    try {
+      const company = tenantId ? await Company.findById(tenantId) : null;
+      const companyName = company ? company.name : 'JTS Store';
+      await sendCustomerWelcomeEmail({
+        to: cleanEmail,
+        customerName: customer.firstName || customer.name || 'Valued Customer',
+        companyName
+      });
+      console.log(`[CUSTOMER-WELCOME-EMAIL] Sent welcome email to: ${cleanEmail}`);
+    } catch (welcomeErr) {
+      console.warn(`[CUSTOMER-WELCOME-EMAIL] Welcome email warning:`, welcomeErr.message);
+    }
+
     const token = generateToken(customer._id);
     const customerData = {
       _id: customer._id,
@@ -201,6 +215,143 @@ exports.verifyOtpAndRegister = async (req, res) => {
     });
   } catch (error) {
     console.error('verifyOtpAndRegister error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Send 6-digit OTP to email for password reset
+// @route   POST /api/v1/ecommerce/auth/forgot-password-otp
+// @access  Public
+exports.sendForgotPasswordOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: 'Please provide a valid email address' });
+    }
+
+    const tenantId = req.tenantId;
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Check if customer exists
+    let customer = await Customer.findOne({ 
+      email: cleanEmail,
+      ...(tenantId ? { tenantId } : {})
+    });
+    if (!customer) {
+      customer = await Customer.findOne({ email: cleanEmail });
+    }
+
+    if (!customer) {
+      return res.status(400).json({ message: 'No registered customer account found with this email address.' });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins validity
+
+    // Store in memory cache
+    const memKey = `RESET_${tenantId || ''}_${cleanEmail}`;
+    otpMemoryStore.set(memKey, {
+      otp: otp.trim(),
+      expiresAt: expiresAt.getTime()
+    });
+    otpMemoryStore.set(`RESET_${cleanEmail}`, {
+      otp: otp.trim(),
+      expiresAt: expiresAt.getTime()
+    });
+
+    // Store in customer doc
+    customer.otpCode = otp.trim();
+    customer.otpExpiresAt = expiresAt;
+    await customer.save();
+
+    // Get company name
+    const company = tenantId ? await Company.findById(tenantId) : null;
+    const companyName = company ? company.name : 'JTS Store';
+
+    try {
+      console.log(`[AUTH-FORGOT-PASSWORD] Sending reset OTP to: ${cleanEmail}`);
+      await sendCustomerPasswordResetOtpEmail({
+        to: cleanEmail,
+        otp,
+        customerName: customer.firstName || customer.name || 'Valued Customer',
+        companyName
+      });
+      console.log(`[AUTH-FORGOT-PASSWORD] Successfully triggered reset OTP email to: ${cleanEmail}`);
+    } catch (emailErr) {
+      console.error(`[AUTH-FORGOT-PASSWORD] Email failed for ${cleanEmail}:`, emailErr.message);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'A 6-digit password reset code has been sent to your email address.',
+      devOtp: otp,
+      devNotice: `[OTP: ${otp}]`
+    });
+  } catch (error) {
+    console.error('sendForgotPasswordOtp error:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Verify OTP and reset customer password
+// @route   POST /api/v1/ecommerce/auth/reset-password
+// @access  Public
+exports.resetPasswordWithOtp = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: 'Email, OTP code, and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters' });
+    }
+
+    const tenantId = req.tenantId;
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanOtp = String(otp).trim();
+
+    // 1. Check in-memory store
+    const memKey = `RESET_${tenantId || ''}_${cleanEmail}`;
+    const memOtp = otpMemoryStore.get(memKey) || otpMemoryStore.get(`RESET_${cleanEmail}`);
+
+    // 2. Check MongoDB Customer document
+    let customer = await Customer.findOne({ email: cleanEmail, ...(tenantId ? { tenantId } : {}) });
+    if (!customer) {
+      customer = await Customer.findOne({ email: cleanEmail });
+    }
+
+    if (!customer) {
+      return res.status(400).json({ message: 'Customer account not found' });
+    }
+
+    const isMemOtpValid = memOtp && String(memOtp.otp).trim() === cleanOtp && memOtp.expiresAt > Date.now();
+    const isDbOtpValid = customer && String(customer.otpCode).trim() === cleanOtp && customer.otpExpiresAt && new Date(customer.otpExpiresAt).getTime() > Date.now();
+
+    if (!isMemOtpValid && !isDbOtpValid) {
+      return res.status(400).json({ message: 'Invalid or expired verification code. Please request a new one.' });
+    }
+
+    // Invalidate OTP in memory
+    otpMemoryStore.delete(memKey);
+    otpMemoryStore.delete(`RESET_${cleanEmail}`);
+
+    // Update password (pre('save') handles bcrypt hashing)
+    customer.password = newPassword;
+    customer.otpCode = undefined;
+    customer.otpExpiresAt = undefined;
+    customer.isEmailVerified = true;
+    await customer.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Your password has been reset successfully. You can now sign in with your new password.'
+    });
+  } catch (error) {
+    console.error('resetPasswordWithOtp error:', error);
     res.status(500).json({ message: error.message });
   }
 };

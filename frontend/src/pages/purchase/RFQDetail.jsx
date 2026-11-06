@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, FileText, Package, Truck, Calendar, MapPin, Building, CreditCard, Banknote, Send, CheckCircle, Printer, Zap, Mail } from 'lucide-react';
+import { 
+  ArrowLeft, FileText, Package, Truck, Calendar, MapPin, Building2, 
+  Banknote, Send, CheckCircle2, Printer, Zap, Mail, Copy, Check, 
+  Search, X, Sparkles, Clock, AlertCircle, ExternalLink, ShieldCheck 
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { EmailSendModal } from '../../components/common/EmailSendModal';
 
@@ -12,12 +16,22 @@ export default function RFQDetail() {
   const [items, setItems] = useState([]);
   const [purchaseOrder, setPurchaseOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [copiedField, setCopiedField] = useState(null);
 
   const componentRef = useRef(null);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const copyToClipboard = (text, field) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   useEffect(() => {
@@ -42,18 +56,22 @@ export default function RFQDetail() {
   };
 
   const updateStatus = async (status) => {
+    setActionLoading(true);
     try {
       await axios.patch(`/api/v1/rfqs/${id}/status`, { status }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      fetchRFQ();
+      await fetchRFQ();
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to update status');
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const convertToPO = async () => {
-    if (!window.confirm('Convert this RFQ to a Purchase Order?')) return;
+    if (!window.confirm('Convert this RFQ into an active Purchase Order?')) return;
+    setActionLoading(true);
     try {
       const res = await axios.post(`/api/v1/rfqs/${id}/convert`, {}, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -62,265 +80,567 @@ export default function RFQDetail() {
       navigate(`/purchases/${res.data._id}`);
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to convert RFQ');
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  if (loading) return (
-    <div className="animate-in fade-in zoom-in-95 duration-500 max-w-[1720px] mx-auto min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center py-40">
-      <div className="animate-spin rounded-none h-12 w-12 border-4 border-slate-200 border-t-blue-600 mb-4"></div>
-      <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">Fetching Core Assets...</p>
-    </div>
-  );
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 space-y-3">
+        <div className="w-9 h-9 border-3 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase">Loading quotation dossier...</h2>
+      </div>
+    );
+  }
 
-  if (!rfq) return <div className="p-8 text-center text-red-500 font-bold uppercase tracking-widest">RFQ not found</div>;
+  if (!rfq) {
+    return (
+      <div className="p-8 text-center text-rose-500 font-bold uppercase tracking-widest">
+        Request for Quotation not found
+      </div>
+    );
+  }
 
-  const getStatusStyle = (status) => {
+  const rfqNumber = rfq.rfqNumber || `RFQ-${rfq._id.slice(-6).toUpperCase()}`;
+  const supplierName = rfq.supplierId?.name || 'Unknown Supplier';
+  const supplierEmail = rfq.supplierId?.email;
+  const supplierPhone = rfq.supplierId?.phone;
+  const branchName = rfq.branchId?.name || 'Head Office / Central Hub';
+  const currencySymbol = rfq.currency || 'AED';
+
+  // Metrics
+  const totalItemsCount = items.length;
+  const totalUnits = items.reduce((acc, it) => acc + (Number(it.quantity) || 0), 0);
+
+  const formatCurrency = (val) => {
+    const num = Number(val) || 0;
+    return `${currencySymbol} ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const getStatusColor = (status) => {
     switch (status) {
-      case 'DRAFT': return 'bg-amber-500 text-white';
-      case 'SENT': return 'bg-blue-500 text-white';
-      case 'QUOTED': return 'bg-purple-500 text-white';
-      case 'CONFIRMED': return 'bg-emerald-500 text-white';
-      case 'CANCELLED': return 'bg-rose-500 text-white';
-      default: return 'bg-slate-500 text-white';
+      case 'DRAFT': return '#f59e0b';
+      case 'SENT': return '#3b82f6';
+      case 'QUOTED': return '#8b5cf6';
+      case 'CONFIRMED': return '#10b981';
+      case 'CANCELLED': return '#f43f5e';
+      default: return '#64748b';
     }
   };
+
+  const filteredItems = items.filter(it => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const name = it.productId?.name?.toLowerCase() || '';
+    const sku = it.productId?.sku?.toLowerCase() || '';
+    const vSku = it.variantSku?.toLowerCase() || '';
+    const desc = it.description?.toLowerCase() || '';
+    return name.includes(q) || sku.includes(q) || vSku.includes(q) || desc.includes(q);
+  });
 
   return (
-    <div className="animate-in fade-in zoom-in-95 duration-500 max-w-[1400px] mx-auto space-y-6 pb-10 bg-[#f8fafc] min-h-screen">
+    <div ref={componentRef} className="space-y-4 pb-12 max-w-[1440px] mx-auto text-foreground">
       
-      {/* Aggressive Tech Header */}
-      <div className="relative overflow-hidden rounded-none sm:rounded-xl bg-[#0a0f1c] border-l-4 border-blue-500 p-8 text-white shadow-2xl no-print">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20 mix-blend-overlay"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-transparent pointer-events-none"></div>
-        
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="flex items-start gap-4">
-            <button onClick={() => navigate('/purchases/rfqs')} className="p-2.5 bg-slate-800/50 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700 mt-1">
-              <ArrowLeft size={20} className="text-slate-300" />
+      {/* ========================================================================= */}
+      {/* 1. HERO HEADER WITH LEFT ARROW BACK & SOURCING ACTIONS                    */}
+      {/* ========================================================================= */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 p-4 sm:p-5 text-white shadow-md border border-blue-900/40 no-print">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+          
+          {/* Left: Back Arrow + Dossier Details */}
+          <div className="flex items-start gap-3 min-w-0">
+            <button
+              type="button"
+              onClick={() => navigate('/purchases/rfqs')}
+              className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/20 flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md shrink-0 mt-0.5"
+              title="Back to RFQ Register"
+            >
+              <ArrowLeft size={16} />
             </button>
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded">
-                  <FileText size={18} className="text-white" />
-                </div>
-                <h1 className="text-3xl font-black tracking-tight text-white uppercase">{rfq.rfqNumber}</h1>
+
+            <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-[10px] font-black uppercase tracking-wider">
+                  <Sparkles size={11} className="text-blue-400" />
+                  Procurement Sourcing · RFQ Dossier · {rfqNumber}
+                </span>
+
+                <span
+                  className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider text-white shadow-2xs"
+                  style={{ backgroundColor: getStatusColor(rfq.status) }}
+                >
+                  {rfq.status}
+                </span>
               </div>
-              <p className="text-slate-400 text-sm font-medium tracking-wide max-w-xl">
-                REQUEST FOR QUOTATION DETAILS • {rfq.supplierId?.name || 'VENDOR BIDDING'}
+
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-white flex items-center gap-2 truncate">
+                <span>{supplierName}</span>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(rfqNumber, 'rfqNumber')}
+                  className="p-1 rounded-md hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
+                  title="Copy RFQ Number"
+                >
+                  {copiedField === 'rfqNumber' ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                </button>
+              </h1>
+
+              <p className="text-xs text-blue-100/75 leading-snug">
+                Inquiry Date: <strong className="text-white">{format(new Date(rfq.createdAt), 'MMMM d, yyyy')}</strong> · Receiving Branch: <strong className="text-white">{branchName}</strong>
+                {rfq.expectedDate && <> · Expected Delivery: <strong className="text-white">{format(new Date(rfq.expectedDate), 'MMMM d, yyyy')}</strong></>}
               </p>
             </div>
           </div>
-          
-          <div className="flex flex-wrap items-center gap-3 bg-[#111827] border border-slate-800 p-2.5 rounded-lg shadow-inner">
-            <span className={`inline-flex items-center px-3 py-1.5 rounded text-xs font-black uppercase tracking-widest shadow-sm ${getStatusStyle(rfq.status)}`}>
-              STATUS: {rfq.status}
-            </span>
-            
-            <button onClick={handlePrint} className="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
-              <Printer size={14} /> Print
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="px-3.5 py-2 bg-white/10 hover:bg-white/20 active:scale-95 text-white border border-white/20 text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all duration-200 cursor-pointer hover:shadow-md"
+            >
+              <Printer size={14} /> Print (A4)
             </button>
 
-            <button onClick={() => setIsEmailModalOpen(true)} className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEmailModalOpen(true)}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all duration-200 cursor-pointer hover:shadow-md"
+            >
               <Mail size={14} /> Send Email
             </button>
 
             {rfq.status === 'DRAFT' && (
-              <button onClick={() => updateStatus('SENT')} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
-                <Send size={14} /> Send RFQ
+              <button
+                type="button"
+                onClick={() => updateStatus('SENT')}
+                disabled={actionLoading}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md shadow-blue-600/30 flex items-center gap-1.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
+              >
+                <Send size={14} /> Dispatch RFQ
               </button>
             )}
-            
+
             {rfq.status === 'SENT' && (
-              <button onClick={() => updateStatus('QUOTED')} className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
-                <CheckCircle size={14} /> Mark as Quoted
+              <button
+                type="button"
+                onClick={() => updateStatus('QUOTED')}
+                disabled={actionLoading}
+                className="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md shadow-purple-600/30 flex items-center gap-1.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 size={14} /> Mark as Quoted
               </button>
             )}
 
             {rfq.status === 'QUOTED' && (
-              <button onClick={convertToPO} className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-2">
+              <button
+                type="button"
+                onClick={convertToPO}
+                disabled={actionLoading}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-black rounded-xl shadow-md shadow-emerald-600/30 flex items-center gap-1.5 transition-all duration-200 cursor-pointer disabled:opacity-50"
+              >
                 <Package size={14} /> Convert to PO
               </button>
             )}
 
             {['DRAFT', 'SENT', 'QUOTED'].includes(rfq.status) && (
-               <button onClick={() => updateStatus('CANCELLED')} className="px-4 py-1.5 bg-rose-600/20 text-rose-500 hover:bg-rose-600 hover:text-white border border-rose-500/30 rounded text-xs font-bold uppercase tracking-widest transition-colors">
-                  Cancel
-               </button>
+              <button
+                type="button"
+                onClick={() => updateStatus('CANCELLED')}
+                disabled={actionLoading}
+                className="px-3 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-100 border border-rose-500/30 text-xs font-bold rounded-xl transition-all duration-200 cursor-pointer disabled:opacity-50"
+              >
+                Cancel RFQ
+              </button>
             )}
           </div>
+
         </div>
+
+        {/* Ambient subtle light */}
+        <div className="absolute right-0 top-0 w-80 h-32 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      <div ref={componentRef} className="print:m-0 print:p-6 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:mx-0">
-          
-          <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden md:col-span-2 flex flex-col print:border-none print:shadow-none">
-            <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center gap-2 print:bg-transparent">
-              <Building size={18} className="text-blue-500" />
-              <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs">Supplier Profile</h3>
+      {/* ========================================================================= */}
+      {/* 2. FOUR KPI SUMMARY CARDS (With Smooth Hover Elevation)                    */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        
+        {/* Total Estimated Valuation */}
+        <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-blue-500/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block truncate">
+              Estimated Commitment
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+              <Banknote size={14} />
             </div>
-            <div className="p-6">
-              <div className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-4">{rfq.supplierId?.name}</div>
-              <div className="space-y-2">
-                {rfq.supplierId?.email && <div className="text-slate-500 font-medium text-sm"><span className="text-slate-400 w-20 inline-block uppercase text-xs font-bold">Email:</span> {rfq.supplierId.email}</div>}
-                {rfq.supplierId?.phone && <div className="text-slate-500 font-medium text-sm"><span className="text-slate-400 w-20 inline-block uppercase text-xs font-bold">Phone:</span> {rfq.supplierId.phone}</div>}
-              </div>
+          </div>
+          <div className="text-base sm:text-lg font-black text-foreground">
+            {formatCurrency(rfq.totalAmount)}
+          </div>
+          <span className="text-[9.5px] text-muted-foreground block truncate mt-0.5">
+            Terms: {rfq.paymentTerms || 'Immediate'}
+          </span>
+        </div>
+
+        {/* Requisition Products */}
+        <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-indigo-500/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block truncate">
+              Requested Products
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+              <Package size={14} />
             </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 p-6 border-t border-slate-100 bg-slate-50/50 print:bg-transparent">
-              <div>
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                  <MapPin size={12} /> Deliver To
-                </h3>
-                <div className="font-bold text-slate-800 uppercase tracking-wide text-sm">{rfq.branchId?.name}</div>
-              </div>
-              <div>
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                  <Calendar size={12} /> Request Date
-                </h3>
-                <div className="font-bold text-slate-800 font-mono text-sm">{format(new Date(rfq.createdAt), 'dd MMM yyyy')}</div>
-              </div>
-              <div>
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                  <Truck size={12} /> Expected Delivery
-                </h3>
-                <div className="font-bold text-slate-800 font-mono text-sm">
-                  {rfq.expectedDate ? format(new Date(rfq.expectedDate), 'dd MMM yyyy') : 'NOT SPECIFIED'}
+          </div>
+          <div className="text-base sm:text-lg font-black text-foreground">
+            {totalUnits} <span className="text-xs font-normal text-muted-foreground">Units</span>
+          </div>
+          <span className="text-[9.5px] text-muted-foreground block truncate mt-0.5">
+            {totalItemsCount} distinct product lines
+          </span>
+        </div>
+
+        {/* Sourcing Milestone */}
+        <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-amber-500/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block truncate">
+              Sourcing Status
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+              <Clock size={14} />
+            </div>
+          </div>
+          <div className="text-base sm:text-lg font-black text-foreground flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: getStatusColor(rfq.status) }}></span>
+            <span>{rfq.status}</span>
+          </div>
+          <span className="text-[9.5px] text-muted-foreground block truncate mt-0.5">
+            {rfq.status === 'DRAFT' && 'Inquiry ready to dispatch'}
+            {rfq.status === 'SENT' && 'Awaiting vendor pricing quote'}
+            {rfq.status === 'QUOTED' && 'Quote received · eligible for PO'}
+            {rfq.status === 'CONFIRMED' && 'Active PO generated'}
+            {rfq.status === 'CANCELLED' && 'Inquiry voided'}
+          </span>
+        </div>
+
+        {/* Expected Timeline */}
+        <div className="p-3.5 rounded-xl bg-card border border-border/80 shadow-2xs hover:border-emerald-500/60 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block truncate">
+              Expected Delivery
+            </span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+              <Truck size={14} />
+            </div>
+          </div>
+          <div className="text-base sm:text-lg font-black text-foreground truncate">
+            {rfq.expectedDate ? format(new Date(rfq.expectedDate), 'dd MMM yyyy') : 'Immediate'}
+          </div>
+          <span className="text-[9.5px] text-muted-foreground block truncate mt-0.5">
+            Target Destination: {branchName}
+          </span>
+        </div>
+
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 3. SUPPLIER PROFILE & FINANCIAL PROTOCOL                                   */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+        
+        {/* Left: Supplier Profile Card */}
+        <div className="lg:col-span-2 rounded-2xl bg-card border border-border/80 p-4 sm:p-5 shadow-2xs flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-border/70">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                  <Building2 size={15} />
                 </div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-foreground">
+                  Supplier Profile & Logistics
+                </h3>
+              </div>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-muted text-muted-foreground uppercase tracking-wider">
+                Vendor Dossier
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <h2 className="text-lg sm:text-xl font-black text-foreground tracking-tight">
+                  {supplierName}
+                </h2>
+                <div className="flex items-center gap-4 mt-1.5 flex-wrap text-xs text-muted-foreground">
+                  {supplierEmail && (
+                    <span className="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                      <Mail size={13} className="text-blue-500" />
+                      {supplierEmail}
+                    </span>
+                  )}
+                  {supplierPhone && (
+                    <span className="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                      <ShieldCheck size={13} className="text-emerald-500" />
+                      {supplierPhone}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {rfq.notes && (
+                <div className="p-2.5 rounded-xl bg-muted/20 border border-border/60 text-xs text-muted-foreground">
+                  <span className="font-bold text-foreground block mb-0.5">Internal Notes & Terms:</span>
+                  <p className="line-clamp-2">{rfq.notes}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3.5 mt-3.5 border-t border-border/70">
+            <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
+              <span className="text-[9.5px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                <MapPin size={12} className="text-blue-500" /> Deliver To
+              </span>
+              <p className="text-xs font-black text-foreground truncate">{branchName}</p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
+              <span className="text-[9.5px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                <Calendar size={12} className="text-emerald-500" /> Request Date
+              </span>
+              <p className="text-xs font-black text-foreground">
+                {format(new Date(rfq.createdAt), 'dd MMM yyyy')}
+              </p>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-muted/30 border border-border/60">
+              <span className="text-[9.5px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-1">
+                <Truck size={12} className="text-amber-500" /> Expected Delivery
+              </span>
+              <p className="text-xs font-black text-foreground">
+                {rfq.expectedDate ? format(new Date(rfq.expectedDate), 'dd MMM yyyy') : 'NOT SPECIFIED'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Financial Protocol Card */}
+        <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white p-4 sm:p-5 shadow-md border border-indigo-950 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-white/10 text-blue-300 flex items-center justify-center">
+                  <Banknote size={15} />
+                </div>
+                <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                  Financial Protocol
+                </h3>
+              </div>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-white/10 text-blue-300 uppercase tracking-wider border border-white/10">
+                {currencySymbol} Currency
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase tracking-wider font-bold text-blue-200/70">
+                Total Estimated Valuation
+              </span>
+              <div className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                {formatCurrency(rfq.totalAmount)}
               </div>
             </div>
           </div>
 
-          <div className="p-6 md:col-span-1 bg-slate-900 text-white rounded-xl shadow-lg border-0 flex flex-col justify-between print:border print:border-slate-300 print:shadow-none" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-            <div>
-              <div className="flex justify-between items-start mb-6">
-                <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-3 print:text-black">
-                  <div className="p-2 bg-white/10 rounded-lg text-slate-300 print:text-black"><Banknote size={16} /></div> FINANCIAL PROTOCOL
-                </h3>
-                <span className="px-2 py-1 bg-white/10 text-slate-300 rounded text-xs print:text-black">AED Currency</span>
+          <div className="space-y-3 pt-4 mt-4 border-t border-white/10">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span className="text-[9.5px] uppercase font-bold text-blue-200/60 block mb-0.5">Payment Terms</span>
+                <span className="font-bold text-emerald-400 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  {rfq.paymentTerms || 'Immediate'}
+                </span>
               </div>
-              
-              <div className="space-y-1">
-                <div className="text-xs text-slate-400 tracking-wider uppercase font-semibold mb-2 print:text-black">Total Estimate</div>
-                <div className="flex items-baseline gap-2">
-                   <span className="text-xl font-bold text-blue-400">{rfq.currency}</span>
-                   <span className="text-4xl font-bold tracking-tight text-white print:text-black">{rfq.totalAmount?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                 <div>
-                    <div className="text-xs text-slate-400 mb-1 print:text-black">Payment Terms</div>
-                    <div className="text-sm font-semibold text-emerald-400 flex items-center gap-1 print:text-emerald-700">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> {rfq.paymentTerms || 'N/A'}
-                    </div>
-                 </div>
+              <div>
+                <span className="text-[9.5px] uppercase font-bold text-blue-200/60 block mb-0.5">Milestone</span>
+                <span className="font-bold text-blue-300 flex items-center gap-1.5">
+                  <Zap size={12} />
+                  {rfq.status}
+                </span>
               </div>
             </div>
 
+            {/* Linked Purchase Order (if converted) */}
             {purchaseOrder && (
-              <div className="mt-8 pt-6 border-t border-slate-700 print:hidden">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Linked Assets</h3>
-                <Link to={`/purchases/${purchaseOrder._id}`} className="group flex items-center justify-between p-3 bg-slate-800/50 border border-slate-700 rounded-lg hover:border-blue-500 transition-colors">
-                  <div>
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Purchase Order</div>
-                    <div className="text-sm font-black text-white group-hover:text-blue-400 transition-colors">{purchaseOrder.purchaseOrderNumber}</div>
+              <div className="pt-3 border-t border-white/10 print:hidden">
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-200/60 block mb-1.5">
+                  Linked Downstream Order
+                </span>
+                <Link
+                  to={`/purchases/${purchaseOrder._id}`}
+                  className="flex items-center justify-between p-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 transition-all group cursor-pointer"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-blue-200 font-bold uppercase">Purchase Order</p>
+                    <p className="text-xs font-black text-white group-hover:text-blue-300 transition-colors truncate">
+                      {purchaseOrder.purchaseOrderNumber || `PO-${purchaseOrder._id.slice(-6).toUpperCase()}`}
+                    </p>
                   </div>
-                  <span className="px-2 py-1 bg-slate-800 text-[10px] font-black text-slate-300 rounded uppercase">{purchaseOrder.status}</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-black bg-blue-500/20 text-blue-300 border border-blue-400/30 uppercase flex items-center gap-1">
+                    {purchaseOrder.status}
+                    <ExternalLink size={10} />
+                  </span>
                 </Link>
               </div>
             )}
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 shadow-sm rounded-xl overflow-hidden mt-6 print:border-none print:shadow-none print:mx-0">
-          <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between print:bg-transparent">
-            <h3 className="font-black text-slate-700 tracking-widest uppercase text-xs flex items-center gap-2">
-              <Zap size={16} className="text-blue-500" /> Requisition Matrix
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 4. REQUISITION MATRIX (PRODUCT LINES TABLE)                                */}
+      {/* ========================================================================= */}
+      <div className="rounded-2xl bg-card border border-border/80 shadow-2xs overflow-hidden">
+        
+        {/* Table Header Bar */}
+        <div className="p-3.5 sm:p-4 border-b border-border/80 bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+              <Zap size={15} />
+            </div>
+            <h3 className="text-xs font-black uppercase tracking-wider text-foreground">
+              Requisition Matrix
             </h3>
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60 uppercase tracking-wider">
+              {items.length} Lines Included
+            </span>
           </div>
-          
-          <div className="w-full">
-            <table className="w-full text-left whitespace-nowrap">
-              <thead className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white border-b-2 border-slate-100 print:bg-transparent print:border-slate-300">
+
+          <div className="relative w-full md:w-72">
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <input 
+              type="text" 
+              placeholder="Search product, SKU..." 
+              className="w-full pl-9 pr-8 py-1.5 bg-background border border-border/80 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button 
+                type="button"
+                className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground" 
+                onClick={() => setSearchQuery('')}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Table Content */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left whitespace-nowrap text-xs">
+            <thead className="text-[10px] font-black text-muted-foreground uppercase tracking-wider bg-muted/10 border-b border-border/80">
+              <tr>
+                <th className="px-4 py-3">Product Designation</th>
+                <th className="px-3 py-3 text-center">UOM</th>
+                <th className="px-3 py-3 text-right">Unit Price</th>
+                <th className="px-3 py-3 text-right">Quantity</th>
+                <th className="px-4 py-3 text-right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {filteredItems.length === 0 ? (
                 <tr>
-                  <th className="px-6 py-4">Product / Designation</th>
-                  <th className="px-6 py-4 text-center">UOM</th>
-                  <th className="px-6 py-4 text-right">Unit Price</th>
-                  <th className="px-6 py-4 text-right">Quantity</th>
-                  <th className="px-6 py-4 text-right">Subtotal</th>
+                  <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                    No requisition lines found matching search.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-sm print:divide-slate-200">
-                {items.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-bold text-slate-800 uppercase text-sm tracking-wide">{item.productId?.name}</div>
+              ) : (
+                filteredItems.map((item, idx) => (
+                  <tr key={item._id || idx} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="font-bold text-foreground text-xs">{item.productId?.name || 'Unnamed Product'}</div>
                       {item.variantId ? (
-                        <div className="text-xs font-semibold text-blue-600 mt-0.5">
+                        <div className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 mt-0.5">
                           Variant: {item.variantSku || item.variantId?.sku}
                           {item.variantId?.attributes && (
-                            <span className="text-slate-500 font-normal ml-1">
+                            <span className="text-muted-foreground font-normal ml-1">
                               ({Object.entries(item.variantId.attributes).map(([k, v]) => `${k}: ${v}`).join(', ')})
                             </span>
                           )}
                         </div>
                       ) : (
-                        <div className="text-xs font-mono text-slate-400 mt-0.5">{item.productId?.sku}</div>
+                        <div className="text-[10px] font-bold text-muted-foreground mt-0.5">
+                          SKU: {item.productId?.sku || 'N/A'}
+                        </div>
                       )}
-                      {item.description && <div className="text-xs text-slate-500 mt-1.5 font-medium">{item.description}</div>}
+                      {item.description && (
+                        <div className="text-[10px] text-muted-foreground mt-0.5 italic">
+                          {item.description}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs font-bold uppercase">{item.uom || 'PCS'}</span>
+
+                    <td className="px-3 py-3 text-center">
+                      <span className="px-2 py-0.5 bg-muted rounded-md text-[10px] font-bold uppercase text-foreground">
+                        {item.uom || 'PIECE'}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 text-right text-slate-600 font-mono font-medium">
-                      {rfq.currency} {item.unitCost?.toFixed(2)}
+
+                    <td className="px-3 py-3 text-right font-bold text-foreground">
+                      {currencySymbol} {Number(item.unitCost || 0).toFixed(2)}
                     </td>
-                    <td className="px-6 py-4 text-right font-black text-slate-800 font-mono text-base">
+
+                    <td className="px-3 py-3 text-right font-black text-sm text-foreground">
                       {item.quantity}
                     </td>
-                    <td className="px-6 py-4 text-right font-black text-slate-800 font-mono">
-                      {rfq.currency} {item.subTotal?.toFixed(2)}
+
+                    <td className="px-4 py-3 text-right font-black text-xs text-foreground">
+                      {currencySymbol} {Number(item.subTotal || 0).toFixed(2)}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Table Bottom Valuation Bar */}
+        <div className="p-4 bg-muted/20 border-t border-border/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="text-muted-foreground text-[11px]">
+            Showing <strong className="text-foreground">{filteredItems.length}</strong> of <strong className="text-foreground">{items.length}</strong> items in quotation matrix
           </div>
-          
-          <div className="bg-slate-800 p-6 flex justify-end print:bg-transparent print:text-black">
-            <div className="w-80 space-y-3">
-               <div className="flex justify-between items-center pb-3 border-b border-slate-700 print:border-slate-300">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-slate-600">Subtotal Matrix</span>
-                  <span className="text-sm font-bold text-slate-300 font-mono print:text-black">
-                    {rfq.currency} {rfq.totalAmount?.toFixed(2)}
-                  </span>
-               </div>
-               <div className="flex justify-between items-center pt-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-slate-600">Total Commitment</span>
-                  <span className="text-2xl font-black text-emerald-400 font-mono tracking-tighter print:text-black">
-                    <span className="text-sm text-emerald-500 mr-1 print:text-slate-600">{rfq.currency}</span>
-                    {rfq.totalAmount?.toFixed(2)}
-                  </span>
-               </div>
+
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
+                Total Commitment ({currencySymbol})
+              </span>
+              <span className="text-base sm:text-lg font-black text-foreground">
+                {formatCurrency(rfq.totalAmount)}
+              </span>
             </div>
           </div>
         </div>
+
       </div>
 
+      {/* Email Modal */}
       {isEmailModalOpen && rfq && (
         <EmailSendModal
           isOpen={isEmailModalOpen}
           onClose={() => setIsEmailModalOpen(false)}
           documentType="Request for Quotation"
-          documentNumber={rfq.rfqNumber}
-          recipientName={rfq.supplierId?.name}
-          defaultEmail={rfq.supplierId?.email}
+          documentNumber={rfqNumber}
+          recipientName={supplierName}
+          defaultEmail={supplierEmail}
           sendEndpoint={`/api/v1/email/rfq/${rfq._id}`}
         />
       )}
+
     </div>
   );
 }

@@ -88,11 +88,11 @@ import WebOrders from './pages/ecommerce/WebOrders';
 import EcomOrderProcessing from './pages/ecommerce/EcomOrderProcessing';
 import EcomStatusMaster from './pages/ecommerce/EcomStatusMaster';
 import EcomLogisticsMapping from './pages/ecommerce/EcomLogisticsMapping';
+import EcomReports from './pages/ecommerce/EcomReports';
 import EcomSettings from './pages/ecommerce/EcomSettings';
 import EcomBanners from './pages/ecommerce/EcomBanners';
 import EcomReviews from './pages/ecommerce/EcomReviews';
 import EcomProductMedia from './pages/ecommerce/EcomProductMedia';
-import ApiKeys from './pages/ecommerce/ApiKeys';
 import WebOrderInvoicePrint from './pages/ecommerce/WebOrderInvoicePrint';
 import ShippingLabelPrint from './pages/ecommerce/ShippingLabelPrint';
 import RiderDeliveryVerify from './pages/ecommerce/RiderDeliveryVerify';
@@ -135,6 +135,7 @@ import SubFamilyMaster from './pages/hierarchy/SubFamilyMaster';
 import SizeMaster from './pages/hierarchy/SizeMaster';
 import ColorMaster from './pages/hierarchy/ColorMaster';
 import GRNView from './pages/purchase/GRNView';
+import GRNPrintSlip from './pages/purchase/GRNPrintSlip';
 import Settings from './pages/settings/Settings';
 
 import { CurrencyProvider } from './contexts/CurrencyContext';
@@ -259,7 +260,6 @@ function App() {
           <Route path="/manufacturing/new" element={<ManufacturingOrderForm />} />
           <Route path="/manufacturing/:id" element={<ManufacturingOrderDetail />} />
           <Route path="/web-orders" element={<WebOrders />} />
-          <Route path="/api-keys" element={<ApiKeys />} />
           <Route path="/pos" element={<POS />} />
           <Route path="/pos/sessions" element={<POSSessions />} />
           <Route path="/pos/orders" element={<POSOrders />} />
@@ -297,6 +297,7 @@ function App() {
           <Route path="/purchases/grn" element={<GRN />} />
           <Route path="/purchases/grn/new" element={<GRNForm />} />
           <Route path="/purchases/grn/:id" element={<GRNView />} />
+          <Route path="/purchases/grn/:id/print" element={<GRNPrintSlip />} />
           <Route path="/purchases/grn/edit/:id" element={<GRNForm />} />
           <Route path="/purchases/returns" element={<VendorReturns />} />
           <Route path="/purchases/returns/new" element={<VendorReturnForm />} />
@@ -326,8 +327,8 @@ function App() {
           <Route path="/ecommerce/settings" element={<EcomSettings />} />
           <Route path="/ecommerce/statuses" element={<EcomStatusMaster />} />
           <Route path="/ecommerce/logistics" element={<EcomLogisticsMapping />} />
+          <Route path="/ecommerce/reports" element={<EcomReports />} />
           <Route path="/web-orders" element={<EcomOrderProcessing />} />
-          <Route path="/api-keys" element={<ApiKeys />} />
 
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/general" element={<Navigate to="/settings/company" replace />} />
